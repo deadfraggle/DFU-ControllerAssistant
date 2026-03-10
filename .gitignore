@@ -1,0 +1,20 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Build artifacts
+bin/
+obj/
+*.dll
+
+# Unity generated folders (not in Mods normally, but safe)
+Library/
+Temp/
+Logs/
+Build/
+Builds/
+
+# OS junk
+.DS_Store
+Thumbs.db

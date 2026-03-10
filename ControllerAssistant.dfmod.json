@@ -1,0 +1,24 @@
+{
+    "ModTitle": "ControllerAssistant",
+    "ModVersion": "0.001",
+    "ModAuthor": "gigantibyte",
+    "ContactInfo": "not@home.com",
+    "DFUnity_Version": "1.1.1",
+    "ModDescription": "Controller Assistant for DFU menus",
+    "GUID": "d2494981-7b03-4bf1-b1d3-ce3285cf07c4",
+    "Files": [
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBoxAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/DefaultMenuAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InventoryAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/ExtAutomapAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InteriorAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/SpellbookAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/core/ControllerManager.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/core/IMenuAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/core/MenuAssistModule.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/UI/LegendOverlay.cs",
+        "Assets/Game/Mods/ControllerAssistant/settings/modsettings.json",
+        "Assets/Game/Mods/ControllerAssistant/Runtime.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBoxAssist.cs"
+    ]
+}
