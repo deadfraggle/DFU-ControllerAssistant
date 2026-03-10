@@ -32,6 +32,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         private static readonly InventoryAssist inventory = new InventoryAssist();
         private static readonly InputMessageBoxAssist inputbox = new InputMessageBoxAssist();
         private static readonly MessageBoxAssist messagebox = new MessageBoxAssist();
+        private static readonly TransportAssist transport = new TransportAssist();
 
         // Specialized modules (do NOT include defaults here)
         private static readonly IMenuAssist[] assists =
@@ -42,6 +43,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             inventory,
             inputbox,
             messagebox,
+            transport,
             // add TravelAssist, InventoryAssist, etc. here later
         };
 
