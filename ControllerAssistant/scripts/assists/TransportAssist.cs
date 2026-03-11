@@ -56,6 +56,9 @@ namespace gigantibyte.DFU.ControllerAssistant
                 if (cm.RStickLeftPressed)
                     SelectShip(menuWindow);
 
+                if (cm.Action2Pressed)
+                    OpenFavoritesWindow(menuWindow);
+
                 if (cm.LegendPressed)
                 {
                     EnsureLegendUI(menuWindow, cm);
@@ -166,6 +169,17 @@ namespace gigantibyte.DFU.ControllerAssistant
             DestroyLegend();
             menuWindow.CloseWindow();
         }
+        private void OpenFavoritesWindow(DaggerfallTransportWindow menuWindow)
+        {
+            if (menuWindow == null)
+                return;
+
+            DestroyLegend();
+            menuWindow.CloseWindow();
+
+            FavoritesWindow favoritesWindow = new FavoritesWindow(DaggerfallUI.UIManager);
+            DaggerfallUI.UIManager.PushWindow(favoritesWindow);
+        }
 
         private void EnsureLegendUI(DaggerfallTransportWindow menuWindow, ControllerManager cm)
         {
@@ -204,6 +218,8 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 if (GameManager.Instance.TransportManager.ShipAvailiable())
                     rows.Add(new LegendOverlay.LegendRow("Right Stick Left", "Ship"));
+
+                rows.Add(new LegendOverlay.LegendRow(cm.Action2Name, "View Favorites"));
 
                 legend.Build("Transport", rows);
             }
