@@ -51,6 +51,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         public static void EarlyInit(InitParams initParams)
         {
             my_mod = initParams.Mod;
+            my_mod.SaveDataInterface = FavoritesStore.Instance;
             my_mod.LoadSettingsCallback = LoadSettings;
             settings = my_mod.GetSettings();
         }

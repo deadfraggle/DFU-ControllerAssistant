@@ -1,40 +1,132 @@
+using System;
 using System.Collections.Generic;
+using FullSerializer;
 using DaggerfallWorkshop.Game;
+using DaggerfallWorkshop.Game.Utility.ModSupport;
 
 namespace gigantibyte.DFU.ControllerAssistant
 {
+    [fsObject("v1")]
     public class FavoriteLocation
     {
         public string LocationName;
         public string RegionName;
 
-        public FavoriteLocation(string location, string region)
+        public FavoriteLocation() { }
+
+        public FavoriteLocation(string locationName, string regionName)
         {
-            LocationName = location;
-            RegionName = region;
+            LocationName = locationName;
+            RegionName = regionName;
         }
 
         public override string ToString()
         {
-            return $"{LocationName} ({RegionName})";
+            return string.Format("{0} ({1})", LocationName, RegionName);
         }
     }
 
-    public static class FavoritesStore
+    [fsObject("v1")]
+    public class ControllerAssistantSaveData
     {
-        public static List<FavoriteLocation> Favorites = new List<FavoriteLocation>();
+        public List<FavoriteLocation> Favorites = new List<FavoriteLocation>();
+    }
 
-        public static void AddCurrentLocation()
+    public enum AddFavoriteResult
+    {
+        Added,
+        Duplicate,
+        NotInLocation,
+        AtLimit
+    }
+
+    public class FavoritesStore : IHasModSaveData
+    {
+        private const int MaxFavorites = 100;
+
+        private static FavoritesStore instance;
+        private ControllerAssistantSaveData saveData = new ControllerAssistantSaveData();
+
+        public static FavoritesStore Instance
         {
-            var playerGPS = GameManager.Instance.PlayerGPS;
+            get
+            {
+                if (instance == null)
+                    instance = new FavoritesStore();
 
-            if (playerGPS == null || !playerGPS.HasCurrentLocation)
-                return;
+                return instance;
+            }
+        }
 
-            string location = playerGPS.CurrentLocation.Name;
-            string region = playerGPS.CurrentRegionName;
+        public static List<FavoriteLocation> Favorites
+        {
+            get { return Instance.saveData.Favorites; }
+        }
 
-            Favorites.Add(new FavoriteLocation(location, region));
+        public Type SaveDataType
+        {
+            get { return typeof(ControllerAssistantSaveData); }
+        }
+
+        public object NewSaveData()
+        {
+            saveData = new ControllerAssistantSaveData();
+            return saveData;
+        }
+
+        public object GetSaveData()
+        {
+            if (saveData == null)
+                saveData = new ControllerAssistantSaveData();
+
+            if (saveData.Favorites == null)
+                saveData.Favorites = new List<FavoriteLocation>();
+
+            return saveData;
+        }
+
+        public void RestoreSaveData(object loadedData)
+        {
+            saveData = loadedData as ControllerAssistantSaveData;
+
+            if (saveData == null)
+                saveData = new ControllerAssistantSaveData();
+
+            if (saveData.Favorites == null)
+                saveData.Favorites = new List<FavoriteLocation>();
+        }
+
+        public static AddFavoriteResult AddCurrentLocation()
+        {
+            var gps = GameManager.Instance.PlayerGPS;
+
+            if (gps == null || !gps.HasCurrentLocation)
+                return AddFavoriteResult.NotInLocation;
+
+            string locationName = gps.CurrentLocation.Name;
+            string regionName = gps.CurrentRegionName;
+
+            if (string.IsNullOrEmpty(locationName) || string.IsNullOrEmpty(regionName))
+                return AddFavoriteResult.NotInLocation;
+
+            List<FavoriteLocation> favorites = Favorites;
+
+            for (int i = 0; i < favorites.Count; i++)
+            {
+                FavoriteLocation fav = favorites[i];
+                if (fav != null &&
+                    fav.LocationName == locationName &&
+                    fav.RegionName == regionName)
+                {
+                    return AddFavoriteResult.Duplicate;
+                }
+            }
+
+            if (favorites.Count >= MaxFavorites)
+                return AddFavoriteResult.AtLimit;
+
+            favorites.Add(new FavoriteLocation(locationName, regionName));
+            return AddFavoriteResult.Added;
         }
     }
 }

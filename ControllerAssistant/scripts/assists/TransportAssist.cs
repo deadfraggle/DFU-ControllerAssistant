@@ -58,10 +58,38 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 if (cm.Action1Pressed)
                 {
-                    FavoritesStore.AddCurrentLocation();
-                    DaggerfallUI.AddHUDText("Location added to favorites");
-                    DestroyLegend();
-                    menuWindow.CloseWindow();
+                    AddFavoriteResult result = FavoritesStore.AddCurrentLocation();
+
+                    switch (result)
+                    {
+                        case AddFavoriteResult.Added:
+                            DestroyLegend();
+                            if (menuWindow != null)
+                                menuWindow.CloseWindow();
+                            DaggerfallUI.AddHUDText("Location added to favorites");
+                            return;
+
+                        case AddFavoriteResult.Duplicate:
+                            DestroyLegend();
+                            if (menuWindow != null)
+                                menuWindow.CloseWindow();
+                            DaggerfallUI.AddHUDText("Location is already in favorites");
+                            return;
+
+                        case AddFavoriteResult.AtLimit:
+                            DestroyLegend();
+                            if (menuWindow != null)
+                                menuWindow.CloseWindow();
+                            DaggerfallUI.AddHUDText("Favorites list is full");
+                            return;
+
+                        default:
+                            DestroyLegend();
+                            if (menuWindow != null)
+                                menuWindow.CloseWindow();
+                            DaggerfallUI.AddHUDText("No current location to add");
+                            return;
+                    }
                 }
 
                 if (cm.Action2Pressed)
