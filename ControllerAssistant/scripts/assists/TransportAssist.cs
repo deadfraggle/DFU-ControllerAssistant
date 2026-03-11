@@ -197,10 +197,10 @@ namespace gigantibyte.DFU.ControllerAssistant
                 rows.Add(new LegendOverlay.LegendRow("D-Pad Up", "Foot"));
 
                 if (GameManager.Instance.TransportManager.HasHorse())
-                    rows.Add(new LegendOverlay.LegendRow("D-Pad Down", "Horse"));
+                    rows.Add(new LegendOverlay.LegendRow("D-Pad Right", "Horse"));
 
                 if (GameManager.Instance.TransportManager.HasCart())
-                    rows.Add(new LegendOverlay.LegendRow("D-Pad Right", "Cart"));
+                    rows.Add(new LegendOverlay.LegendRow("D-Pad Down", "Cart"));
 
                 if (GameManager.Instance.TransportManager.ShipAvailiable())
                     rows.Add(new LegendOverlay.LegendRow("D-Pad Left", "Ship"));
