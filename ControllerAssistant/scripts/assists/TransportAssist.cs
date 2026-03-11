@@ -56,6 +56,14 @@ namespace gigantibyte.DFU.ControllerAssistant
                 if (cm.RStickLeftPressed)
                     SelectShip(menuWindow);
 
+                if (cm.Action1Pressed)
+                {
+                    FavoritesStore.AddCurrentLocation();
+                    DaggerfallUI.AddHUDText("Location added to favorites");
+                    DestroyLegend();
+                    menuWindow.CloseWindow();
+                }
+
                 if (cm.Action2Pressed)
                     OpenFavoritesWindow(menuWindow);
 
@@ -218,6 +226,8 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 if (GameManager.Instance.TransportManager.ShipAvailiable())
                     rows.Add(new LegendOverlay.LegendRow("Right Stick Left", "Ship"));
+
+                rows.Add(new LegendOverlay.LegendRow(cm.Action2Name, "Add current location to Favorites"));
 
                 rows.Add(new LegendOverlay.LegendRow(cm.Action2Name, "View Favorites"));
 

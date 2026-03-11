@@ -46,7 +46,18 @@ namespace gigantibyte.DFU.ControllerAssistant
             favoritesList.RowsDisplayed = 6;
             mainPanel.Components.Add(favoritesList);
 
-            favoritesList.AddItem("[No favorites yet]");
+            favoritesList.ClearItems();
+
+            foreach (var fav in FavoritesStore.Favorites)
+            {
+                favoritesList.AddItem(fav.ToString());
+            }
+
+            if (favoritesList.Count == 0)
+            {
+                favoritesList.AddItem("[No favorites yet]");
+            }
+
             favoritesList.SelectedIndex = 0;
         }
 
