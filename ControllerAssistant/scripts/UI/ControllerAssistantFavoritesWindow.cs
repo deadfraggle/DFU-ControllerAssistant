@@ -5,13 +5,13 @@ using DaggerfallWorkshop.Game.UserInterfaceWindows;
 
 namespace gigantibyte.DFU.ControllerAssistant
 {
-    public class FavoritesWindow : DaggerfallPopupWindow
+    public class ControllerAssistantFavoritesWindow : DaggerfallPopupWindow
     {
         private Panel mainPanel = new Panel();
         private ListBox favoritesList = new ListBox();
         private TextLabel titleLabel = new TextLabel();
 
-        public FavoritesWindow(IUserInterfaceManager uiManager)
+        public ControllerAssistantFavoritesWindow(IUserInterfaceManager uiManager)
             : base(uiManager)
         {
             ParentPanel.BackgroundColor = Color.clear;

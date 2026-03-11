@@ -22,6 +22,6 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBoxAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/TransportAssist.cs",
         "Assets/Game/Mods/ControllerAssistant.dfmod.json",
-        "Assets/Game/Mods/ControllerAssistant/scripts/UI/FavoritesWindow.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/UI/ControllerAssistantFavoritesWindow.cs"
     ]
 }

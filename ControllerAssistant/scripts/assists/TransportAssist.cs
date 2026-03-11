@@ -177,7 +177,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             DestroyLegend();
             menuWindow.CloseWindow();
 
-            FavoritesWindow favoritesWindow = new FavoritesWindow(DaggerfallUI.UIManager);
+            ControllerAssistantFavoritesWindow favoritesWindow = new ControllerAssistantFavoritesWindow(DaggerfallUI.UIManager);
             DaggerfallUI.UIManager.PushWindow(favoritesWindow);
         }
 
