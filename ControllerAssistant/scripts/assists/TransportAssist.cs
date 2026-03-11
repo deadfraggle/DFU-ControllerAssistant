@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace gigantibyte.DFU.ControllerAssistant
 {
-    public class TransportAssist : MenuAssistModule<DaggerfallTransportWindow> //! IMPORTANT: Register this module in Runtime so it is included in the assist list
+    public class TransportAssist : MenuAssistModule<DaggerfallTransportWindow>
     {
         private const bool debugMODE = false;
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;

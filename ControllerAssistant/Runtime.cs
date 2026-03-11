@@ -1,5 +1,5 @@
 // ControllerAssistant routes controller input to context-specific “assist modules” based on the current DFU TopWindow.
-// Only one assist owns input per frame.
+// Only one assist owns input per frame. 
 // Assists are responsible for detecting open/close edges and resetting state when released.
 
 using DaggerfallWorkshop;
