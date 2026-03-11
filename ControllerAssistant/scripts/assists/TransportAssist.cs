@@ -39,21 +39,21 @@ namespace gigantibyte.DFU.ControllerAssistant
                 fiWindowBinding.SetValue(menuWindow, KeyCode.None);
 
             bool isAssisting =
-                (cm.DPadUpPressed || cm.DPadRightPressed || cm.DPadDownPressed || cm.DPadLeftPressed ||
+                (cm.RStickUpPressed || cm.RStickDownPressed || cm.RStickLeftPressed || cm.RStickRightPressed ||
                 cm.Action1Pressed || cm.Action2Pressed || cm.LegendPressed);
 
             if (isAssisting)
             {
-                if (cm.DPadUpPressed)
+                if (cm.RStickUpPressed)
                     SelectFoot(menuWindow);
 
-                if (cm.DPadRightPressed)
+                if (cm.RStickRightPressed)
                     SelectHorse(menuWindow);
 
-                if (cm.DPadDownPressed)
+                if (cm.RStickDownPressed)
                     SelectCart(menuWindow); 
 
-                if (cm.DPadLeftPressed)
+                if (cm.RStickLeftPressed)
                     SelectShip(menuWindow);
 
                 if (cm.LegendPressed)
@@ -194,16 +194,16 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>();
 
-                rows.Add(new LegendOverlay.LegendRow("D-Pad Up", "Foot"));
+                rows.Add(new LegendOverlay.LegendRow("Right Stick Up", "Foot"));
 
                 if (GameManager.Instance.TransportManager.HasHorse())
-                    rows.Add(new LegendOverlay.LegendRow("D-Pad Right", "Horse"));
+                    rows.Add(new LegendOverlay.LegendRow("Right Stick Right", "Horse"));
 
                 if (GameManager.Instance.TransportManager.HasCart())
-                    rows.Add(new LegendOverlay.LegendRow("D-Pad Down", "Cart"));
+                    rows.Add(new LegendOverlay.LegendRow("Right Stick Down", "Cart"));
 
                 if (GameManager.Instance.TransportManager.ShipAvailiable())
-                    rows.Add(new LegendOverlay.LegendRow("D-Pad Left", "Ship"));
+                    rows.Add(new LegendOverlay.LegendRow("Right Stick Left", "Ship"));
 
                 legend.Build("Transport", rows);
             }
