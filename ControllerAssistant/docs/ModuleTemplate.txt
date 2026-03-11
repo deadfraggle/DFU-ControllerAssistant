@@ -175,7 +175,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             // miActionMoveLeft = CacheMethod(type, "ActionMoveLeft");
             // miActionMoveRight = CacheMethod(type, "ActionMoveRight");
 
-            //! REPLACE WITH TARGET WINDOW’S RENDER PANEL FIELD NAME
+            //! REPLACE WITH TARGET WINDOW’S RENDER PANEL FIELD NAME - DON'T PICK mainPanel, IT'S ALMOST ALWAYS parentPanel
             // fiPanelRenderWindow = CacheField(type, "parentPanel");
 
             reflectionCached = true;
