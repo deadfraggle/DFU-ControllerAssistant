@@ -25,25 +25,25 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             base.Setup();
 
-            // Main panel
+            // IMPORTANT: use NativePanel, like DFU popup windows do
             mainPanel.HorizontalAlignment = HorizontalAlignment.Center;
             mainPanel.VerticalAlignment = VerticalAlignment.Middle;
-            mainPanel.Size = new Vector2(280, 180);
-            mainPanel.Position = Vector2.zero;
-            mainPanel.BackgroundColor = new Color(0f, 0f, 0f, 0.85f);
+            mainPanel.Position = new Vector2(0, 0);
 
-            ParentPanel.Components.Add(mainPanel);
+            // Start with guild-popup scale, but larger
+            mainPanel.Size = new Vector2(180, 90);
+            mainPanel.BackgroundColor = new Color(0f, 0f, 0f, 0.9f);
 
-            // Title
+            NativePanel.Components.Add(mainPanel);
+
             titleLabel.Text = "Favorites";
             titleLabel.HorizontalAlignment = HorizontalAlignment.Center;
-            titleLabel.Position = new Vector2(0, 6);
+            titleLabel.Position = new Vector2(0, 4);
             mainPanel.Components.Add(titleLabel);
 
-            // Empty list box for now
-            favoritesList.Position = new Vector2(12, 24);
-            favoritesList.Size = new Vector2(256, 140);
-            favoritesList.RowsDisplayed = 10;
+            favoritesList.Position = new Vector2(8, 16);
+            favoritesList.Size = new Vector2(164, 64);
+            favoritesList.RowsDisplayed = 6;
             mainPanel.Components.Add(favoritesList);
 
             favoritesList.AddItem("[No favorites yet]");
@@ -55,10 +55,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             base.Update();
 
             if (InputManager.Instance.GetBackButtonDown())
-            {
                 CloseWindow();
-                return;
-            }
         }
     }
 }
