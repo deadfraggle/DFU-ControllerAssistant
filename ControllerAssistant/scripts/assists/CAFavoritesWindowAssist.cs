@@ -2,6 +2,7 @@ using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Game.UserInterface;
 using DaggerfallWorkshop.Game.UserInterfaceWindows;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
@@ -172,9 +173,30 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private void DeleteSelectedLocation(ControllerAssistantFavoritesWindow menuWindow)
         {
-            // TODO: open confirmation message box and delete selected favorite
-            if (debugMODE)
-                DaggerfallUI.AddHUDText("Favorites: DeleteSelectedLocation");
+            if (menuWindow == null)
+                return;
+
+            string locationName = menuWindow.GetSelectedLocationName();
+            string regionName = menuWindow.GetCurrentRegionName();
+
+            if (string.IsNullOrEmpty(locationName) || string.IsNullOrEmpty(regionName))
+                return;
+
+            DaggerfallMessageBox confirmBox = new DaggerfallMessageBox(DaggerfallUI.UIManager);
+            confirmBox.SetText(string.Format("Delete favorite?\n\n{0}\n({1})", locationName, regionName));
+            confirmBox.AddButton(DaggerfallMessageBox.MessageBoxButtons.Yes);
+            confirmBox.AddButton(DaggerfallMessageBox.MessageBoxButtons.No);
+            confirmBox.OnButtonClick += (sender, button) =>
+            {
+                if (button == DaggerfallMessageBox.MessageBoxButtons.Yes)
+                {
+                    bool removed = menuWindow.DeleteSelectedFavorite();
+                    if (removed)
+                        DaggerfallUI.AddHUDText("Favorite deleted");
+                }
+            };
+
+            DaggerfallUI.UIManager.PushWindow(confirmBox);
         }
 
         private void EnsureLegendUI(ControllerAssistantFavoritesWindow menuWindow, ControllerManager cm)

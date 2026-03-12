@@ -131,5 +131,51 @@ namespace gigantibyte.DFU.ControllerAssistant
             favorites.Add(new FavoriteLocation(locationName, regionName, regionIndex));
             return AddFavoriteResult.Added;
         }
+
+        public static bool RemoveFavorite(string locationName, string regionName)
+        {
+            List<FavoriteLocation> favorites = Favorites;
+
+            for (int i = 0; i < favorites.Count; i++)
+            {
+                FavoriteLocation fav = favorites[i];
+                if (fav != null &&
+                    fav.LocationName == locationName &&
+                    fav.RegionName == regionName)
+                {
+                    favorites.RemoveAt(i);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public static bool SwapFavoritesInRegion(string regionName, int indexA, int indexB)
+        {
+            if (indexA == indexB)
+                return false;
+
+            List<int> regionIndices = new List<int>();
+            List<FavoriteLocation> favorites = Favorites;
+
+            for (int i = 0; i < favorites.Count; i++)
+            {
+                FavoriteLocation fav = favorites[i];
+                if (fav != null && fav.RegionName == regionName)
+                    regionIndices.Add(i);
+            }
+
+            if (indexA < 0 || indexA >= regionIndices.Count || indexB < 0 || indexB >= regionIndices.Count)
+                return false;
+
+            int globalA = regionIndices[indexA];
+            int globalB = regionIndices[indexB];
+
+            FavoriteLocation temp = favorites[globalA];
+            favorites[globalA] = favorites[globalB];
+            favorites[globalB] = temp;
+            return true;
+        }
     }
 }

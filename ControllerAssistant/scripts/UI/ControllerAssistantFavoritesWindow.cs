@@ -112,15 +112,43 @@ namespace gigantibyte.DFU.ControllerAssistant
             RefreshList();
         }
 
+        public string GetSelectedLocationName()
+        {
+            List<FavoriteLocation> regionFavorites = GetCurrentRegionFavorites();
+            if (regionFavorites.Count == 0)
+                return null;
+
+            if (currentSelectionIndex < 0 || currentSelectionIndex >= regionFavorites.Count)
+                return null;
+
+            return regionFavorites[currentSelectionIndex].LocationName;
+        }
+
         public string GetCurrentRegionName()
         {
             if (regionNames.Count == 0)
-                return string.Empty;
+                return null;
 
             if (currentRegionIndex < 0 || currentRegionIndex >= regionNames.Count)
-                return string.Empty;
+                return null;
 
             return regionNames[currentRegionIndex];
+        }
+
+        public bool DeleteSelectedFavorite()
+        {
+            string locationName = GetSelectedLocationName();
+            string regionName = GetCurrentRegionName();
+
+            if (string.IsNullOrEmpty(locationName) || string.IsNullOrEmpty(regionName))
+                return false;
+
+            bool removed = FavoritesStore.RemoveFavorite(locationName, regionName);
+            if (!removed)
+                return false;
+
+            RefreshList();
+            return true;
         }
 
         private void RebuildRegions()
@@ -154,21 +182,31 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private void SetInitialRegionFromPlayerLocation()
         {
+            if (regionNames.Count == 0)
+                return;
+
             var gps = GameManager.Instance.PlayerGPS;
             if (gps == null)
                 return;
 
-            int playerRegion = gps.CurrentRegionIndex;
+            int currentRegionIndexFromPlayer = gps.CurrentRegionIndex;
 
-            for (int i = 0; i < regionNames.Count; i++)
+            for (int i = 0; i < FavoritesStore.Favorites.Count; i++)
             {
-                foreach (var fav in FavoritesStore.Favorites)
+                FavoriteLocation fav = FavoritesStore.Favorites[i];
+                if (fav == null)
+                    continue;
+
+                if (fav.RegionIndex == currentRegionIndexFromPlayer)
                 {
-                    if (fav.RegionName == regionNames[i] && fav.RegionIndex == playerRegion)
+                    for (int r = 0; r < regionNames.Count; r++)
                     {
-                        currentRegionIndex = i;
-                        currentSelectionIndex = 0;
-                        return;
+                        if (regionNames[r] == fav.RegionName)
+                        {
+                            currentRegionIndex = r;
+                            currentSelectionIndex = 0;
+                            return;
+                        }
                     }
                 }
             }
@@ -197,8 +235,23 @@ namespace gigantibyte.DFU.ControllerAssistant
         private void RefreshList()
         {
             favoritesList.ClearItems();
-
             RebuildRegions();
+
+            // Skip empty regions automatically
+            while (regionNames.Count > 0 && GetCurrentRegionFavorites().Count == 0)
+            {
+                regionNames.RemoveAt(currentRegionIndex);
+
+                if (regionNames.Count == 0)
+                {
+                    currentRegionIndex = 0;
+                    currentSelectionIndex = 0;
+                    break;
+                }
+
+                if (currentRegionIndex >= regionNames.Count)
+                    currentRegionIndex = regionNames.Count - 1;
+            }
 
             if (regionNames.Count == 0)
             {
@@ -212,14 +265,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             List<FavoriteLocation> regionFavorites = GetCurrentRegionFavorites();
 
-            if (regionFavorites.Count == 0)
-            {
-                currentSelectionIndex = 0;
-                favoritesList.AddItem("[No favorites in this region]");
-                favoritesList.SelectedIndex = 0;
-                return;
-            }
-
             if (currentSelectionIndex < 0)
                 currentSelectionIndex = 0;
 
@@ -227,9 +272,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 currentSelectionIndex = regionFavorites.Count - 1;
 
             for (int i = 0; i < regionFavorites.Count; i++)
-            {
                 favoritesList.AddItem(regionFavorites[i].LocationName);
-            }
 
             favoritesList.SelectedIndex = currentSelectionIndex;
         }
