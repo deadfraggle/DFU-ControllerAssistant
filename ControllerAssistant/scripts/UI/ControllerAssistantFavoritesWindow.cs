@@ -151,6 +151,50 @@ namespace gigantibyte.DFU.ControllerAssistant
             return true;
         }
 
+        public bool MoveSelectedFavoriteUp()
+        {
+            List<FavoriteLocation> regionFavorites = GetCurrentRegionFavorites();
+            if (regionFavorites.Count <= 1)
+                return false;
+
+            if (currentSelectionIndex <= 0 || currentSelectionIndex >= regionFavorites.Count)
+                return false;
+
+            string regionName = GetCurrentRegionName();
+            if (string.IsNullOrEmpty(regionName))
+                return false;
+
+            bool moved = FavoritesStore.SwapFavoritesInRegion(regionName, currentSelectionIndex, currentSelectionIndex - 1);
+            if (!moved)
+                return false;
+
+            currentSelectionIndex--;
+            RefreshList();
+            return true;
+        }
+
+        public bool MoveSelectedFavoriteDown()
+        {
+            List<FavoriteLocation> regionFavorites = GetCurrentRegionFavorites();
+            if (regionFavorites.Count <= 1)
+                return false;
+
+            if (currentSelectionIndex < 0 || currentSelectionIndex >= regionFavorites.Count - 1)
+                return false;
+
+            string regionName = GetCurrentRegionName();
+            if (string.IsNullOrEmpty(regionName))
+                return false;
+
+            bool moved = FavoritesStore.SwapFavoritesInRegion(regionName, currentSelectionIndex, currentSelectionIndex + 1);
+            if (!moved)
+                return false;
+
+            currentSelectionIndex++;
+            RefreshList();
+            return true;
+        }
+
         private void RebuildRegions()
         {
             regionNames.Clear();

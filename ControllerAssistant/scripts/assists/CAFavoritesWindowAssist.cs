@@ -159,16 +159,22 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private void MoveLocationUp(ControllerAssistantFavoritesWindow menuWindow)
         {
-            // TODO: wire to Favorites reordering
-            if (debugMODE)
-                DaggerfallUI.AddHUDText("Favorites: MoveLocationUp");
+            if (menuWindow == null)
+                return;
+
+            bool moved = menuWindow.MoveSelectedFavoriteUp();
+            if (moved && debugMODE)
+                DaggerfallUI.AddHUDText("Favorite moved up");
         }
 
         private void MoveLocationDown(ControllerAssistantFavoritesWindow menuWindow)
         {
-            // TODO: wire to Favorites reordering
-            if (debugMODE)
-                DaggerfallUI.AddHUDText("Favorites: MoveLocationDown");
+            if (menuWindow == null)
+                return;
+
+            bool moved = menuWindow.MoveSelectedFavoriteDown();
+            if (moved && debugMODE)
+                DaggerfallUI.AddHUDText("Favorite moved down");
         }
 
         private void DeleteSelectedLocation(ControllerAssistantFavoritesWindow menuWindow)
