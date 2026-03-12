@@ -17,8 +17,6 @@ namespace gigantibyte.DFU.ControllerAssistant
         private int currentRegionIndex = 0;
         private int currentSelectionIndex = 0;
 
-        private Panel backgroundPanel = new Panel();
-
         public ControllerAssistantFavoritesWindow(IUserInterfaceManager uiManager)
             : base(uiManager)
         {
@@ -37,20 +35,37 @@ namespace gigantibyte.DFU.ControllerAssistant
             mainPanel.VerticalAlignment = VerticalAlignment.Middle;
             mainPanel.Position = new Vector2(0, 0);
             mainPanel.Size = new Vector2(180, 90);
-            mainPanel.BackgroundColor = Color.clear;
-            NativePanel.Components.Add(mainPanel);
-
-            backgroundPanel.Position = Vector2.zero;
-            backgroundPanel.Size = mainPanel.Size;
-            backgroundPanel.BackgroundTexture = DaggerfallUI.GetTextureFromImg("PARCH03I0.IMG", 0, false);
-            backgroundPanel.BackgroundTextureLayout = BackgroundLayout.StretchToFill;
-            backgroundPanel.BackgroundColor = new Color(0.82f, 0.74f, 0.55f, 1f);
-            mainPanel.Components.Add(backgroundPanel);
 
             NativePanel.Components.Add(mainPanel);
+            mainPanel.BackgroundColor = new Color(0.08f, 0.06f, 0.02f, 0.88f);
+            //DaggerfallUI.Instance.SetDaggerfallPopupStyle(DaggerfallUI.PopupStyle.Parchment, mainPanel);
+
+            Panel topBorder = new Panel();
+            topBorder.Position = new Vector2(0, 0);
+            topBorder.Size = new Vector2(mainPanel.Size.x, 1);
+            topBorder.BackgroundColor = new Color(0.337f, 0.243f, 0.082f, 1f);
+            mainPanel.Components.Add(topBorder);
+
+            Panel bottomBorder = new Panel();
+            bottomBorder.Position = new Vector2(0, mainPanel.Size.y - 1);
+            bottomBorder.Size = new Vector2(mainPanel.Size.x, 1);
+            bottomBorder.BackgroundColor = new Color(0.337f, 0.243f, 0.082f, 1f);
+            mainPanel.Components.Add(bottomBorder);
+
+            Panel leftBorder = new Panel();
+            leftBorder.Position = new Vector2(0, 0);
+            leftBorder.Size = new Vector2(1, mainPanel.Size.y);
+            leftBorder.BackgroundColor = new Color(0.337f, 0.243f, 0.082f, 1f);
+            mainPanel.Components.Add(leftBorder);
+
+            Panel rightBorder = new Panel();
+            rightBorder.Position = new Vector2(mainPanel.Size.x - 1, 0);
+            rightBorder.Size = new Vector2(1, mainPanel.Size.y);
+            rightBorder.BackgroundColor = new Color(0.337f, 0.243f, 0.082f, 1f);
+            mainPanel.Components.Add(rightBorder);
 
             titleLabel.Text = "Favorites";
-            titleLabel.TextColor = DaggerfallUI.DaggerfallDefaultTextColor;
+            titleLabel.TextColor = new Color(1.0f, 0.78f, 0.20f, 1.0f); //DaggerfallUI.DaggerfallDefaultTextColor;
             titleLabel.HorizontalAlignment = HorizontalAlignment.Center;
             titleLabel.Position = new Vector2(0, 4);
             mainPanel.Components.Add(titleLabel);
@@ -62,7 +77,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             Panel divider = new Panel();
             divider.Position = new Vector2(8, 18);
-            divider.Size = new Vector2(164, 2);
+            divider.Size = new Vector2(164, 1);
             divider.BackgroundColor = DaggerfallUI.DaggerfallDefaultTextColor;
             mainPanel.Components.Add(divider);
 
