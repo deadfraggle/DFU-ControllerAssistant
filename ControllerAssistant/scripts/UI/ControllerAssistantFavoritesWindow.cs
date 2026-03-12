@@ -50,7 +50,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             favoritesList.Position = new Vector2(8, 22);
             favoritesList.Size = new Vector2(164, 58);
-            favoritesList.RowsDisplayed = 6;
+            favoritesList.RowsDisplayed = 8;
             mainPanel.Components.Add(favoritesList);
 
             RebuildRegions();
