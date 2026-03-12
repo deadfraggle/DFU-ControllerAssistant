@@ -68,28 +68,22 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         public void MoveSelectionUp()
         {
-            int count = GetCurrentRegionFavorites().Count;
-            if (count == 0)
+            List<FavoriteLocation> regionFavorites = GetCurrentRegionFavorites();
+            if (regionFavorites.Count == 0)
                 return;
 
-            currentSelectionIndex--;
-            if (currentSelectionIndex < 0)
-                currentSelectionIndex = 0;
-
-            RefreshList();
+            favoritesList.SelectPrevious();
+            currentSelectionIndex = favoritesList.SelectedIndex;
         }
 
         public void MoveSelectionDown()
         {
-            int count = GetCurrentRegionFavorites().Count;
-            if (count == 0)
+            List<FavoriteLocation> regionFavorites = GetCurrentRegionFavorites();
+            if (regionFavorites.Count == 0)
                 return;
 
-            currentSelectionIndex++;
-            if (currentSelectionIndex >= count)
-                currentSelectionIndex = count - 1;
-
-            RefreshList();
+            favoritesList.SelectNext();
+            currentSelectionIndex = favoritesList.SelectedIndex;
         }
 
         public void PreviousRegion()
