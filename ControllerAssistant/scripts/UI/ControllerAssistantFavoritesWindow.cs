@@ -54,6 +54,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             mainPanel.Components.Add(favoritesList);
 
             RebuildRegions();
+            SetInitialRegionFromPlayerLocation();
             RefreshList();
         }
 
@@ -155,6 +156,30 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (currentRegionIndex >= regionNames.Count)
                 currentRegionIndex = regionNames.Count - 1;
+        }
+
+        private void SetInitialRegionFromPlayerLocation()
+        {
+            if (regionNames.Count == 0)
+                return;
+
+            var gps = GameManager.Instance.PlayerGPS;
+            if (gps == null)
+                return;
+
+            string currentRegionName = gps.CurrentRegionName;
+            if (string.IsNullOrEmpty(currentRegionName))
+                return;
+
+            for (int i = 0; i < regionNames.Count; i++)
+            {
+                if (regionNames[i] == currentRegionName)
+                {
+                    currentRegionIndex = i;
+                    currentSelectionIndex = 0;
+                    return;
+                }
+            }
         }
 
         private List<FavoriteLocation> GetCurrentRegionFavorites()
