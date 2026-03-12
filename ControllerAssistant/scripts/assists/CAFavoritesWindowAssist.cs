@@ -126,30 +126,34 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private void SelectPreviousLocation(ControllerAssistantFavoritesWindow menuWindow)
         {
-            // TODO: wire to Favorites window selection logic
-            if (debugMODE)
-                DaggerfallUI.AddHUDText("Favorites: SelectPreviousLocation");
+            if (menuWindow == null)
+                return;
+
+            menuWindow.MoveSelectionUp();
         }
 
         private void SelectNextLocation(ControllerAssistantFavoritesWindow menuWindow)
         {
-            // TODO: wire to Favorites window selection logic
-            if (debugMODE)
-                DaggerfallUI.AddHUDText("Favorites: SelectNextLocation");
+            if (menuWindow == null)
+                return;
+
+            menuWindow.MoveSelectionDown();
         }
 
         private void PreviousRegion(ControllerAssistantFavoritesWindow menuWindow)
         {
-            // TODO: wire to Favorites window region paging
-            if (debugMODE)
-                DaggerfallUI.AddHUDText("Favorites: PreviousRegion");
+            if (menuWindow == null)
+                return;
+
+            menuWindow.PreviousRegion();
         }
 
         private void NextRegion(ControllerAssistantFavoritesWindow menuWindow)
         {
-            // TODO: wire to Favorites window region paging
-            if (debugMODE)
-                DaggerfallUI.AddHUDText("Favorites: NextRegion");
+            if (menuWindow == null)
+                return;
+
+            menuWindow.NextRegion();
         }
 
         private void MoveLocationUp(ControllerAssistantFavoritesWindow menuWindow)
