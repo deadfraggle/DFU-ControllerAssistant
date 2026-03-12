@@ -36,8 +36,10 @@ namespace gigantibyte.DFU.ControllerAssistant
             mainPanel.Position = new Vector2(0, 0);
             mainPanel.Size = new Vector2(180, 90);
             mainPanel.BackgroundColor = new Color(0f, 0f, 0f, 0.9f);
-            //mainPanel.BackgroundTexture = DaggerfallUI.GetTextureFromImg("PARCH03I0.IMG");
-            //mainPanel.BackgroundTextureLayout = BackgroundLayout.Tile;
+            Texture2D parchment = DaggerfallUI.GetTextureFromImg("PARCH03I0.IMG", 0, false);
+
+            mainPanel.BackgroundTexture = parchment;
+            mainPanel.BackgroundTextureLayout = BackgroundLayout.StretchToFill;
 
             NativePanel.Components.Add(mainPanel);
 
