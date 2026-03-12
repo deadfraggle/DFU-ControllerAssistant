@@ -276,6 +276,24 @@ namespace gigantibyte.DFU.ControllerAssistant
             return results;
         }
 
+        private void EnsureSelectionVisible()
+        {
+            if (favoritesList.Count == 0)
+                return;
+
+            int top = favoritesList.ScrollIndex;
+            int bottom = top + favoritesList.RowsDisplayed - 1;
+
+            if (currentSelectionIndex < top)
+            {
+                favoritesList.ScrollIndex = currentSelectionIndex;
+            }
+            else if (currentSelectionIndex > bottom)
+            {
+                favoritesList.ScrollIndex = currentSelectionIndex - favoritesList.RowsDisplayed + 1;
+            }
+        }
+
         private void RefreshList()
         {
             favoritesList.ClearItems();
@@ -319,6 +337,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 favoritesList.AddItem(regionFavorites[i].LocationName);
 
             favoritesList.SelectedIndex = currentSelectionIndex;
+            EnsureSelectionVisible();
         }
     }
 }
