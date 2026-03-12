@@ -182,21 +182,28 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (string.IsNullOrEmpty(locationName) || string.IsNullOrEmpty(regionName))
                 return;
 
-            DaggerfallMessageBox confirmBox = new DaggerfallMessageBox(DaggerfallUI.UIManager);
-            confirmBox.SetText(string.Format("Delete favorite?\n\n{0}\n({1})", locationName, regionName));
-            confirmBox.AddButton(DaggerfallMessageBox.MessageBoxButtons.Yes);
-            confirmBox.AddButton(DaggerfallMessageBox.MessageBoxButtons.No);
-            confirmBox.OnButtonClick += (sender, button) =>
+            DaggerfallMessageBox mb = new DaggerfallMessageBox(
+                DaggerfallUI.UIManager,
+                DaggerfallMessageBox.CommonMessageBoxButtons.YesNo,
+                string.Format("Delete favorite?\n\n{0}\n({1})", locationName, regionName),
+                menuWindow);
+
+            mb.OnButtonClick += (sender, button) =>
             {
+                DaggerfallMessageBox msgBox = sender as DaggerfallMessageBox;
+
                 if (button == DaggerfallMessageBox.MessageBoxButtons.Yes)
                 {
                     bool removed = menuWindow.DeleteSelectedFavorite();
                     if (removed)
                         DaggerfallUI.AddHUDText("Favorite deleted");
                 }
+
+                if (msgBox != null)
+                    msgBox.CloseWindow();
             };
 
-            DaggerfallUI.UIManager.PushWindow(confirmBox);
+            mb.Show();
         }
 
         private void EnsureLegendUI(ControllerAssistantFavoritesWindow menuWindow, ControllerManager cm)
