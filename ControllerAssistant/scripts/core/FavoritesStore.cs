@@ -11,13 +11,15 @@ namespace gigantibyte.DFU.ControllerAssistant
     {
         public string LocationName;
         public string RegionName;
+        public int RegionIndex;
 
         public FavoriteLocation() { }
 
-        public FavoriteLocation(string locationName, string regionName)
+        public FavoriteLocation(string locationName, string regionName, int regionIndex)
         {
             LocationName = locationName;
             RegionName = regionName;
+            RegionIndex = regionIndex;
         }
 
         public override string ToString()
@@ -105,6 +107,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             string locationName = gps.CurrentLocation.Name;
             string regionName = gps.CurrentRegionName;
+            int regionIndex = gps.CurrentRegionIndex;
 
             if (string.IsNullOrEmpty(locationName) || string.IsNullOrEmpty(regionName))
                 return AddFavoriteResult.NotInLocation;
@@ -125,7 +128,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (favorites.Count >= MaxFavorites)
                 return AddFavoriteResult.AtLimit;
 
-            favorites.Add(new FavoriteLocation(locationName, regionName));
+            favorites.Add(new FavoriteLocation(locationName, regionName, regionIndex));
             return AddFavoriteResult.Added;
         }
     }

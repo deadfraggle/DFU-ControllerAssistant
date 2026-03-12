@@ -160,24 +160,22 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private void SetInitialRegionFromPlayerLocation()
         {
-            if (regionNames.Count == 0)
-                return;
-
             var gps = GameManager.Instance.PlayerGPS;
             if (gps == null)
                 return;
 
-            string currentRegionName = gps.CurrentRegionName;
-            if (string.IsNullOrEmpty(currentRegionName))
-                return;
+            int playerRegion = gps.CurrentRegionIndex;
 
             for (int i = 0; i < regionNames.Count; i++)
             {
-                if (regionNames[i] == currentRegionName)
+                foreach (var fav in FavoritesStore.Favorites)
                 {
-                    currentRegionIndex = i;
-                    currentSelectionIndex = 0;
-                    return;
+                    if (fav.RegionName == regionNames[i] && fav.RegionIndex == playerRegion)
+                    {
+                        currentRegionIndex = i;
+                        currentSelectionIndex = 0;
+                        return;
+                    }
                 }
             }
         }
