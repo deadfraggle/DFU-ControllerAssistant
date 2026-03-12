@@ -17,6 +17,8 @@ namespace gigantibyte.DFU.ControllerAssistant
         private int currentRegionIndex = 0;
         private int currentSelectionIndex = 0;
 
+        private Panel backgroundPanel = new Panel();
+
         public ControllerAssistantFavoritesWindow(IUserInterfaceManager uiManager)
             : base(uiManager)
         {
@@ -35,20 +37,26 @@ namespace gigantibyte.DFU.ControllerAssistant
             mainPanel.VerticalAlignment = VerticalAlignment.Middle;
             mainPanel.Position = new Vector2(0, 0);
             mainPanel.Size = new Vector2(180, 90);
-            mainPanel.BackgroundColor = new Color(0f, 0f, 0f, 0.9f);
-            Texture2D parchment = DaggerfallUI.GetTextureFromImg("PARCH03I0.IMG", 0, false);
+            mainPanel.BackgroundColor = Color.clear;
+            NativePanel.Components.Add(mainPanel);
 
-            mainPanel.BackgroundTexture = parchment;
-            mainPanel.BackgroundTextureLayout = BackgroundLayout.StretchToFill;
+            backgroundPanel.Position = Vector2.zero;
+            backgroundPanel.Size = mainPanel.Size;
+            backgroundPanel.BackgroundTexture = DaggerfallUI.GetTextureFromImg("PARCH03I0.IMG", 0, false);
+            backgroundPanel.BackgroundTextureLayout = BackgroundLayout.StretchToFill;
+            backgroundPanel.BackgroundColor = new Color(0.82f, 0.74f, 0.55f, 1f);
+            mainPanel.Components.Add(backgroundPanel);
 
             NativePanel.Components.Add(mainPanel);
 
             titleLabel.Text = "Favorites";
+            titleLabel.TextColor = DaggerfallUI.DaggerfallDefaultTextColor;
             titleLabel.HorizontalAlignment = HorizontalAlignment.Center;
             titleLabel.Position = new Vector2(0, 4);
             mainPanel.Components.Add(titleLabel);
 
             regionLabel.HorizontalAlignment = HorizontalAlignment.Center;
+            regionLabel.TextColor = DaggerfallUI.DaggerfallDefaultTextColor;
             regionLabel.Position = new Vector2(0, 12);
             mainPanel.Components.Add(regionLabel);
 
@@ -60,6 +68,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             favoritesList.Position = new Vector2(8, 22);
             favoritesList.Size = new Vector2(164, 58);
+            favoritesList.TextColor = DaggerfallUI.DaggerfallDefaultTextColor;
             favoritesList.RowsDisplayed = 8;
             mainPanel.Components.Add(favoritesList);
 
