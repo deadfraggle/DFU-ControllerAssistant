@@ -36,6 +36,8 @@ namespace gigantibyte.DFU.ControllerAssistant
             mainPanel.Position = new Vector2(0, 0);
             mainPanel.Size = new Vector2(180, 90);
             mainPanel.BackgroundColor = new Color(0f, 0f, 0f, 0.9f);
+            //mainPanel.BackgroundTexture = DaggerfallUI.GetTextureFromImg("PARCH03I0.IMG");
+            //mainPanel.BackgroundTextureLayout = BackgroundLayout.Tile;
 
             NativePanel.Components.Add(mainPanel);
 
@@ -47,6 +49,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             regionLabel.HorizontalAlignment = HorizontalAlignment.Center;
             regionLabel.Position = new Vector2(0, 12);
             mainPanel.Components.Add(regionLabel);
+
+            Panel divider = new Panel();
+            divider.Position = new Vector2(8, 18);
+            divider.Size = new Vector2(164, 2);
+            divider.BackgroundColor = DaggerfallUI.DaggerfallDefaultTextColor;
+            mainPanel.Components.Add(divider);
 
             favoritesList.Position = new Vector2(8, 22);
             favoritesList.Size = new Vector2(164, 58);
@@ -323,7 +331,9 @@ namespace gigantibyte.DFU.ControllerAssistant
                 return;
             }
 
-            regionLabel.Text = GetCurrentRegionName();
+            string currentRegionName = GetCurrentRegionName();
+            regionLabel.Text = $"Region: {currentRegionName}";
+
 
             List<FavoriteLocation> regionFavorites = GetCurrentRegionFavorites();
 
