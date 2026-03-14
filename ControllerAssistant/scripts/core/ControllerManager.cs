@@ -30,6 +30,12 @@ namespace gigantibyte.DFU.ControllerAssistant
         public bool RStickLeftPressed { get; private set; }
         public bool RStickRightPressed { get; private set; }
 
+        // slow-repeat right-stick direction pulses
+        public bool RStickUpHeldSlow { get; private set; }
+        public bool RStickDownHeldSlow { get; private set; }
+        public bool RStickLeftHeldSlow { get; private set; }
+        public bool RStickRightHeldSlow { get; private set; }
+
         // one-shot D-Pad direction presses
         public bool DPadLeftPressed { get; private set; }
         public bool DPadRightPressed { get; private set; }
@@ -43,6 +49,16 @@ namespace gigantibyte.DFU.ControllerAssistant
         // latch/re-arm state for right stick & D-Pad
         private bool rStickReady = true;
         private bool dPadReady = true;
+
+        // slow-repeat tuning for right stick
+        private float rStickHeldSlowDelay = 0.35f;
+        private float rStickHeldSlowInterval = 0.10f;
+
+        private float rStickHeldSlowHoldTimer = 0f;
+        private float rStickHeldSlowRepeatTimer = 0f;
+
+        private int rStickHeldSlowX = 0;   // -1 left, +1 right
+        private int rStickHeldSlowY = 0;   // -1 down, +1 up
 
         // For closing (down-edge)
         public bool BackPressed { get; private set; }
@@ -71,6 +87,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             RStickDownPressed = false;
             RStickLeftPressed = false;
             RStickRightPressed = false;
+
+            RStickUpHeldSlow = false;
+            RStickDownHeldSlow = false;
+            RStickLeftHeldSlow = false;
+            RStickRightHeldSlow = false;
+
             DPadLeftPressed = false;
             DPadRightPressed = false;
             DPadUpPressed = false;
@@ -100,6 +122,70 @@ namespace gigantibyte.DFU.ControllerAssistant
                 }
 
                 rStickReady = false;
+            }
+
+            // Slow-repeat right stick pulses
+            int currentSlowX = 0;
+            int currentSlowY = 0;
+
+            if (RStickH != 0 || RStickV != 0)
+            {
+                // Use dominant axis so diagonals collapse to one direction
+                if (Mathf.Abs(axis5Value) >= Mathf.Abs(axis4Value))
+                    currentSlowY = RStickV;   // +1 up, -1 down
+                else
+                    currentSlowX = RStickH;   // -1 left, +1 right
+            }
+
+            // returned to center
+            if (currentSlowX == 0 && currentSlowY == 0)
+            {
+                rStickHeldSlowX = 0;
+                rStickHeldSlowY = 0;
+                rStickHeldSlowHoldTimer = 0f;
+                rStickHeldSlowRepeatTimer = 0f;
+            }
+            // changed direction (or fresh engage)
+            else if (currentSlowX != rStickHeldSlowX || currentSlowY != rStickHeldSlowY)
+            {
+                rStickHeldSlowX = currentSlowX;
+                rStickHeldSlowY = currentSlowY;
+                rStickHeldSlowHoldTimer = 0f;
+                rStickHeldSlowRepeatTimer = 0f;
+
+                // Fire immediately on first commit to direction
+                if (rStickHeldSlowY == 1)
+                    RStickUpHeldSlow = true;
+                else if (rStickHeldSlowY == -1)
+                    RStickDownHeldSlow = true;
+                else if (rStickHeldSlowX == -1)
+                    RStickLeftHeldSlow = true;
+                else if (rStickHeldSlowX == 1)
+                    RStickRightHeldSlow = true;
+            }
+            // still holding same direction
+            else
+            {
+                rStickHeldSlowHoldTimer += Time.unscaledDeltaTime;
+
+                if (rStickHeldSlowHoldTimer >= rStickHeldSlowDelay)
+                {
+                    rStickHeldSlowRepeatTimer += Time.unscaledDeltaTime;
+
+                    if (rStickHeldSlowRepeatTimer >= rStickHeldSlowInterval)
+                    {
+                        rStickHeldSlowRepeatTimer -= rStickHeldSlowInterval;
+
+                        if (rStickHeldSlowY == 1)
+                            RStickUpHeldSlow = true;
+                        else if (rStickHeldSlowY == -1)
+                            RStickDownHeldSlow = true;
+                        else if (rStickHeldSlowX == -1)
+                            RStickLeftHeldSlow = true;
+                        else if (rStickHeldSlowX == 1)
+                            RStickRightHeldSlow = true;
+                    }
+                }
             }
 
             // Re-arm only when D-Pad returns to center
