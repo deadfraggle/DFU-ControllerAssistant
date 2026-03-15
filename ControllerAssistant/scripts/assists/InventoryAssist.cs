@@ -267,6 +267,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         private const int REGION_BUTTONS = 4;
 
         private int currentRegion = REGION_LEFT_GRID;
+        private int gridRowMemory = -1;   // stores 0-based row index for rows 6-8 (visual), else -1
 
         // Used in EnsureInitialized()
         private MethodInfo miWagonButtonClick;
@@ -280,6 +281,13 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private FieldInfo fiLocalItemListScrollerRect;
         private PropertyInfo piNativePanel;
+
+        private MethodInfo miUnequipItem;
+        private MethodInfo miShowInfoPopup;
+        private MethodInfo miUseItem;
+        private MethodInfo miNextVariant;
+
+        private PropertyInfo piPlayerEntity;
 
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
 
@@ -504,6 +512,24 @@ namespace gigantibyte.DFU.ControllerAssistant
             EnsurePaperDollIndicator(menuWindow);
             EnsurePaperDollTargetList(menuWindow);
 
+            if (cm.Action1Pressed)
+            {
+                InvokeSelectedPaperDollLeftAction(menuWindow);
+                return;
+            }
+
+            if (cm.Action2Pressed)
+            {
+                InvokeSelectedPaperDollRightAction(menuWindow);
+                return;
+            }
+
+            if (cm.DPadUpPressed)
+            {
+                InvokeSelectedPaperDollMiddleAction(menuWindow);
+                return;
+            }
+
             if (cm.RStickLeftPressed || cm.RStickLeftHeldSlow)
                 return;
 
@@ -574,13 +600,13 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (cm.RStickLeftPressed || cm.RStickLeftHeldSlow)
             {
-                SwitchRegion(menuWindow, REGION_LEFT_GRID, 1, 0);
+                RouteButtonsToLeftGrid(menuWindow);
                 return;
             }
 
             if (cm.RStickRightPressed || cm.RStickRightHeldSlow)
             {
-                SwitchRegion(menuWindow, REGION_RIGHT_GRID, 0, 0);
+                RouteButtonsToRightGrid(menuWindow);
                 return;
             }
         }
@@ -705,6 +731,115 @@ namespace gigantibyte.DFU.ControllerAssistant
             selectorBox.SetPosition(new Vector2(cell.x, cell.y));
         }
 
+        private bool IsExtendedGridRow(int row)
+        {
+            // visual rows 6,7,8 = zero-based rows 5,6,7
+            return row >= 5;
+        }
+
+        private void RememberGridRowIfExtended()
+        {
+            if (IsExtendedGridRow(selectedRow))
+                gridRowMemory = selectedRow;
+            else
+                gridRowMemory = -1;
+        }
+
+        private void ClearGridRowMemory()
+        {
+            gridRowMemory = -1;
+        }
+
+        private int GetButtonIndexFromLocalGridRow(int row)
+        {
+            switch (row)
+            {
+                case 0: return 1; // Info
+                case 1: return 2; // Equip
+                case 2: return 3; // Remove
+                case 3: return 4; // Use
+                default: return 5; // Gold for rows 5-8 visual (and anything below Use)
+            }
+        }
+
+        private int GetButtonIndexFromRemoteGridRow(int row)
+        {
+            switch (row)
+            {
+                case 0: return 1; // Info
+                case 1: return 2; // Equip
+                case 2: return 3; // Remove
+                case 3: return 4; // Use
+                default: return 5; // Gold for rows 5-8 visual (and anything below Use)
+            }
+        }
+
+        private int GetLocalRowFromButtons()
+        {
+            if (gridRowMemory >= 0)
+            {
+                int rememberedRow = gridRowMemory;
+                gridRowMemory = -1;
+                return rememberedRow;
+            }
+
+            switch (buttonSelectedIndex)
+            {
+                case 0: return 0; // Wagon  -> Local 2,1
+                case 1: return 0; // Info   -> Local 2,1
+                case 2: return 1; // Equip  -> Local 2,2
+                case 3: return 2; // Remove -> Local 2,3
+                case 4: return 3; // Use    -> Local 2,4
+                case 5: return 4; // Gold   -> Local 2,5
+                default: return 0;
+            }
+        }
+
+        private int GetRemoteRowFromButtons()
+        {
+            if (gridRowMemory >= 0)
+            {
+                int rememberedRow = gridRowMemory;
+                gridRowMemory = -1;
+                return rememberedRow;
+            }
+
+            switch (buttonSelectedIndex)
+            {
+                case 0: return 0; // Wagon  -> Remote 1,1
+                case 1: return 0; // Info   -> Remote 1,1
+                case 2: return 1; // Equip  -> Remote 1,2
+                case 3: return 2; // Remove -> Remote 1,3
+                case 4: return 3; // Use    -> Remote 1,4
+                case 5: return 4; // Gold   -> Remote 1,5
+                default: return 0;
+            }
+        }
+
+        private void RouteLeftGridToButtons(DaggerfallInventoryWindow menuWindow)
+        {
+            RememberGridRowIfExtended();
+            SwitchRegionToButtons(menuWindow, GetButtonIndexFromLocalGridRow(selectedRow));
+        }
+
+        private void RouteRightGridToButtons(DaggerfallInventoryWindow menuWindow)
+        {
+            RememberGridRowIfExtended();
+            SwitchRegionToButtons(menuWindow, GetButtonIndexFromRemoteGridRow(selectedRow));
+        }
+
+        private void RouteButtonsToLeftGrid(DaggerfallInventoryWindow menuWindow)
+        {
+            int targetRow = GetLocalRowFromButtons();
+            SwitchRegion(menuWindow, REGION_LEFT_GRID, 1, targetRow); // Local col 2 = zero-based col 1
+        }
+
+        private void RouteButtonsToRightGrid(DaggerfallInventoryWindow menuWindow)
+        {
+            int targetRow = GetRemoteRowFromButtons();
+            SwitchRegion(menuWindow, REGION_RIGHT_GRID, 0, targetRow); // Remote col 1 = zero-based col 0
+        }
+
         private bool AdvanceSelectorLeftState(DaggerfallInventoryWindow menuWindow)
         {
             if (currentRegion == REGION_RIGHT_GRID)
@@ -715,7 +850,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                     return true;
                 }
 
-                SwitchRegionToButtons(menuWindow, 0);
+                RouteRightGridToButtons(menuWindow);
                 return true;
             }
 
@@ -748,7 +883,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                     return true;
                 }
 
-                SwitchRegionToButtons(menuWindow, 0);
+                RouteLeftGridToButtons(menuWindow);
                 return true;
             }
 
@@ -1353,6 +1488,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (buttonSelectedIndex <= 0)
                 return false;
 
+            ClearGridRowMemory();
             buttonSelectedIndex--;
             return true;
         }
@@ -1362,6 +1498,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (buttonSelectedIndex >= buttonAnchorsNative.Length - 1)
                 return false;
 
+            ClearGridRowMemory();
             buttonSelectedIndex++;
             return true;
         }
@@ -1547,6 +1684,148 @@ namespace gigantibyte.DFU.ControllerAssistant
             paperDollIndicator.SetCenter(pos);
         }
 
+        private EquipSlots? GetPaperDollSelectedSlot()
+        {
+            switch (paperDollSelectedIndex)
+            {
+                case 0: return EquipSlots.Head;
+                case 1: return EquipSlots.RightArm;
+                case 2: return EquipSlots.LeftArm;
+                case 3: return EquipSlots.ChestArmor;
+                case 4: return EquipSlots.RightHand;
+                case 5: return EquipSlots.LeftHand;
+                case 6: return EquipSlots.Gloves;
+                case 7: return EquipSlots.LegsArmor;
+                case 8: return EquipSlots.Feet;
+                default: return null;
+            }
+        }
+
+        //private PlayerEntity GetPlayerEntity(DaggerfallInventoryWindow menuWindow)
+        //{
+        //    if (menuWindow == null || piPlayerEntity == null)
+        //        return null;
+
+        //    return piPlayerEntity.GetValue(menuWindow, null) as PlayerEntity;
+        //}
+
+        private DaggerfallUnityItem GetSelectedPaperDollItem(DaggerfallInventoryWindow menuWindow)
+        {
+            EquipSlots? slot = GetPaperDollSelectedSlot();
+            if (!slot.HasValue)
+                return null;
+
+            //PlayerEntity player = GetPlayerEntity(menuWindow);
+            if (GameManager.Instance.PlayerEntity == null || GameManager.Instance.PlayerEntity.ItemEquipTable == null)
+                return null;
+
+            return GameManager.Instance.PlayerEntity.ItemEquipTable.GetItem(slot.Value);
+        }
+
+        private void InvokeSelectedPaperDollLeftAction(DaggerfallInventoryWindow menuWindow)
+        {
+            DaggerfallUnityItem item = GetSelectedPaperDollItem(menuWindow);
+            
+            if (item == null || fiSelectedActionMode == null)
+                return;
+
+            SaveResumeSelectorState();
+
+            object actionModeObj = fiSelectedActionMode.GetValue(menuWindow);
+            if (actionModeObj == null)
+                return;
+
+            int actionMode = Convert.ToInt32(actionModeObj);
+            
+            // ActionModes:
+            // 0 = Info
+            // 1 = Equip
+            // 2 = Remove
+            // 3 = Use
+            // 4 = Select
+            switch (actionMode)
+            {
+                case 0: // Info
+                    if (miShowInfoPopup != null)
+                        miShowInfoPopup.Invoke(menuWindow, new object[] { item });
+                    break;
+
+                case 1: // Equip
+                case 4: // Select
+                    if (miUnequipItem != null)
+                        miUnequipItem.Invoke(menuWindow, new object[] { item, true });
+                    break;
+
+                case 2: // Remove
+                        // Paper doll left-click in Remove mode should do nothing useful in vanilla path.
+                        // Remove is for item lists/containers, not equipped-slot clicks.
+                    break;
+
+                case 3: // Use
+                    if (miUseItem != null)
+                        miUseItem.Invoke(menuWindow, new object[] { item, null });
+                    break;
+            }
+        }
+
+        private void InvokeSelectedPaperDollRightAction(DaggerfallInventoryWindow menuWindow)
+        {
+            DaggerfallUnityItem item = GetSelectedPaperDollItem(menuWindow);
+            if (item == null || fiSelectedActionMode == null)
+                return;
+
+            SaveResumeSelectorState();
+
+            object actionModeObj = fiSelectedActionMode.GetValue(menuWindow);
+            if (actionModeObj == null)
+                return;
+
+            int actionMode = Convert.ToInt32(actionModeObj);
+
+            // Mirror DFU GetActionModeRightClick():
+            // Equip -> Remove
+            // Remove -> Equip
+            // Select -> Remove
+            if (actionMode == 1)
+                actionMode = 2;
+            else if (actionMode == 2)
+                actionMode = 1;
+            else if (actionMode == 4)
+                actionMode = 2;
+
+            switch (actionMode)
+            {
+                case 0: // Info
+                    if (miShowInfoPopup != null)
+                        miShowInfoPopup.Invoke(menuWindow, new object[] { item });
+                    break;
+
+                case 1: // Equip
+                case 4: // Select
+                    if (miUnequipItem != null)
+                        miUnequipItem.Invoke(menuWindow, new object[] { item, true });
+                    break;
+
+                case 2: // Remove
+                        // Again, no direct paper-doll remove behavior needed here.
+                    break;
+
+                case 3: // Use
+                    if (miUseItem != null)
+                        miUseItem.Invoke(menuWindow, new object[] { item, null });
+                    break;
+            }
+        }
+
+        private void InvokeSelectedPaperDollMiddleAction(DaggerfallInventoryWindow menuWindow)
+        {
+            DaggerfallUnityItem item = GetSelectedPaperDollItem(menuWindow);
+            if (item == null || miNextVariant == null)
+                return;
+
+            SaveResumeSelectorState();
+            miNextVariant.Invoke(menuWindow, new object[] { item });
+        }
 
         // =========================
         // Lifecycle hooks
@@ -1612,6 +1891,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             selectedColumn = 0;
             selectedRow = 0;
             buttonSelectedIndex = 0;
+            gridRowMemory = -1;
             currentRegion = REGION_LEFT_GRID;
 
             selectorMode = true;
@@ -1656,6 +1936,13 @@ namespace gigantibyte.DFU.ControllerAssistant
             miRemoteItemListScroller_OnItemLeftClick = CacheMethod(type, "RemoteItemListScroller_OnItemLeftClick");
             miRemoteItemListScroller_OnItemRightClick = CacheMethod(type, "RemoteItemListScroller_OnItemRightClick");
             miRemoteItemListScroller_OnItemMiddleClick = CacheMethod(type, "RemoteItemListScroller_OnItemMiddleClick");
+
+            miUnequipItem = CacheMethod(type, "UnequipItem");
+            miShowInfoPopup = CacheMethod(type, "ShowInfoPopup");
+            miUseItem = CacheMethod(type, "UseItem");
+            miNextVariant = CacheMethod(type, "NextVariant");
+
+            piPlayerEntity = type.GetProperty("PlayerEntity", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
             piNativePanel = type.GetProperty("NativePanel", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
