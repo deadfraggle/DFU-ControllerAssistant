@@ -8,12 +8,179 @@ using System.Reflection;
 using System.Collections.Generic;
 using UnityEngine;
 
+// ============================================================================
+// INVENTORYASSIST REGION NAVIGATION MAP
+// ----------------------------------------------------------------------------
+// The Inventory window is divided into logical navigation regions. The
+// selector moves between these regions horizontally, forming a continuous
+// navigation ring for controller users.
+//
+// Horizontal navigation (RStick Left/Right):
+//
+//        ┌───────────────┐
+//        │  SPECIAL ITEMS │
+//        └───────┬───────┘
+//                │
+//                ▼
+//   ┌───────────┐   ┌──────────┐   ┌─────────┐   ┌──────────┐
+//   │ PAPERDOLL │ ↔ │  LOCAL   │ ↔ │ BUTTONS │ ↔ │  REMOTE  │
+//   └───────────┘   └──────────┘   └─────────┘   └─────┬────┘
+//        ▲                                              │
+//        └──────────────────────────────────────────────┘
+//
+// Final horizontal ring:
+//
+//   SpecialItems ↔ PaperDoll ↔ Local ↔ Buttons ↔ Remote ↔ SpecialItems
+//
+// ---------------------------------------------------------------------------
+// Region behavior
+// ---------------------------------------------------------------------------
+//
+// PAPERDOLL
+//   • Uses diamond indicator + target list overlay
+//   • Up/Down moves between body part targets
+//   • Right enters LOCAL grid
+//
+// LOCAL GRID
+//   • Standard selector box
+//   • 2 columns × 8 visible rows
+//   • Scrolls vertically through player inventory
+//   • Left enters PAPERDOLL
+//   • Right enters BUTTONS
+//
+// BUTTONS
+//   • Vertical list of actions:
+//       Wagon
+//       Info
+//       Equip
+//       Remove
+//       Use
+//       Gold
+//   • Up/Down moves between buttons
+//   • Left enters LOCAL
+//   • Right enters REMOTE
+//
+// REMOTE GRID
+//   • Standard selector box
+//   • 2 columns × 8 visible rows
+//   • Scrolls vertically through container inventory
+//   • Left enters BUTTONS
+//   • Right enters SPECIAL ITEMS
+//
+// SPECIAL ITEMS
+//   • Fixed anchor selector region
+//   • Used for quest / special inventory slots
+//   • Left enters REMOTE
+//   • Right enters PAPERDOLL
+//
+// ---------------------------------------------------------------------------
+// Navigation rules
+// ---------------------------------------------------------------------------
+//
+// Horizontal (RStick Left/Right)
+//   Moves between regions using the ring above.
+//
+// Vertical (RStick Up/Down)
+//   Moves inside the active region:
+//     • grid rows
+//     • button list
+//     • paper-doll targets
+//
+// Selector visuals
+//   GRID/BUTTONS/SPECIAL: cyan selector box
+//   PAPERDOLL: yellow diamond indicator + target list
+//
+// State persistence
+//   The following values are saved before opening sub-menus:
+//
+//     resumeRegion
+//     resumeColumn
+//     resumeRow
+//     resumeButtonIndex
+//     resumePaperDollIndex
+//
+// This allows selector state to be restored after actions such as:
+//   item info dialogs
+//   gold transfer window
+//   equipment actions
+//
+// ---------------------------------------------------------------------------
+// Implementation notes
+// ---------------------------------------------------------------------------
+//
+// Movement is handled in two layers:
+//
+//   AdvanceSelector*State()
+//       Mutates logical selector state.
+//
+//   TryMoveSelector*()
+//       Applies selector rebuild / refresh if state changed.
+//
+// Region transitions use:
+//
+//   SwitchRegion()
+//   SwitchRegionToButtons()
+//
+// Selector rebuilds automatically when region changes.
+// ============================================================================
+// ============================================================================
+// INVENTORYASSIST DEVELOPER CHEAT SHEET
+// ----------------------------------------------------------------------------
+// Core navigation flow:
+//
+// Controller input
+//      ↓
+// Handle*Region()
+//      ↓
+// TryMoveSelector*()
+//      ↓
+// AdvanceSelector*State()
+//      ↓
+// ApplySelectorStateChange()
+//      ↓
+// RefreshSelectorToCurrentRegion() / RebuildSelectorForCurrentRegion()
+//
+// Key concepts:
+//
+// Regions
+//   REGION_LEFT_GRID
+//   REGION_RIGHT_GRID
+//   REGION_PAPERDOLL
+//   REGION_SPECIAL_ITEMS
+//   REGION_BUTTONS
+//
+// Movement layers
+//   AdvanceSelector*State()   → changes logical state only
+//   TryMoveSelector*()        → handles selector refresh/rebuild
+//
+// Region transitions
+//   SwitchRegion()
+//   SwitchRegionToButtons()
+//
+// Selector visuals
+//   SelectorBoxOverlay       → grids/buttons/special items
+//   DiamondIndicatorOverlay  → paper doll targets
+//
+// Persistent selector state
+//   resumeRegion
+//   resumeColumn
+//   resumeRow
+//   resumeButtonIndex
+//   resumePaperDollIndex
+//
+// When adding a new region:
+//   1. Add REGION_* constant
+//   2. Add Handle*Region()
+//   3. Add routing in AdvanceSelectorLeft/RightState()
+//   4. Define selector size in GetSelectorNativeSizeForCurrentRegion()
+// ============================================================================
+
 namespace gigantibyte.DFU.ControllerAssistant
 {
     public class InventoryAssist : MenuAssistModule<DaggerfallInventoryWindow>
     {
         private const bool debugMODE = false;
-        private bool reflectionCached = false;  //prevents re-caching Reflection methods
+        private bool reflectionCached = false;
 
         // Legend
         private FieldInfo fiPanelRenderWindow;
@@ -21,8 +188,8 @@ namespace gigantibyte.DFU.ControllerAssistant
         private LegendOverlay legend;
         private bool legendVisible = false;
 
-        // Selector Mode
-        private bool selectorMode = false;
+        // Selector
+        private bool selectorMode = true;
         private SelectorBoxOverlay selectorBox = null;
         private InventoryGrid leftItemGrid;
         private float inventoryUiScale = 1f;
@@ -37,32 +204,35 @@ namespace gigantibyte.DFU.ControllerAssistant
         private int resumeRegion = REGION_LEFT_GRID;
         private int resumeColumn = 0;
         private int resumeRow = 0;
+        private int resumeButtonIndex = 0;
 
-        private float selectorRepeatDelay = 0.40f;
-        private float selectorRepeatInterval = 0.12f;
+        private int buttonSelectedIndex = 0;
 
-        private float selectorHoldTimer = 0f;
-        private float selectorRepeatTimer = 0f;
-
-        private int selectorHeldX = 0; // -1 left, +1 right
-        private int selectorHeldY = 0; // -1 up, +1 down
+        private readonly Vector2[] buttonAnchorsNative = new Vector2[]
+        {
+            new Vector2(225.5f, 13.4f),   // Wagon
+            new Vector2(225.5f, 35.4f),   // Info
+            new Vector2(225.5f, 57.4f),   // Equip
+            new Vector2(225.5f, 79.4f),  // Remove
+            new Vector2(225.5f, 102.4f),  // Use
+            new Vector2(225.5f, 125.4f),  // Gold
+        };
 
         private DiamondIndicatorOverlay paperDollIndicator = null;
         private int paperDollSelectedIndex = 0;
+        private int resumePaperDollIndex = 0;
 
         private readonly Vector2[] paperDollAnchorsNative = new Vector2[]
         {
-            new Vector2(121f, 28f),   // Head
-            new Vector2(71f,  54f),   // RightArm
-            new Vector2(137f, 54f),   // LeftArm
-            new Vector2(63f, 74f),   // Chest
-
-            new Vector2(57f, 106f),  // RightHand (holding) - shared hand/shield cluster for now
-            new Vector2(57f, 106f),  // LeftHand (holding)
-            new Vector2(57f, 106f),  // Hands (wearing)
-
-            new Vector2(68f, 136f),  // Legs
-            new Vector2(72f, 184f),  // Feet
+            new Vector2(121f, 28f),
+            new Vector2(71f, 54f),
+            new Vector2(137f, 54f),
+            new Vector2(63f, 74f),
+            new Vector2(57f, 106f),
+            new Vector2(57f, 106f),
+            new Vector2(57f, 106f),
+            new Vector2(68f, 136f),
+            new Vector2(72f, 184f),
         };
 
         private PaperDollTargetListOverlay paperDollTargetList = null;
@@ -93,11 +263,12 @@ namespace gigantibyte.DFU.ControllerAssistant
         private const int REGION_LEFT_GRID = 0;
         private const int REGION_RIGHT_GRID = 1;
         private const int REGION_PAPERDOLL = 2;
+        private const int REGION_SPECIAL_ITEMS = 3;
+        private const int REGION_BUTTONS = 4;
 
         private int currentRegion = REGION_LEFT_GRID;
 
         // Used in EnsureInitialized()
-        // Cache for reflection so we don’t re-query every press
         private MethodInfo miWagonButtonClick;
         private FieldInfo fiWagonButton;
         private MethodInfo miSelectTabPage;
@@ -120,7 +291,6 @@ namespace gigantibyte.DFU.ControllerAssistant
         // =========================
         protected override void OnTickOpen(DaggerfallInventoryWindow menuWindow, ControllerManager cm)
         {
-            // Current vanilla binding for this window's open/close action
             KeyCode windowBinding = InputManager.Instance.GetBinding(InputManager.Actions.Inventory);
 
             RefreshLegendAttachment(menuWindow);
@@ -129,46 +299,22 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (legend != null && legend.IsBuilt)
                 legend.PositionBottomLeft();
 
-            if (selectorMode)
-                EnsureSelectorVisualState(menuWindow);
-
             if (fiWindowBinding != null)
                 fiWindowBinding.SetValue(menuWindow, KeyCode.None);
 
-            // Toggle selector mode first so the button is edge-triggered and clean
-            if (cm.Action1Pressed)
-            {
-                ToggleSelectorMode(menuWindow);
-                return;
-            }
-
-            // Read current controller state
             bool isAssisting =
                 (cm.DPadLeftPressed || cm.DPadRightPressed || cm.DPadUpPressed || cm.DPadDownPressed ||
-                 // cm.RStickDownPressed || cm.RStickUpPressed || cm.RStickRightPressed || cm.RStickLeftPressed ||
-                 cm.RStickH != 0 || cm.RStickV != 0 ||
-                 cm.Action1 || cm.Action2 || cm.Legend);
+                 cm.RStickUpPressed || cm.RStickDownPressed || cm.RStickLeftPressed || cm.RStickRightPressed ||
+                 cm.RStickUpHeldSlow || cm.RStickDownHeldSlow || cm.RStickLeftHeldSlow || cm.RStickRightHeldSlow ||
+                 cm.Action1Pressed || cm.Action2Pressed || cm.LegendPressed);
 
-            // NORMAL MODE
-            if (isAssisting && !selectorMode)
+            if (isAssisting)
             {
                 if (cm.DPadLeftPressed)
                     CycleTab(menuWindow, -1);
 
                 if (cm.DPadRightPressed)
                     CycleTab(menuWindow, +1);
-
-                if (cm.DPadUpPressed)
-                    CycleActionMode(menuWindow, -1);
-
-                if (cm.DPadDownPressed)
-                    CycleActionMode(menuWindow, +1);
-
-                if (cm.RStickUpPressed)
-                    ToggleWagon(menuWindow);
-
-                if (cm.RStickDownPressed)
-                    OpenGoldPopup(menuWindow);
 
                 if (cm.LegendPressed)
                 {
@@ -177,161 +323,53 @@ namespace gigantibyte.DFU.ControllerAssistant
                     if (legend != null)
                         legend.SetEnabled(legendVisible);
                 }
-            }
 
-            // SELECTOR MODE
-            if (isAssisting && selectorMode)
-            {
-                if (leftItemGrid != null)
+                switch (currentRegion)
                 {
-                    if (cm.Action2Pressed)
-                    {
-                        currentRegion = REGION_PAPERDOLL;
-                        paperDollSelectedIndex = 0;
+                    case REGION_LEFT_GRID:
+                        HandleLeftGridRegion(menuWindow, cm);
+                        break;
 
-                        RemoveSelectorBoxVisual();
-                        DestroyPaperDollIndicator();
-                        DestroyPaperDollTargetList();
+                    case REGION_RIGHT_GRID:
+                        HandleRightGridRegion(menuWindow, cm);
+                        break;
 
-                        EnsurePaperDollIndicator(menuWindow);
-                        EnsurePaperDollTargetList(menuWindow);
+                    case REGION_PAPERDOLL:
+                        HandlePaperDollRegion(menuWindow, cm);
+                        break;
 
-                        if (debugMODE)
-                            DaggerfallUI.AddHUDText("Paper doll test: Head");
+                    case REGION_SPECIAL_ITEMS:
+                        HandleSpecialItemsRegion(menuWindow, cm);
+                        break;
 
-                        return;
-                    }
-
-                    if (cm.DPadLeftPressed)
-                    {
-                        if (currentRegion == REGION_LEFT_GRID)
-                            InvokeSelectedVisibleLocalItemLeftClick(menuWindow);
-                        else
-                            InvokeSelectedVisibleRemoteItemLeftClick(menuWindow);
-                        return;
-                    }
-
-                    if (cm.DPadRightPressed)
-                    {
-                        if (currentRegion == REGION_LEFT_GRID)
-                            InvokeSelectedVisibleLocalItemRightClick(menuWindow);
-                        else
-                            InvokeSelectedVisibleRemoteItemRightClick(menuWindow);
-                        return;
-                    }
-
-                    if (cm.DPadUpPressed)
-                    {
-                        if (currentRegion == REGION_LEFT_GRID)
-                            InvokeSelectedVisibleLocalItemMiddleClick(menuWindow);
-                        else
-                            InvokeSelectedVisibleRemoteItemMiddleClick(menuWindow);
-                        return;
-                    }
-
-                    if (currentRegion == REGION_PAPERDOLL)
-                    {
-                        if (cm.RStickLeftPressed)
-                            return;
-
-                        if (cm.RStickRightPressed)
-                        {
-                            MoveSelectorRight(menuWindow);
-                            return;
-                        }
-
-                        if (cm.RStickUpHeldSlow)
-                        {
-                            if (paperDollSelectedIndex > 0)
-                            {
-                                paperDollSelectedIndex--;
-                                RefreshPaperDollIndicatorPosition();
-                                EnsurePaperDollTargetList(menuWindow);
-                            }
-                            return;
-                        }
-
-                        if (cm.RStickDownHeldSlow)
-                        {
-                            if (paperDollSelectedIndex < paperDollAnchorsNative.Length - 1)
-                            {
-                                paperDollSelectedIndex++;
-                                RefreshPaperDollIndicatorPosition();
-                                EnsurePaperDollTargetList(menuWindow);
-                            }
-                            return;
-                        }
-                    }
-
-                    if (cm.RStickLeftPressed)
-                    {
-                        if (MoveSelectorLeft(menuWindow))
-                            RefreshSelectorToCurrentGridCell();
-
-                        BeginSelectorHold(-1, 0);
-                    }
-
-                    if (cm.RStickRightPressed)
-                    {
-                        if (MoveSelectorRight(menuWindow))
-                            RefreshSelectorToCurrentGridCell();
-
-                        BeginSelectorHold(1, 0);
-                    }
-
-                    if (cm.RStickUpPressed)
-                    {
-                        if (MoveSelectorUp(menuWindow))
-                            RefreshSelectorToCurrentGridCell();
-
-                        BeginSelectorHold(0, 1);
-                    }
-
-                    if (cm.RStickDownPressed)
-                    {
-                        if (MoveSelectorDown(menuWindow))
-                            RefreshSelectorToCurrentGridCell();
-
-                        BeginSelectorHold(0, -1);
-                    }
-
-                    UpdateSelectorHold(menuWindow, cm);
-
-                    if (cm.LegendPressed)
-                    {
-                        LogScrollBarDiagnostics(menuWindow);
-                    }
+                    case REGION_BUTTONS:
+                        HandleButtonsRegion(menuWindow, cm);
+                        break;
                 }
             }
 
             if (cm.BackPressed)
             {
-                DestroySelectorBox();
-                DestroyPaperDollIndicator();
-                DestroyPaperDollTargetList();
-
                 if (legend != null)
                 {
                     legend.Destroy();
                     legend = null;
                 }
+
+                DestroySelectorBox();
+                DestroyPaperDollIndicator();
+                DestroyPaperDollTargetList();
 
                 menuWindow.CloseWindow();
                 return;
             }
 
             if (!isAssisting && InputManager.Instance.GetKeyDown(windowBinding))
-            {
                 closeDeferred = true;
-            }
 
             if (closeDeferred && InputManager.Instance.GetKeyUp(windowBinding))
             {
                 closeDeferred = false;
-
-                DestroySelectorBox();
-                DestroyPaperDollIndicator();
-                DestroyPaperDollTargetList();
 
                 if (legend != null)
                 {
@@ -339,51 +377,275 @@ namespace gigantibyte.DFU.ControllerAssistant
                     legend = null;
                 }
 
+                DestroySelectorBox();
+                DestroyPaperDollIndicator();
+                DestroyPaperDollTargetList();
+
                 menuWindow.CloseWindow();
                 return;
             }
         }
 
         // =========================
-        // Assist action helpers
+        // Region helpers scaffold
         // =========================
-
-        private void ToggleSelectorMode(DaggerfallInventoryWindow menuWindow)
+        private void HandleLeftGridRegion(DaggerfallInventoryWindow menuWindow, ControllerManager cm)
         {
-            if (!selectorMode)
-            {
+            EnsureInventoryGrids(menuWindow);
+
+            if (leftItemGrid == null)
+                return;
+
+            if (selectorBox == null)
                 EnsureSelectorBox(menuWindow);
-                selectorMode = (selectorBox != null);
-                currentRegion = REGION_LEFT_GRID;
-                selectedColumn = 0;
-                selectedRow = 0;
-                DestroyPaperDollIndicator();
-                DestroyPaperDollTargetList();
-                paperDollSelectedIndex = 0;
 
-                if (selectorMode)
-                    LogInventoryLayoutDiagnostics(menuWindow);
+            RefreshSelectorToCurrentGridCell();
 
-                if (selectorMode && selectorBox != null && leftItemGrid != null)
-                {
-                    Rect cell = leftItemGrid.GetCellRect(selectedColumn, selectedRow);
-                    selectorBox.SetPosition(new Vector2(cell.x, cell.y));
-                }
-
-                if (debugMODE && selectorMode)
-                    DaggerfallUI.AddHUDText("Selector mode ON");
-            }
-            else
+            if (cm.Action1Pressed)
             {
-                DestroySelectorBox();
-                DestroyPaperDollIndicator();
-                DestroyPaperDollTargetList();
+                InvokeSelectedVisibleLocalItemLeftClick(menuWindow);
+                return;
+            }
 
-                if (debugMODE)
-                    DaggerfallUI.AddHUDText("Selector mode OFF");
+            if (cm.Action2Pressed)
+            {
+                InvokeSelectedVisibleLocalItemRightClick(menuWindow);
+                return;
+            }
+
+            if (cm.DPadUpPressed)
+            {
+                InvokeSelectedVisibleLocalItemMiddleClick(menuWindow);
+                return;
+            }
+
+            if (cm.RStickLeftPressed || cm.RStickLeftHeldSlow)
+            {
+                TryMoveSelectorLeft(menuWindow);
+                return;
+            }
+
+            if (cm.RStickRightPressed || cm.RStickRightHeldSlow)
+            {
+                TryMoveSelectorRight(menuWindow);
+                return;
+            }
+
+            if (cm.RStickUpPressed || cm.RStickUpHeldSlow)
+            {
+                TryMoveSelectorUp(menuWindow);
+                return;
+            }
+
+            if (cm.RStickDownPressed || cm.RStickDownHeldSlow)
+            {
+                TryMoveSelectorDown(menuWindow);
+                return;
             }
         }
 
+        private void HandleRightGridRegion(DaggerfallInventoryWindow menuWindow, ControllerManager cm)
+        {
+            EnsureInventoryGrids(menuWindow);
+
+            if (rightItemGrid == null)
+                return;
+
+            if (selectorBox == null)
+                EnsureSelectorBox(menuWindow);
+
+            RefreshSelectorToCurrentGridCell();
+
+            if (cm.Action1Pressed)
+            {
+                InvokeSelectedVisibleRemoteItemLeftClick(menuWindow);
+                return;
+            }
+
+            if (cm.Action2Pressed)
+            {
+                InvokeSelectedVisibleRemoteItemRightClick(menuWindow);
+                return;
+            }
+
+            if (cm.DPadUpPressed)
+            {
+                InvokeSelectedVisibleRemoteItemMiddleClick(menuWindow);
+                return;
+            }
+
+            if (cm.RStickLeftPressed || cm.RStickLeftHeldSlow)
+            {
+                TryMoveSelectorLeft(menuWindow);
+                return;
+            }
+
+            if (cm.RStickRightPressed || cm.RStickRightHeldSlow)
+            {
+                TryMoveSelectorRight(menuWindow);
+                return;
+            }
+
+            if (cm.RStickUpPressed || cm.RStickUpHeldSlow)
+            {
+                TryMoveSelectorUp(menuWindow);
+                return;
+            }
+
+            if (cm.RStickDownPressed || cm.RStickDownHeldSlow)
+            {
+                TryMoveSelectorDown(menuWindow);
+                return;
+            }
+        }
+
+        private void HandlePaperDollRegion(DaggerfallInventoryWindow menuWindow, ControllerManager cm)
+        {
+            EnsurePaperDollIndicator(menuWindow);
+            EnsurePaperDollTargetList(menuWindow);
+
+            if (cm.RStickLeftPressed || cm.RStickLeftHeldSlow)
+                return;
+
+            if (cm.RStickRightPressed || cm.RStickRightHeldSlow)
+            {
+                SwitchRegion(menuWindow, REGION_LEFT_GRID, 0, 0);
+                DestroyPaperDollIndicator();
+                DestroyPaperDollTargetList();
+                return;
+            }
+
+            if (cm.RStickUpPressed || cm.RStickUpHeldSlow)
+            {
+                if (paperDollSelectedIndex > 0)
+                {
+                    paperDollSelectedIndex--;
+                    RefreshPaperDollIndicatorPosition();
+                    EnsurePaperDollTargetList(menuWindow);
+                }
+                return;
+            }
+
+            if (cm.RStickDownPressed || cm.RStickDownHeldSlow)
+            {
+                if (paperDollSelectedIndex < paperDollAnchorsNative.Length - 1)
+                {
+                    paperDollSelectedIndex++;
+                    RefreshPaperDollIndicatorPosition();
+                    EnsurePaperDollTargetList(menuWindow);
+                }
+                return;
+            }
+        }
+
+        private void HandleSpecialItemsRegion(DaggerfallInventoryWindow menuWindow, ControllerManager cm)
+        {
+            // Scaffold only
+        }
+
+        private void HandleButtonsRegion(DaggerfallInventoryWindow menuWindow, ControllerManager cm)
+        {
+            EnsureInventoryGrids(menuWindow);
+
+            if (selectorBox == null)
+                EnsureSelectorBox(menuWindow);
+
+            RefreshSelectorToCurrentRegion();
+
+            if (cm.Action1Pressed)
+            {
+                InvokeSelectedButton(menuWindow);
+                return;
+            }
+
+            if (cm.RStickUpPressed || cm.RStickUpHeldSlow)
+            {
+                if (MoveButtonSelectionUp())
+                    RefreshSelectorToCurrentRegion();
+                return;
+            }
+
+            if (cm.RStickDownPressed || cm.RStickDownHeldSlow)
+            {
+                if (MoveButtonSelectionDown())
+                    RefreshSelectorToCurrentRegion();
+                return;
+            }
+
+            if (cm.RStickLeftPressed || cm.RStickLeftHeldSlow)
+            {
+                SwitchRegion(menuWindow, REGION_LEFT_GRID, 1, 0);
+                return;
+            }
+
+            if (cm.RStickRightPressed || cm.RStickRightHeldSlow)
+            {
+                SwitchRegion(menuWindow, REGION_RIGHT_GRID, 0, 0);
+                return;
+            }
+        }
+
+        // =========================
+        // region Selector Helpers
+        // =========================
+        private List<DaggerfallUnityItem> GetRemoteScrollerItems(DaggerfallInventoryWindow menuWindow)
+        {
+            if (menuWindow == null || fiRemoteItemListScroller == null)
+                return null;
+
+            object scrollerObj = fiRemoteItemListScroller.GetValue(menuWindow);
+            if (scrollerObj == null)
+                return null;
+
+            PropertyInfo piItems = scrollerObj.GetType().GetProperty("Items", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (piItems == null)
+                return null;
+
+            return piItems.GetValue(scrollerObj, null) as List<DaggerfallUnityItem>;
+        }
+
+        private List<DaggerfallUnityItem> GetLocalScrollerItems(DaggerfallInventoryWindow menuWindow)
+        {
+            if (menuWindow == null || fiLocalItemListScroller == null)
+                return null;
+
+            object scrollerObj = fiLocalItemListScroller.GetValue(menuWindow);
+            if (scrollerObj == null)
+                return null;
+
+            PropertyInfo piItems = scrollerObj.GetType().GetProperty("Items", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (piItems == null)
+                return null;
+
+            return piItems.GetValue(scrollerObj, null) as List<DaggerfallUnityItem>;
+        }
+        private void RefreshSelectorAttachment(DaggerfallInventoryWindow menuWindow)
+        {
+            if (menuWindow == null || fiPanelRenderWindow == null)
+                return;
+
+            Panel current = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+            if (current == null)
+                return;
+
+            if (panelRenderWindow != current)
+            {
+                if (selectorBox != null)
+                {
+                    selectorBox.Destroy();
+                    selectorBox = null;
+                }
+
+                DestroyPaperDollIndicator();
+                DestroyPaperDollTargetList();
+
+                panelRenderWindow = current;
+                return;
+            }
+
+            if (selectorBox != null && !selectorBox.IsAttached())
+                selectorBox = null;
+        }
         private void EnsureSelectorBox(DaggerfallInventoryWindow menuWindow)
         {
             if (menuWindow == null)
@@ -398,10 +660,11 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (selectorBox == null)
             {
                 selectorBox = new SelectorBoxOverlay(panelRenderWindow);
-                float selectorNativeWidth = 25f;
-                float selectorNativeHeight = 19f;
-                float selectorWidth = selectorNativeWidth * inventoryUiScale;
-                float selectorHeight = selectorNativeHeight * inventoryUiScale;
+
+                Vector2 nativeSize = GetSelectorNativeSizeForCurrentRegion();
+
+                float selectorWidth = nativeSize.x * inventoryUiScale;
+                float selectorHeight = nativeSize.y * inventoryUiScale;
                 float borderThickness = Mathf.Max(2f, inventoryUiScale * 0.5f);
 
                 selectorBox.BuildCenteredBox(
@@ -413,517 +676,256 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
         }
 
-        private void DestroySelectorBox()
+        private InventoryGrid GetCurrentGrid()
         {
-            selectorMode = false;
-            RemoveSelectorBoxVisual();
-        }
-
-        private void RemoveSelectorBoxVisual()
-        {
-            EndSelectorHold();
-
-            if (selectorBox != null)
+            switch (currentRegion)
             {
-                selectorBox.Destroy();
-                selectorBox = null;
+                case REGION_LEFT_GRID:
+                    return leftItemGrid;
+                case REGION_RIGHT_GRID:
+                    return rightItemGrid;
+                default:
+                    return null;
             }
         }
 
-        private void RefreshSelectorAttachment(DaggerfallInventoryWindow menuWindow)
+        private void RefreshSelectorToCurrentGridCell()
         {
-            if (menuWindow == null || fiPanelRenderWindow == null)
+            if (selectorBox == null)
                 return;
-
-            Panel current = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
-            if (current == null)
-                return;
-
-            // If DFU swapped the panel instance, destroy old overlays before dropping references
-            if (panelRenderWindow != current)
-            {
-                if (selectorBox != null)
-                {
-                    selectorBox.Destroy();
-                    selectorBox = null;
-                }
-
-                if (legend != null)
-                {
-                    legend.Destroy();
-                    legend = null;
-                }
-
-                DestroyPaperDollIndicator();
-                DestroyPaperDollTargetList();
-
-                panelRenderWindow = current;
-                legendVisible = false;
-
-                // DO NOT clear selectorMode here
-                return;
-            }
-
-            // If DFU cleared components, our selector may be detached
-            if (selectorBox != null && !selectorBox.IsAttached())
-            {
-                EndSelectorHold();
-                selectorBox = null;
-            }
-        }
-
-        private void EnsureSelectorVisualState(DaggerfallInventoryWindow menuWindow)
-        {
-            if (!selectorMode)
-                return;
-
-            if (currentRegion == REGION_PAPERDOLL)
-            {
-                EnsurePaperDollIndicator(menuWindow);
-                EnsurePaperDollTargetList(menuWindow);
-                return;
-            }
 
             InventoryGrid grid = GetCurrentGrid();
             if (grid == null)
                 return;
 
-            if (selectorBox == null)
-                EnsureSelectorBox(menuWindow);
+            int col = Mathf.Clamp(selectedColumn, 0, grid.Columns - 1);
+            int row = Mathf.Clamp(selectedRow, 0, grid.Rows - 1);
 
-            RefreshSelectorToCurrentGridCell();
+            Rect cell = grid.GetCellRect(col, row);
+            selectorBox.SetPosition(new Vector2(cell.x, cell.y));
         }
 
-        private void InvokeSelectedVisibleLocalItemLeftClick(DaggerfallInventoryWindow menuWindow)
+        private bool AdvanceSelectorLeftState(DaggerfallInventoryWindow menuWindow)
         {
-            if (menuWindow == null || fiLocalItemListScroller == null || miLocalItemListScroller_OnItemLeftClick == null || leftItemGrid == null)
-                return;
-
-            object scrollerObj = fiLocalItemListScroller.GetValue(menuWindow);
-            if (scrollerObj == null)
+            if (currentRegion == REGION_RIGHT_GRID)
             {
-                Debug.Log("[CA] localItemListScroller = <null>");
-                return;
+                if (selectedColumn > 0)
+                {
+                    selectedColumn--;
+                    return true;
+                }
+
+                SwitchRegionToButtons(menuWindow, 0);
+                return true;
             }
 
-            Type scrollerType = scrollerObj.GetType();
-            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-            PropertyInfo piItems = scrollerType.GetProperty("Items", flags);
-            if (piItems == null)
+            if (currentRegion == REGION_LEFT_GRID)
             {
-                Debug.Log("[CA] localItemListScroller.Items property not found");
-                return;
+                if (selectedColumn > 0)
+                {
+                    selectedColumn--;
+                    return true;
+                }
+
+                currentRegion = REGION_PAPERDOLL;
+                paperDollSelectedIndex = 0;
+                DestroySelectorBox();
+                EnsurePaperDollIndicator(menuWindow);
+                EnsurePaperDollTargetList(menuWindow);
+                return true;
             }
 
-            object itemsObj = piItems.GetValue(scrollerObj, null);
-            List<DaggerfallUnityItem> items = itemsObj as List<DaggerfallUnityItem>;
-            if (items == null)
-            {
-                Debug.Log("[CA] localItemListScroller.Items is null or not List<DaggerfallUnityItem>");
-                return;
-            }
-
-            int scrollIndex = GetLocalItemScrollIndex(menuWindow);
-            int visibleIndex = ((scrollIndex + selectedRow) * leftItemGrid.Columns) + selectedColumn;
-
-            Debug.Log(string.Format(
-                "[CA] LeftClick selector col={0} row={1} scrollIndex={2} computedIndex={3} itemCount={4}",
-                selectedColumn, selectedRow, scrollIndex, visibleIndex, items.Count));
-
-            if (visibleIndex < 0 || visibleIndex >= items.Count)
-            {
-                Debug.Log("[CA] No item at selected visible slot.");
-                return;
-            }
-
-            DaggerfallUnityItem item = items[visibleIndex];
-
-            Debug.Log(string.Format(
-                "[CA] LeftClick target item long=\"{0}\" short=\"{1}\"",
-                item.LongName, item.shortName));
-
-            if (item == null)
-            {
-                Debug.Log("[CA] Selected item is null.");
-                return;
-            }
-
-            SaveSelectorResumeState();
-            miLocalItemListScroller_OnItemLeftClick.Invoke(menuWindow, new object[] { item });
+            return false;
         }
 
-        private void InvokeSelectedVisibleRemoteItemLeftClick(DaggerfallInventoryWindow menuWindow)
+        private bool AdvanceSelectorRightState(DaggerfallInventoryWindow menuWindow)
         {
-            if (menuWindow == null || fiRemoteItemListScroller == null || miRemoteItemListScroller_OnItemLeftClick == null || rightItemGrid == null)
-                return;
-
-            object scrollerObj = fiRemoteItemListScroller.GetValue(menuWindow);
-            if (scrollerObj == null)
+            if (currentRegion == REGION_LEFT_GRID)
             {
-                Debug.Log("[CA] RemoteItemListScroller = <null>");
-                return;
+                if (selectedColumn < 1)
+                {
+                    selectedColumn++;
+                    return true;
+                }
+
+                SwitchRegionToButtons(menuWindow, 0);
+                return true;
             }
 
-            Type scrollerType = scrollerObj.GetType();
-            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-            PropertyInfo piItems = scrollerType.GetProperty("Items", flags);
-            if (piItems == null)
+            if (currentRegion == REGION_RIGHT_GRID)
             {
-                Debug.Log("[CA] RemoteItemListScroller.Items property not found");
-                return;
+                if (selectedColumn < 1)
+                {
+                    selectedColumn++;
+                    return true;
+                }
             }
 
-            object itemsObj = piItems.GetValue(scrollerObj, null);
-            List<DaggerfallUnityItem> items = itemsObj as List<DaggerfallUnityItem>;
-            if (items == null)
-            {
-                Debug.Log("[CA] RemoteItemListScroller.Items is null or not List<DaggerfallUnityItem>");
-                return;
-            }
-
-            int scrollIndex = GetRemoteItemScrollIndex(menuWindow);
-            int visibleIndex = ((scrollIndex + selectedRow) * rightItemGrid.Columns) + selectedColumn;
-
-            Debug.Log(string.Format(
-                "[CA] LeftClick selector col={0} row={1} scrollIndex={2} computedIndex={3} itemCount={4}",
-                selectedColumn, selectedRow, scrollIndex, visibleIndex, items.Count));
-
-            if (visibleIndex < 0 || visibleIndex >= items.Count)
-            {
-                Debug.Log("[CA] No item at selected visible slot.");
-                return;
-            }
-
-            DaggerfallUnityItem item = items[visibleIndex];
-
-            Debug.Log(string.Format(
-                "[CA] LeftClick target item long=\"{0}\" short=\"{1}\"",
-                item.LongName, item.shortName));
-
-            if (item == null)
-            {
-                Debug.Log("[CA] Selected item is null.");
-                return;
-            }
-
-            SaveSelectorResumeState();
-            miRemoteItemListScroller_OnItemLeftClick.Invoke(menuWindow, new object[] { item });
+            return false;
         }
 
-        private void InvokeSelectedVisibleLocalItemRightClick(DaggerfallInventoryWindow menuWindow)
+        private bool AdvanceSelectorUpState(DaggerfallInventoryWindow menuWindow)
         {
-            if (menuWindow == null || fiLocalItemListScroller == null || miLocalItemListScroller_OnItemRightClick == null || leftItemGrid == null)
-                return;
+            InventoryGrid grid = GetCurrentGrid();
+            if (grid == null)
+                return false;
 
-            object scrollerObj = fiLocalItemListScroller.GetValue(menuWindow);
-            if (scrollerObj == null)
+            if (selectedRow > 0)
             {
-                Debug.Log("[CA] localItemListScroller = <null>");
-                return;
+                selectedRow--;
+                return true;
             }
 
-            Type scrollerType = scrollerObj.GetType();
-            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            int scrollIndex = currentRegion == REGION_RIGHT_GRID
+                ? GetRemoteItemScrollIndex(menuWindow)
+                : GetLocalItemScrollIndex(menuWindow);
 
-            PropertyInfo piItems = scrollerType.GetProperty("Items", flags);
-            if (piItems == null)
+            if (scrollIndex > 0)
             {
-                Debug.Log("[CA] localItemListScroller.Items property not found");
-                return;
+                if (currentRegion == REGION_RIGHT_GRID)
+                    SetRemoteItemScrollIndex(menuWindow, scrollIndex - 1);
+                else
+                    SetLocalItemScrollIndex(menuWindow, scrollIndex - 1);
+
+                return true;
             }
 
-            object itemsObj = piItems.GetValue(scrollerObj, null);
-            List<DaggerfallUnityItem> items = itemsObj as List<DaggerfallUnityItem>;
-            if (items == null)
-            {
-                Debug.Log("[CA] localItemListScroller.Items is null or not List<DaggerfallUnityItem>");
-                return;
-            }
-
-            int scrollIndex = GetLocalItemScrollIndex(menuWindow);
-            int visibleIndex = ((scrollIndex + selectedRow) * leftItemGrid.Columns) + selectedColumn;
-
-            if (visibleIndex < 0 || visibleIndex >= items.Count)
-            {
-                Debug.Log("[CA] No item at selected visible slot.");
-                return;
-            }
-
-            DaggerfallUnityItem item = items[visibleIndex];
-            if (item == null)
-            {
-                Debug.Log("[CA] Selected item is null.");
-                return;
-            }
-
-            SaveSelectorResumeState();
-            miLocalItemListScroller_OnItemRightClick.Invoke(menuWindow, new object[] { item });
+            return false;
         }
 
-        private void InvokeSelectedVisibleRemoteItemRightClick(DaggerfallInventoryWindow menuWindow)
+        private bool AdvanceSelectorDownState(DaggerfallInventoryWindow menuWindow)
         {
-            if (menuWindow == null || fiRemoteItemListScroller == null || miRemoteItemListScroller_OnItemRightClick == null || rightItemGrid == null)
-                return;
-
-            object scrollerObj = fiRemoteItemListScroller.GetValue(menuWindow);
-            if (scrollerObj == null)
+            if (currentRegion == REGION_RIGHT_GRID)
             {
-                Debug.Log("[CA] RemoteItemListScroller = <null>");
+                if (rightItemGrid == null)
+                    return false;
+
+                if (selectedRow < rightItemGrid.Rows - 1)
+                {
+                    selectedRow++;
+                    return true;
+                }
+                else
+                {
+                    List<DaggerfallUnityItem> items = GetRemoteScrollerItems(menuWindow);
+                    if (items != null)
+                    {
+                        int scrollIndex = GetRemoteItemScrollIndex(menuWindow);
+                        int nextRowFirstIndex = ((scrollIndex + selectedRow + 1) * rightItemGrid.Columns);
+
+                        if (nextRowFirstIndex < items.Count)
+                        {
+                            SetRemoteItemScrollIndex(menuWindow, scrollIndex + 1);
+                            return true;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                if (leftItemGrid == null)
+                    return false;
+
+                if (selectedRow < leftItemGrid.Rows - 1)
+                {
+                    selectedRow++;
+                    return true;
+                }
+                else
+                {
+                    List<DaggerfallUnityItem> items = GetLocalScrollerItems(menuWindow);
+                    if (items != null)
+                    {
+                        int scrollIndex = GetLocalItemScrollIndex(menuWindow);
+                        int nextRowFirstIndex = ((scrollIndex + selectedRow + 1) * leftItemGrid.Columns);
+
+                        if (nextRowFirstIndex < items.Count)
+                        {
+                            SetLocalItemScrollIndex(menuWindow, scrollIndex + 1);
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+        private void ApplySelectorStateChange(DaggerfallInventoryWindow menuWindow, int previousRegion)
+        {
+            if (currentRegion == REGION_PAPERDOLL)
+            {
+                DestroySelectorBox();
                 return;
             }
 
-            Type scrollerType = scrollerObj.GetType();
-            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-            PropertyInfo piItems = scrollerType.GetProperty("Items", flags);
-            if (piItems == null)
-            {
-                Debug.Log("[CA] RemoteItemListScroller.Items property not found");
-                return;
-            }
-
-            object itemsObj = piItems.GetValue(scrollerObj, null);
-            List<DaggerfallUnityItem> items = itemsObj as List<DaggerfallUnityItem>;
-            if (items == null)
-            {
-                Debug.Log("[CA] RemoteItemListScroller.Items is null or not List<DaggerfallUnityItem>");
-                return;
-            }
-
-            int scrollIndex = GetRemoteItemScrollIndex(menuWindow);
-            int visibleIndex = ((scrollIndex + selectedRow) * rightItemGrid.Columns) + selectedColumn;
-
-            if (visibleIndex < 0 || visibleIndex >= items.Count)
-            {
-                Debug.Log("[CA] No item at selected visible slot.");
-                return;
-            }
-
-            DaggerfallUnityItem item = items[visibleIndex];
-            if (item == null)
-            {
-                Debug.Log("[CA] Selected item is null.");
-                return;
-            }
-
-            SaveSelectorResumeState();
-            miRemoteItemListScroller_OnItemRightClick.Invoke(menuWindow, new object[] { item });
+            if (currentRegion != previousRegion)
+                RebuildSelectorForCurrentRegion(menuWindow);
+            else
+                RefreshSelectorToCurrentRegion();
+        }
+        private bool TryMoveSelectorLeft(DaggerfallInventoryWindow menuWindow)
+        {
+            int previousRegion = currentRegion;
+            bool moved = AdvanceSelectorLeftState(menuWindow);
+            if (moved)
+                ApplySelectorStateChange(menuWindow, previousRegion);
+            return moved;
         }
 
-        private void InvokeSelectedVisibleLocalItemMiddleClick(DaggerfallInventoryWindow menuWindow)
+        private bool TryMoveSelectorRight(DaggerfallInventoryWindow menuWindow)
         {
-            if (menuWindow == null || fiLocalItemListScroller == null || miLocalItemListScroller_OnItemMiddleClick == null || leftItemGrid == null)
-                return;
-
-            object scrollerObj = fiLocalItemListScroller.GetValue(menuWindow);
-            if (scrollerObj == null)
-            {
-                Debug.Log("[CA] localItemListScroller = <null>");
-                return;
-            }
-
-            Type scrollerType = scrollerObj.GetType();
-            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-            PropertyInfo piItems = scrollerType.GetProperty("Items", flags);
-            if (piItems == null)
-            {
-                Debug.Log("[CA] localItemListScroller.Items property not found");
-                return;
-            }
-
-            object itemsObj = piItems.GetValue(scrollerObj, null);
-            List<DaggerfallUnityItem> items = itemsObj as List<DaggerfallUnityItem>;
-            if (items == null)
-            {
-                Debug.Log("[CA] localItemListScroller.Items is null or not List<DaggerfallUnityItem>");
-                return;
-            }
-
-            int scrollIndex = GetLocalItemScrollIndex(menuWindow);
-            int visibleIndex = ((scrollIndex + selectedRow) * leftItemGrid.Columns) + selectedColumn;
-
-            if (visibleIndex < 0 || visibleIndex >= items.Count)
-            {
-                Debug.Log("[CA] No item at selected visible slot.");
-                return;
-            }
-
-            DaggerfallUnityItem item = items[visibleIndex];
-            if (item == null)
-            {
-                Debug.Log("[CA] Selected item is null.");
-                return;
-            }
-
-            SaveSelectorResumeState();
-            miLocalItemListScroller_OnItemMiddleClick.Invoke(menuWindow, new object[] { item });
+            int previousRegion = currentRegion;
+            bool moved = AdvanceSelectorRightState(menuWindow);
+            if (moved)
+                ApplySelectorStateChange(menuWindow, previousRegion);
+            return moved;
         }
 
-        private void InvokeSelectedVisibleRemoteItemMiddleClick(DaggerfallInventoryWindow menuWindow)
+        private bool TryMoveSelectorUp(DaggerfallInventoryWindow menuWindow)
         {
-            if (menuWindow == null || fiRemoteItemListScroller == null || miRemoteItemListScroller_OnItemMiddleClick == null || rightItemGrid == null)
-                return;
+            int previousRegion = currentRegion;
+            bool moved = AdvanceSelectorUpState(menuWindow);
+            if (moved)
+                ApplySelectorStateChange(menuWindow, previousRegion);
+            return moved;
+        }
 
-            object scrollerObj = fiRemoteItemListScroller.GetValue(menuWindow);
-            if (scrollerObj == null)
-            {
-                Debug.Log("[CA] RemoteItemListScroller = <null>");
-                return;
-            }
-
-            Type scrollerType = scrollerObj.GetType();
-            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-            PropertyInfo piItems = scrollerType.GetProperty("Items", flags);
-            if (piItems == null)
-            {
-                Debug.Log("[CA] RemoteItemListScroller.Items property not found");
-                return;
-            }
-
-            object itemsObj = piItems.GetValue(scrollerObj, null);
-            List<DaggerfallUnityItem> items = itemsObj as List<DaggerfallUnityItem>;
-            if (items == null)
-            {
-                Debug.Log("[CA] RemoteItemListScroller.Items is null or not List<DaggerfallUnityItem>");
-                return;
-            }
-
-            int scrollIndex = GetRemoteItemScrollIndex(menuWindow);
-            int visibleIndex = ((scrollIndex + selectedRow) * rightItemGrid.Columns) + selectedColumn;
-
-            if (visibleIndex < 0 || visibleIndex >= items.Count)
-            {
-                Debug.Log("[CA] No item at selected visible slot.");
-                return;
-            }
-
-            DaggerfallUnityItem item = items[visibleIndex];
-            if (item == null)
-            {
-                Debug.Log("[CA] Selected item is null.");
-                return;
-            }
-
-            SaveSelectorResumeState();
-            miRemoteItemListScroller_OnItemMiddleClick.Invoke(menuWindow, new object[] { item });
+        private bool TryMoveSelectorDown(DaggerfallInventoryWindow menuWindow)
+        {
+            int previousRegion = currentRegion;
+            bool moved = AdvanceSelectorDownState(menuWindow);
+            if (moved)
+                ApplySelectorStateChange(menuWindow, previousRegion);
+            return moved;
         }
 
         private int GetLocalItemScrollIndex(DaggerfallInventoryWindow menuWindow)
         {
-            if (menuWindow == null || fiLocalItemListScroller == null)
-                return 0;
-
-            object scrollerObj = fiLocalItemListScroller.GetValue(menuWindow);
-            if (scrollerObj == null)
-                return 0;
-
-            Type scrollerType = scrollerObj.GetType();
-            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-            FieldInfo fiScrollBar = scrollerType.GetField("itemListScrollBar", flags);
-            if (fiScrollBar == null)
-                return 0;
-
-            object scrollBar = fiScrollBar.GetValue(scrollerObj);
-            if (scrollBar == null)
-                return 0;
-
-            Type sbType = scrollBar.GetType();
-
-            PropertyInfo piScrollIndex = sbType.GetProperty("ScrollIndex", flags);
-            if (piScrollIndex == null)
-                return 0;
-
-            object value = piScrollIndex.GetValue(scrollBar, null);
-            if (value == null)
-                return 0;
-
-            return (int)value;
-        }
-
-        private int GetRemoteItemScrollIndex(DaggerfallInventoryWindow menuWindow)
-        {
-            if (menuWindow == null || fiRemoteItemListScroller == null)
-                return 0;
-
-            object scrollerObj = fiRemoteItemListScroller.GetValue(menuWindow);
-            if (scrollerObj == null)
-                return 0;
-
-            Type scrollerType = scrollerObj.GetType();
-            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-            FieldInfo fiScrollBar = scrollerType.GetField("itemListScrollBar", flags);
-            if (fiScrollBar == null)
-                return 0;
-
-            object scrollBar = fiScrollBar.GetValue(scrollerObj);
-            if (scrollBar == null)
-                return 0;
-
-            Type sbType = scrollBar.GetType();
-
-            PropertyInfo piScrollIndex = sbType.GetProperty("ScrollIndex", flags);
-            if (piScrollIndex == null)
-                return 0;
-
-            object value = piScrollIndex.GetValue(scrollBar, null);
-            if (value == null)
-                return 0;
-
-            return (int)value;
-        }
-
-        private object GetLocalItemScroller(DaggerfallInventoryWindow menuWindow)
-        {
-            if (menuWindow == null || fiLocalItemListScroller == null)
-                return null;
-
-            return fiLocalItemListScroller.GetValue(menuWindow);
-        }
-
-        private object GetRemoteItemScroller(DaggerfallInventoryWindow menuWindow)
-        {
-            if (menuWindow == null || fiRemoteItemListScroller == null)
-                return null;
-
-            return fiRemoteItemListScroller.GetValue(menuWindow);
-        }
-
-        private List<DaggerfallUnityItem> GetLocalScrollerItems(DaggerfallInventoryWindow menuWindow)
-        {
             object scrollerObj = GetLocalItemScroller(menuWindow);
             if (scrollerObj == null)
-                return null;
+                return 0;
 
             Type scrollerType = scrollerObj.GetType();
             BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-            PropertyInfo piItems = scrollerType.GetProperty("Items", flags);
-            if (piItems == null)
-                return null;
+            FieldInfo fiScrollBar = scrollerType.GetField("itemListScrollBar", flags);
+            if (fiScrollBar == null)
+                return 0;
 
-            return piItems.GetValue(scrollerObj, null) as List<DaggerfallUnityItem>;
-        }
+            object scrollBar = fiScrollBar.GetValue(scrollerObj);
+            if (scrollBar == null)
+                return 0;
 
-        private List<DaggerfallUnityItem> GetRemoteScrollerItems(DaggerfallInventoryWindow menuWindow)
-        {
-            object scrollerObj = GetRemoteItemScroller(menuWindow);
-            if (scrollerObj == null)
-                return null;
+            Type sbType = scrollBar.GetType();
+            PropertyInfo piScrollIndex = sbType.GetProperty("ScrollIndex", flags);
+            if (piScrollIndex == null || !piScrollIndex.CanRead)
+                return 0;
 
-            Type scrollerType = scrollerObj.GetType();
-            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            object value = piScrollIndex.GetValue(scrollBar, null);
+            if (value == null)
+                return 0;
 
-            PropertyInfo piItems = scrollerType.GetProperty("Items", flags);
-            if (piItems == null)
-                return null;
-
-            return piItems.GetValue(scrollerObj, null) as List<DaggerfallUnityItem>;
+            return (int)value;
         }
 
         private bool SetLocalItemScrollIndex(DaggerfallInventoryWindow menuWindow, int newScrollIndex)
@@ -976,6 +978,35 @@ namespace gigantibyte.DFU.ControllerAssistant
             return true;
         }
 
+        private int GetRemoteItemScrollIndex(DaggerfallInventoryWindow menuWindow)
+        {
+            object scrollerObj = GetRemoteItemScroller(menuWindow);
+            if (scrollerObj == null)
+                return 0;
+
+            Type scrollerType = scrollerObj.GetType();
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+            FieldInfo fiScrollBar = scrollerType.GetField("itemListScrollBar", flags);
+            if (fiScrollBar == null)
+                return 0;
+
+            object scrollBar = fiScrollBar.GetValue(scrollerObj);
+            if (scrollBar == null)
+                return 0;
+
+            Type sbType = scrollBar.GetType();
+            PropertyInfo piScrollIndex = sbType.GetProperty("ScrollIndex", flags);
+            if (piScrollIndex == null || !piScrollIndex.CanRead)
+                return 0;
+
+            object value = piScrollIndex.GetValue(scrollBar, null);
+            if (value == null)
+                return 0;
+
+            return (int)value;
+        }
+
         private bool SetRemoteItemScrollIndex(DaggerfallInventoryWindow menuWindow, int newScrollIndex)
         {
             object scrollerObj = GetRemoteItemScroller(menuWindow);
@@ -1026,392 +1057,370 @@ namespace gigantibyte.DFU.ControllerAssistant
             return true;
         }
 
-        private InventoryGrid GetCurrentGrid()
+        private void InvokeSelectedVisibleRemoteItemLeftClick(DaggerfallInventoryWindow menuWindow)
         {
-            return (currentRegion == REGION_LEFT_GRID) ? leftItemGrid : rightItemGrid;
-        }
-
-        private void RefreshSelectorToCurrentGridCell()
-        {
-            if (selectorBox == null)
+            if (menuWindow == null || fiRemoteItemListScroller == null || miRemoteItemListScroller_OnItemLeftClick == null || rightItemGrid == null)
                 return;
 
-            InventoryGrid grid = GetCurrentGrid();
-            if (grid == null)
+            object scrollerObj = fiRemoteItemListScroller.GetValue(menuWindow);
+            if (scrollerObj == null)
                 return;
 
-            Rect cell = grid.GetCellRect(selectedColumn, selectedRow);
-            selectorBox.SetPosition(new Vector2(cell.x, cell.y));
-        }
+            PropertyInfo piItems = scrollerObj.GetType().GetProperty("Items", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (piItems == null)
+                return;
 
-        private bool HasVisibleItemInCurrentRegion(DaggerfallInventoryWindow menuWindow, int column, int row)
-        {
-            InventoryGrid grid = GetCurrentGrid();
-            if (grid == null)
-                return false;
-
-            List<DaggerfallUnityItem> items = null;
-            int scrollIndex = 0;
-
-            if (currentRegion == REGION_LEFT_GRID)
-            {
-                items = GetLocalScrollerItems(menuWindow);
-                scrollIndex = GetLocalItemScrollIndex(menuWindow);
-            }
-            else
-            {
-                items = GetRemoteScrollerItems(menuWindow);
-                scrollIndex = GetRemoteItemScrollIndex(menuWindow);
-            }
-
+            List<DaggerfallUnityItem> items = piItems.GetValue(scrollerObj, null) as List<DaggerfallUnityItem>;
             if (items == null)
-                return false;
-
-            int visibleIndex = ((scrollIndex + row) * grid.Columns) + column;
-            return visibleIndex >= 0 && visibleIndex < items.Count;
-        }
-
-        private bool TryFindBestVisibleSlotInCurrentRegion(
-            DaggerfallInventoryWindow menuWindow,
-            int preferredColumn,
-            int preferredRow,
-            out int foundColumn,
-            out int foundRow)
-        {
-            InventoryGrid grid = GetCurrentGrid();
-            foundColumn = 0;
-            foundRow = 0;
-
-            if (grid == null)
-                return false;
-
-            preferredColumn = Mathf.Clamp(preferredColumn, 0, grid.Columns - 1);
-            preferredRow = Mathf.Clamp(preferredRow, 0, grid.Rows - 1);
-
-            int alternateColumn = (preferredColumn == 0) ? 1 : 0;
-
-            // same row first: preferred column, then alternate
-            if (HasVisibleItemInCurrentRegion(menuWindow, preferredColumn, preferredRow))
-            {
-                foundColumn = preferredColumn;
-                foundRow = preferredRow;
-                return true;
-            }
-
-            if (HasVisibleItemInCurrentRegion(menuWindow, alternateColumn, preferredRow))
-            {
-                foundColumn = alternateColumn;
-                foundRow = preferredRow;
-                return true;
-            }
-
-            // scan upward
-            for (int row = preferredRow - 1; row >= 0; row--)
-            {
-                if (HasVisibleItemInCurrentRegion(menuWindow, preferredColumn, row))
-                {
-                    foundColumn = preferredColumn;
-                    foundRow = row;
-                    return true;
-                }
-
-                if (HasVisibleItemInCurrentRegion(menuWindow, alternateColumn, row))
-                {
-                    foundColumn = alternateColumn;
-                    foundRow = row;
-                    return true;
-                }
-            }
-
-            // scan downward
-            for (int row = preferredRow + 1; row < grid.Rows; row++)
-            {
-                if (HasVisibleItemInCurrentRegion(menuWindow, preferredColumn, row))
-                {
-                    foundColumn = preferredColumn;
-                    foundRow = row;
-                    return true;
-                }
-
-                if (HasVisibleItemInCurrentRegion(menuWindow, alternateColumn, row))
-                {
-                    foundColumn = alternateColumn;
-                    foundRow = row;
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private bool TryMoveToRightGrid(DaggerfallInventoryWindow menuWindow)
-        {
-            currentRegion = REGION_RIGHT_GRID;
-
-            int col, row;
-            if (TryFindBestVisibleSlotInCurrentRegion(menuWindow, 0, selectedRow, out col, out row))
-            {
-                selectedColumn = col;
-                selectedRow = row;
-                return true;
-            }
-
-            currentRegion = REGION_LEFT_GRID;
-            return false;
-        }
-
-        private bool TryMoveToLeftGrid(DaggerfallInventoryWindow menuWindow)
-        {
-            currentRegion = REGION_LEFT_GRID;
-
-            int col, row;
-            if (TryFindBestVisibleSlotInCurrentRegion(menuWindow, 1, selectedRow, out col, out row))
-            {
-                selectedColumn = col;
-                selectedRow = row;
-                return true;
-            }
-
-            currentRegion = REGION_RIGHT_GRID;
-            return false;
-        }
-
-        private void SaveSelectorResumeState()
-        {
-            if (!selectorMode)
                 return;
 
+            int scrollIndex = GetRemoteItemScrollIndex(menuWindow);
+            int visibleIndex = ((scrollIndex + selectedRow) * rightItemGrid.Columns) + selectedColumn;
+
+            if (visibleIndex < 0 || visibleIndex >= items.Count)
+                return;
+
+            DaggerfallUnityItem item = items[visibleIndex];
+            if (item == null)
+                return;
+
+            SaveResumeSelectorState();
+            miRemoteItemListScroller_OnItemLeftClick.Invoke(menuWindow, new object[] { item });
+        }
+
+        private void InvokeSelectedVisibleRemoteItemRightClick(DaggerfallInventoryWindow menuWindow)
+        {
+            if (menuWindow == null || fiRemoteItemListScroller == null || miRemoteItemListScroller_OnItemRightClick == null || rightItemGrid == null)
+                return;
+
+            object scrollerObj = fiRemoteItemListScroller.GetValue(menuWindow);
+            if (scrollerObj == null)
+                return;
+
+            PropertyInfo piItems = scrollerObj.GetType().GetProperty("Items", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (piItems == null)
+                return;
+
+            List<DaggerfallUnityItem> items = piItems.GetValue(scrollerObj, null) as List<DaggerfallUnityItem>;
+            if (items == null)
+                return;
+
+            int scrollIndex = GetRemoteItemScrollIndex(menuWindow);
+            int visibleIndex = ((scrollIndex + selectedRow) * rightItemGrid.Columns) + selectedColumn;
+
+            if (visibleIndex < 0 || visibleIndex >= items.Count)
+                return;
+
+            DaggerfallUnityItem item = items[visibleIndex];
+            if (item == null)
+                return;
+
+            SaveResumeSelectorState();
+            miRemoteItemListScroller_OnItemRightClick.Invoke(menuWindow, new object[] { item });
+        }
+
+        private void InvokeSelectedVisibleRemoteItemMiddleClick(DaggerfallInventoryWindow menuWindow)
+        {
+            if (menuWindow == null || fiRemoteItemListScroller == null || miRemoteItemListScroller_OnItemMiddleClick == null || rightItemGrid == null)
+                return;
+
+            object scrollerObj = fiRemoteItemListScroller.GetValue(menuWindow);
+            if (scrollerObj == null)
+                return;
+
+            PropertyInfo piItems = scrollerObj.GetType().GetProperty("Items", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (piItems == null)
+                return;
+
+            List<DaggerfallUnityItem> items = piItems.GetValue(scrollerObj, null) as List<DaggerfallUnityItem>;
+            if (items == null)
+                return;
+
+            int scrollIndex = GetRemoteItemScrollIndex(menuWindow);
+            int visibleIndex = ((scrollIndex + selectedRow) * rightItemGrid.Columns) + selectedColumn;
+
+            if (visibleIndex < 0 || visibleIndex >= items.Count)
+                return;
+
+            DaggerfallUnityItem item = items[visibleIndex];
+            if (item == null)
+                return;
+
+            SaveResumeSelectorState();
+            miRemoteItemListScroller_OnItemMiddleClick.Invoke(menuWindow, new object[] { item });
+        }
+        private void InvokeSelectedVisibleLocalItemLeftClick(DaggerfallInventoryWindow menuWindow)
+        {
+            if (menuWindow == null || fiLocalItemListScroller == null || miLocalItemListScroller_OnItemLeftClick == null || leftItemGrid == null)
+                return;
+
+            object scrollerObj = fiLocalItemListScroller.GetValue(menuWindow);
+            if (scrollerObj == null)
+                return;
+
+            PropertyInfo piItems = scrollerObj.GetType().GetProperty("Items", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (piItems == null)
+                return;
+
+            List<DaggerfallUnityItem> items = piItems.GetValue(scrollerObj, null) as List<DaggerfallUnityItem>;
+            if (items == null)
+                return;
+
+            int scrollIndex = GetLocalItemScrollIndex(menuWindow);
+            int visibleIndex = ((scrollIndex + selectedRow) * leftItemGrid.Columns) + selectedColumn;
+
+            if (visibleIndex < 0 || visibleIndex >= items.Count)
+                return;
+
+            DaggerfallUnityItem item = items[visibleIndex];
+            if (item == null)
+                return;
+
+            SaveResumeSelectorState();
+            miLocalItemListScroller_OnItemLeftClick.Invoke(menuWindow, new object[] { item });
+        }
+
+        private void InvokeSelectedVisibleLocalItemRightClick(DaggerfallInventoryWindow menuWindow)
+        {
+            if (menuWindow == null || fiLocalItemListScroller == null || miLocalItemListScroller_OnItemRightClick == null || leftItemGrid == null)
+                return;
+
+            object scrollerObj = fiLocalItemListScroller.GetValue(menuWindow);
+            if (scrollerObj == null)
+                return;
+
+            PropertyInfo piItems = scrollerObj.GetType().GetProperty("Items", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (piItems == null)
+                return;
+
+            List<DaggerfallUnityItem> items = piItems.GetValue(scrollerObj, null) as List<DaggerfallUnityItem>;
+            if (items == null)
+                return;
+
+            int scrollIndex = GetLocalItemScrollIndex(menuWindow);
+            int visibleIndex = ((scrollIndex + selectedRow) * leftItemGrid.Columns) + selectedColumn;
+
+            if (visibleIndex < 0 || visibleIndex >= items.Count)
+                return;
+
+            DaggerfallUnityItem item = items[visibleIndex];
+            if (item == null)
+                return;
+
+            SaveResumeSelectorState();
+            miLocalItemListScroller_OnItemRightClick.Invoke(menuWindow, new object[] { item });
+        }
+
+        private void InvokeSelectedVisibleLocalItemMiddleClick(DaggerfallInventoryWindow menuWindow)
+        {
+            if (menuWindow == null || fiLocalItemListScroller == null || miLocalItemListScroller_OnItemMiddleClick == null || leftItemGrid == null)
+                return;
+
+            object scrollerObj = fiLocalItemListScroller.GetValue(menuWindow);
+            if (scrollerObj == null)
+                return;
+
+            PropertyInfo piItems = scrollerObj.GetType().GetProperty("Items", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (piItems == null)
+                return;
+
+            List<DaggerfallUnityItem> items = piItems.GetValue(scrollerObj, null) as List<DaggerfallUnityItem>;
+            if (items == null)
+                return;
+
+            int scrollIndex = GetLocalItemScrollIndex(menuWindow);
+            int visibleIndex = ((scrollIndex + selectedRow) * leftItemGrid.Columns) + selectedColumn;
+
+            if (visibleIndex < 0 || visibleIndex >= items.Count)
+                return;
+
+            DaggerfallUnityItem item = items[visibleIndex];
+            if (item == null)
+                return;
+
+            SaveResumeSelectorState();
+            miLocalItemListScroller_OnItemMiddleClick.Invoke(menuWindow, new object[] { item });
+        }
+
+        private object GetLocalItemScroller(DaggerfallInventoryWindow menuWindow)
+        {
+            if (menuWindow == null || fiLocalItemListScroller == null)
+                return null;
+
+            return fiLocalItemListScroller.GetValue(menuWindow);
+        }
+
+        private object GetRemoteItemScroller(DaggerfallInventoryWindow menuWindow)
+        {
+            if (menuWindow == null || fiRemoteItemListScroller == null)
+                return null;
+
+            return fiRemoteItemListScroller.GetValue(menuWindow);
+        }
+        private void SaveResumeSelectorState()
+        {
             resumeSelectorMode = true;
             resumeRegion = currentRegion;
             resumeColumn = selectedColumn;
             resumeRow = selectedRow;
+            resumeButtonIndex = buttonSelectedIndex;
+            resumePaperDollIndex = paperDollSelectedIndex;
         }
-
-        private void BeginSelectorHold(int dx, int dy)
+        private Vector2 GetScaledNativePoint(Vector2 nativePoint)
         {
-            selectorHeldX = dx;
-            selectorHeldY = dy;
+            if (panelRenderWindow == null)
+                return nativePoint;
 
-            selectorHoldTimer = 0f;
-            selectorRepeatTimer = 0f;
+            float nativeWidth = 320f;
+            float nativeHeight = 200f;
+
+            float parentWidth = panelRenderWindow.Size.x;
+            float parentHeight = panelRenderWindow.Size.y;
+
+            float scaleX = parentWidth / nativeWidth;
+            float scaleY = parentHeight / nativeHeight;
+            float scale = Mathf.Min(scaleX, scaleY);
+
+            float scaledNativeWidth = nativeWidth * scale;
+            float scaledNativeHeight = nativeHeight * scale;
+
+            float offsetX = (parentWidth - scaledNativeWidth) * 0.5f;
+            float offsetY = (parentHeight - scaledNativeHeight) * 0.5f;
+
+            return new Vector2(
+                offsetX + (nativePoint.x * scale),
+                offsetY + (nativePoint.y * scale)
+            );
         }
-
-        private void EndSelectorHold()
+        private void InvokeSelectedButton(DaggerfallInventoryWindow menuWindow)
         {
-            selectorHeldX = 0;
-            selectorHeldY = 0;
-
-            selectorHoldTimer = 0f;
-            selectorRepeatTimer = 0f;
-        }
-
-        private void UpdateSelectorHold(DaggerfallInventoryWindow menuWindow, ControllerManager cm)
-        {
-            bool stillHolding =
-                (selectorHeldX == -1 && cm.RStickH == -1) ||
-                (selectorHeldX == 1 && cm.RStickH == 1) ||
-                (selectorHeldY == -1 && cm.RStickV == -1) ||
-                (selectorHeldY == 1 && cm.RStickV == 1);
-
-            if (!stillHolding)
-            {
-                EndSelectorHold();
-                return;
-            }
-
-            selectorHoldTimer += Time.unscaledDeltaTime;
-
-            if (selectorHoldTimer < selectorRepeatDelay)
+            if (menuWindow == null)
                 return;
 
-            selectorRepeatTimer += Time.unscaledDeltaTime;
+            SaveResumeSelectorState();
 
-            while (selectorRepeatTimer >= selectorRepeatInterval)
+            switch (buttonSelectedIndex)
             {
-                selectorRepeatTimer -= selectorRepeatInterval;
+                case 0: // Wagon
+                    if (miWagonButtonClick != null && fiWagonButton != null)
+                    {
+                        object button = fiWagonButton.GetValue(menuWindow);
+                        if (button != null)
+                            miWagonButtonClick.Invoke(menuWindow, new object[] { button, Vector2.zero });
+                    }
+                    break;
 
-                bool moved = false;
+                case 1: // Info
+                    InvokeSelectActionMode(menuWindow, 0);
+                    break;
 
-                if (selectorHeldX == -1)
-                    moved = MoveSelectorLeft(menuWindow);
-                else if (selectorHeldX == 1)
-                    moved = MoveSelectorRight(menuWindow);
-                else if (selectorHeldY == -1)
-                    moved = MoveSelectorDown(menuWindow);
-                else if (selectorHeldY == 1)
-                    moved = MoveSelectorUp(menuWindow);
+                case 2: // Equip
+                    InvokeSelectActionMode(menuWindow, 1);
+                    break;
 
-                if (moved)
-                    RefreshSelectorToCurrentGridCell();
+                case 3: // Remove
+                    InvokeSelectActionMode(menuWindow, 2);
+                    break;
+
+                case 4: // Use
+                    InvokeSelectActionMode(menuWindow, 3);
+                    break;
+
+                case 5: // Gold
+                    if (miGoldButtonClick != null && fiGoldButton != null)
+                    {
+                        object button = fiGoldButton.GetValue(menuWindow);
+                        if (button != null)
+                            miGoldButtonClick.Invoke(menuWindow, new object[] { button, Vector2.zero });
+                    }
+                    break;
             }
         }
-
-        private bool MoveSelectorLeft(DaggerfallInventoryWindow menuWindow)
+        private void InvokeSelectActionMode(DaggerfallInventoryWindow menuWindow, int modeValue)
         {
-            if (currentRegion == REGION_PAPERDOLL)
+            if (menuWindow == null || miSelectActionMode == null || fiSelectedActionMode == null)
+                return;
+
+            object currentValue = fiSelectedActionMode.GetValue(menuWindow);
+            if (currentValue == null)
+                return;
+
+            object nextEnum = Enum.ToObject(currentValue.GetType(), modeValue);
+            miSelectActionMode.Invoke(menuWindow, new object[] { nextEnum });
+        }
+        private bool MoveButtonSelectionUp()
+        {
+            if (buttonSelectedIndex <= 0)
                 return false;
 
-            if (currentRegion == REGION_LEFT_GRID)
-            {
-                if (selectedColumn > 0)
-                {
-                    selectedColumn--;
-                    return true;
-                }
-                else
-                {
-                    currentRegion = REGION_PAPERDOLL;
-                    paperDollSelectedIndex = 0;
-
-                    RemoveSelectorBoxVisual();
-                    EnsurePaperDollIndicator(menuWindow);
-                    EnsurePaperDollTargetList(menuWindow);
-                    return true;
-                }
-            }
-            else
-            {
-                if (selectedColumn > 0)
-                {
-                    selectedColumn--;
-                    return true;
-                }
-                else
-                {
-                    return TryMoveToLeftGrid(menuWindow);
-                }
-            }
+            buttonSelectedIndex--;
+            return true;
         }
 
-        private bool MoveSelectorRight(DaggerfallInventoryWindow menuWindow)
+        private bool MoveButtonSelectionDown()
         {
-            if (currentRegion == REGION_PAPERDOLL)
+            if (buttonSelectedIndex >= buttonAnchorsNative.Length - 1)
+                return false;
+
+            buttonSelectedIndex++;
+            return true;
+        }
+        private Vector2 GetSelectorNativeSizeForCurrentRegion()
+        {
+            switch (currentRegion)
             {
-                currentRegion = REGION_LEFT_GRID;
-                paperDollSelectedIndex = 0;
+                case REGION_BUTTONS:
+                    return new Vector2(32f, 15f);
 
-                DestroyPaperDollIndicator();
-                DestroyPaperDollTargetList();
+                case REGION_SPECIAL_ITEMS:
+                    return new Vector2(32f, 24f);
 
-                selectedColumn = 0;
-                selectedRow = 0;
-
-                EnsureSelectorBox(menuWindow);
-                RefreshSelectorToCurrentGridCell();
-                return true;
-            }
-
-            if (currentRegion == REGION_RIGHT_GRID)
-            {
-                InventoryGrid grid = GetCurrentGrid();
-                if (grid == null)
-                    return false;
-
-                int oldColumn = selectedColumn;
-                selectedColumn = Mathf.Min(grid.Columns - 1, selectedColumn + 1);
-                return selectedColumn != oldColumn;
-            }
-            else
-            {
-                if (leftItemGrid == null)
-                    return false;
-
-                if (selectedColumn < leftItemGrid.Columns - 1)
-                {
-                    selectedColumn++;
-                    return true;
-                }
-                else
-                {
-                    return TryMoveToRightGrid(menuWindow);
-                }
+                default:
+                    return new Vector2(25f, 19f);
             }
         }
-
-        private bool MoveSelectorUp(DaggerfallInventoryWindow menuWindow)
+        private void RebuildSelectorForCurrentRegion(DaggerfallInventoryWindow menuWindow)
         {
-            if (currentRegion == REGION_RIGHT_GRID)
+            DestroySelectorBox();
+            EnsureSelectorBox(menuWindow);
+            RefreshSelectorToCurrentRegion();
+        }
+        private void SwitchRegion(DaggerfallInventoryWindow menuWindow, int newRegion)
+        {
+            if (currentRegion == newRegion)
             {
-                if (selectedRow > 0)
-                {
-                    selectedRow--;
-                    return true;
-                }
-                else
-                {
-                    int scrollIndex = GetRemoteItemScrollIndex(menuWindow);
-                    if (scrollIndex > 0)
-                        return SetRemoteItemScrollIndex(menuWindow, scrollIndex - 1);
-                }
-            }
-            else
-            {
-                if (selectedRow > 0)
-                {
-                    selectedRow--;
-                    return true;
-                }
-                else
-                {
-                    int scrollIndex = GetLocalItemScrollIndex(menuWindow);
-                    if (scrollIndex > 0)
-                        return SetLocalItemScrollIndex(menuWindow, scrollIndex - 1);
-                }
+                RefreshSelectorToCurrentRegion();
+                return;
             }
 
-            return false;
+            currentRegion = newRegion;
+            RebuildSelectorForCurrentRegion(menuWindow);
+        }
+        private void SwitchRegion(DaggerfallInventoryWindow menuWindow, int newRegion, int newColumn, int newRow)
+        {
+            selectedColumn = newColumn;
+            selectedRow = newRow;
+            SwitchRegion(menuWindow, newRegion);
         }
 
-        private bool MoveSelectorDown(DaggerfallInventoryWindow menuWindow)
+        private void SwitchRegionToButtons(DaggerfallInventoryWindow menuWindow, int newButtonIndex)
         {
-            if (currentRegion == REGION_RIGHT_GRID)
+            buttonSelectedIndex = Mathf.Clamp(newButtonIndex, 0, buttonAnchorsNative.Length - 1);
+            SwitchRegion(menuWindow, REGION_BUTTONS);
+        }
+        private void RefreshSelectorToCurrentRegion()
+        {
+            if (selectorBox == null)
+                return;
+
+            if (currentRegion == REGION_BUTTONS)
             {
-                if (rightItemGrid == null)
-                    return false;
-
-                if (selectedRow < rightItemGrid.Rows - 1)
-                {
-                    selectedRow++;
-                    return true;
-                }
-                else
-                {
-                    List<DaggerfallUnityItem> items = GetRemoteScrollerItems(menuWindow);
-                    if (items != null)
-                    {
-                        int scrollIndex = GetRemoteItemScrollIndex(menuWindow);
-                        int nextRowFirstIndex = ((scrollIndex + selectedRow + 1) * rightItemGrid.Columns);
-
-                        if (nextRowFirstIndex < items.Count)
-                            return SetRemoteItemScrollIndex(menuWindow, scrollIndex + 1);
-                    }
-                }
-            }
-            else
-            {
-                if (leftItemGrid == null)
-                    return false;
-
-                if (selectedRow < leftItemGrid.Rows - 1)
-                {
-                    selectedRow++;
-                    return true;
-                }
-                else
-                {
-                    List<DaggerfallUnityItem> items = GetLocalScrollerItems(menuWindow);
-                    if (items != null)
-                    {
-                        int scrollIndex = GetLocalItemScrollIndex(menuWindow);
-                        int nextRowFirstIndex = ((scrollIndex + selectedRow + 1) * leftItemGrid.Columns);
-
-                        if (nextRowFirstIndex < items.Count)
-                            return SetLocalItemScrollIndex(menuWindow, scrollIndex + 1);
-                    }
-                }
+                Vector2 pos = GetScaledNativePoint(buttonAnchorsNative[buttonSelectedIndex]);
+                selectorBox.SetPosition(pos);
+                return;
             }
 
-            return false;
+            RefreshSelectorToCurrentGridCell();
         }
 
         private Vector2 NativeInventoryPointToOverlay(Vector2 nativePoint)
@@ -1472,15 +1481,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             );
         }
 
-        private void DestroyPaperDollIndicator()
-        {
-            if (paperDollIndicator != null)
-            {
-                paperDollIndicator.Destroy();
-                paperDollIndicator = null;
-            }
-        }
-
+        
         private void EnsurePaperDollIndicator(DaggerfallInventoryWindow menuWindow)
         {
             if (menuWindow == null)
@@ -1508,15 +1509,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             RefreshPaperDollIndicatorPosition();
         }
 
-        private void DestroyPaperDollTargetList()
-        {
-            if (paperDollTargetList != null)
-            {
-                paperDollTargetList.Destroy();
-                paperDollTargetList = null;
-            }
-        }
-
+        
         private void EnsurePaperDollTargetList(DaggerfallInventoryWindow menuWindow)
         {
             if (menuWindow == null)
@@ -1540,6 +1533,427 @@ namespace gigantibyte.DFU.ControllerAssistant
             // Tune these later if needed.
             Rect listRect = NativeInventoryRectToOverlayRect(134f, 147f, 26f, 50f);
             paperDollTargetList.SetRect(listRect);
+        }
+
+        private void RefreshPaperDollIndicatorPosition()
+        {
+            if (paperDollIndicator == null)
+                return;
+
+            if (paperDollSelectedIndex < 0 || paperDollSelectedIndex >= paperDollAnchorsNative.Length)
+                return;
+
+            Vector2 pos = NativeInventoryPointToOverlay(paperDollAnchorsNative[paperDollSelectedIndex]);
+            paperDollIndicator.SetCenter(pos);
+        }
+
+
+        // =========================
+        // Lifecycle hooks
+        // =========================
+        protected override void OnOpened(DaggerfallInventoryWindow menuWindow, ControllerManager cm)
+        {
+            EnsureInitialized(menuWindow);
+            EnsureInventoryGrids(menuWindow);
+
+            if (resumeSelectorMode)
+            {
+                selectorMode = true;
+                currentRegion = resumeRegion;
+                selectedColumn = resumeColumn;
+                selectedRow = resumeRow;
+                buttonSelectedIndex = resumeButtonIndex;
+                resumeSelectorMode = false;
+                paperDollSelectedIndex = resumePaperDollIndex;
+            }
+
+            if (currentRegion == REGION_PAPERDOLL)
+            {
+                DestroySelectorBox();
+                EnsurePaperDollIndicator(menuWindow);
+                EnsurePaperDollTargetList(menuWindow);
+            }
+            else
+            {
+                EnsureSelectorBox(menuWindow);
+                RefreshSelectorToCurrentRegion();
+            }
+        }
+
+        protected override void OnClosed(ControllerManager cm)
+        {
+            ResetState();
+        }
+
+        public override void ResetState()
+        {
+            base.ResetState();
+
+            closeDeferred = false;
+            legendVisible = false;
+
+            if (legend != null)
+            {
+                legend.Destroy();
+                legend = null;
+            }
+
+            DestroySelectorBox();
+            DestroyPaperDollIndicator();
+            DestroyPaperDollTargetList();
+
+            paperDollSelectedIndex = 0;
+            resumePaperDollIndex = 0;
+            panelRenderWindow = null;
+            inventoryUiScale = 1f;
+            leftItemGrid = null;
+            rightItemGrid = null;
+
+            selectedColumn = 0;
+            selectedRow = 0;
+            buttonSelectedIndex = 0;
+            currentRegion = REGION_LEFT_GRID;
+
+            selectorMode = true;
+        }
+
+        // =========================
+        // Per-window/per-open setup
+        // =========================
+        private void EnsureInitialized(DaggerfallInventoryWindow menuWindow)
+        {
+            if (reflectionCached) return;
+            if (menuWindow == null) return;
+
+            var type = menuWindow.GetType();
+
+            fiWindowBinding = CacheField(type, "toggleClosedBinding");
+
+            miWagonButtonClick = CacheMethod(type, "WagonButton_OnMouseClick");
+            fiWagonButton = CacheField(type, "wagonButton");
+
+            miSelectTabPage = CacheMethod(type, "SelectTabPage");
+            fiSelectedTabPage = CacheField(type, "selectedTabPage");
+
+            miSelectActionMode = CacheMethod(type, "SelectActionMode");
+            fiSelectedActionMode = CacheField(type, "selectedActionMode");
+
+            miGoldButtonClick = CacheMethod(type, "GoldButton_OnMouseClick");
+            fiGoldButton = CacheField(type, "goldButton");
+
+            fiPanelRenderWindow = CacheField(type, "parentPanel");
+
+            fiLocalItemListScrollerRect = CacheField(type, "localItemListScrollerRect");
+            fiLocalItemListScroller = CacheField(type, "localItemListScroller");
+            fiLocalItems = CacheField(type, "localItems");
+            miLocalItemListScroller_OnItemLeftClick = CacheMethod(type, "LocalItemListScroller_OnItemLeftClick");
+            miLocalItemListScroller_OnItemRightClick = CacheMethod(type, "LocalItemListScroller_OnItemRightClick");
+            miLocalItemListScroller_OnItemMiddleClick = CacheMethod(type, "LocalItemListScroller_OnItemMiddleClick");
+
+            fiRemoteItemListScrollerRect = CacheField(type, "remoteItemListScrollerRect");
+            fiRemoteItemListScroller = CacheField(type, "remoteItemListScroller");
+            fiRemoteItems = CacheField(type, "remoteItems");
+            miRemoteItemListScroller_OnItemLeftClick = CacheMethod(type, "RemoteItemListScroller_OnItemLeftClick");
+            miRemoteItemListScroller_OnItemRightClick = CacheMethod(type, "RemoteItemListScroller_OnItemRightClick");
+            miRemoteItemListScroller_OnItemMiddleClick = CacheMethod(type, "RemoteItemListScroller_OnItemMiddleClick");
+
+            piNativePanel = type.GetProperty("NativePanel", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            reflectionCached = true;
+        }
+
+        private void EnsureInventoryGrids(DaggerfallInventoryWindow menuWindow)
+        {
+            if (leftItemGrid != null && rightItemGrid != null)
+                return;
+
+            if (menuWindow == null)
+                return;
+
+            if (panelRenderWindow == null && fiPanelRenderWindow != null)
+                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+
+            if (panelRenderWindow == null)
+                return;
+
+            float nativeWidth = 320f;
+            float nativeHeight = 200f;
+
+            float parentWidth = panelRenderWindow.Size.x;
+            float parentHeight = panelRenderWindow.Size.y;
+
+            float scaleX = parentWidth / nativeWidth;
+            float scaleY = parentHeight / nativeHeight;
+            float scale = Mathf.Min(scaleX, scaleY);
+            inventoryUiScale = scale;
+
+            float scaledNativeWidth = nativeWidth * scale;
+            float scaledNativeHeight = nativeHeight * scale;
+
+            float offsetX = (parentWidth - scaledNativeWidth) * 0.5f;
+            float offsetY = (parentHeight - scaledNativeHeight) * 0.5f;
+
+            float scrollBarWidthNative = 10f;
+            float contentInsetXNative = 2f;
+            float contentNudgeXNative = -3f;
+
+            float columnStepNative = 25f;
+            float rowStepNative = 19f;
+
+            // Local grid
+            float localNativeX = 163f;
+            float localNativeY = 48f;
+            float localNativeW = 59f;
+
+            float localContentX = localNativeX + scrollBarWidthNative + contentInsetXNative + contentNudgeXNative;
+            float localContentW = localNativeW - scrollBarWidthNative - contentInsetXNative;
+
+            leftItemGrid = new InventoryGrid(
+                originX: offsetX + (localContentX * scale),
+                originY: offsetY + (localNativeY * scale),
+                columns: 2,
+                rows: 8,
+                cellWidth: columnStepNative * scale,
+                cellHeight: rowStepNative * scale
+            );
+
+            // Remote grid
+            float remoteNativeX = 261f;
+            float remoteNativeY = 48f;
+            float remoteNativeW = 59f;
+
+            float remoteContentX = remoteNativeX + scrollBarWidthNative + contentInsetXNative + contentNudgeXNative;
+            float remoteContentW = remoteNativeW - scrollBarWidthNative - contentInsetXNative;
+
+            rightItemGrid = new InventoryGrid(
+                originX: offsetX + (remoteContentX * scale),
+                originY: offsetY + (remoteNativeY * scale),
+                columns: 2,
+                rows: 8,
+                cellWidth: columnStepNative * scale,
+                cellHeight: rowStepNative * scale
+            );
+        }
+
+        // =========================
+        // Optional UI helpers
+        // =========================
+        private void EnsureLegendUI(DaggerfallInventoryWindow menuWindow, ControllerManager cm)
+        {
+            if (menuWindow == null) return;
+
+            if (panelRenderWindow == null && fiPanelRenderWindow != null)
+                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+
+            if (panelRenderWindow == null) return;
+
+            if (legend == null)
+            {
+                legend = new LegendOverlay(panelRenderWindow);
+
+                legend.HeaderScale = 6.0f;
+                legend.RowScale = 5.0f;
+                legend.PadL = 18f;
+                legend.PadT = 16f;
+                legend.LineGap = 36f;
+                legend.ColGap = 22f;
+                legend.MarginX = 8f;
+                legend.MarginFromBottom = 24f;
+                legend.BackgroundColor = new Color(0f, 0f, 0f, 0.60f);
+
+                List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
+                {
+                    new LegendOverlay.LegendRow("D-Pad Left/Right", "Cycle Tabs"),
+                    new LegendOverlay.LegendRow(cm.Action1Name, "Left Click"),
+                    new LegendOverlay.LegendRow(cm.Action2Name, "Right Click"),
+                    new LegendOverlay.LegendRow("D-Pad Up", "Middle Click"),
+                    new LegendOverlay.LegendRow("Right Stick", "Move Selector"),
+                };
+
+                legend.Build("Legend", rows);
+            }
+        }
+
+        private void RefreshLegendAttachment(DaggerfallInventoryWindow menuWindow)
+        {
+            if (menuWindow == null || fiPanelRenderWindow == null)
+                return;
+
+            Panel current = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+            if (current == null)
+                return;
+
+            if (panelRenderWindow != current)
+            {
+                panelRenderWindow = current;
+                legendVisible = false;
+                legend = null;
+                return;
+            }
+
+            if (legend != null && !legend.IsAttached())
+            {
+                legendVisible = false;
+                legend = null;
+            }
+        }
+
+        // =========================
+        // Existing helpers kept alive
+        // =========================
+        private void CycleTab(DaggerfallInventoryWindow menuWindow, int direction)
+        {
+            if (menuWindow == null || miSelectTabPage == null || fiSelectedTabPage == null)
+                return;
+
+            object currentValue = fiSelectedTabPage.GetValue(menuWindow);
+            if (currentValue == null)
+                return;
+
+            int current = (int)currentValue;
+            int count = 4;
+
+            int next = (current + direction + count) % count;
+            object nextEnum = Enum.ToObject(currentValue.GetType(), next);
+
+            miSelectTabPage.Invoke(menuWindow, new object[] { nextEnum });
+        }
+
+        private void DestroySelectorBox()
+        {
+            if (selectorBox != null)
+            {
+                selectorBox.Destroy();
+                selectorBox = null;
+            }
+        }
+
+        private void DestroyPaperDollIndicator()
+        {
+            if (paperDollIndicator != null)
+            {
+                paperDollIndicator.Destroy();
+                paperDollIndicator = null;
+            }
+        }
+
+        private void DestroyPaperDollTargetList()
+        {
+            if (paperDollTargetList != null)
+            {
+                paperDollTargetList.Destroy();
+                paperDollTargetList = null;
+            }
+        }
+
+        // =========================
+        // Reflection helpers
+        // =========================
+        private MethodInfo CacheMethod(Type type, string name)
+        {
+            MethodInfo mi = type.GetMethod(name, BF);
+            if (mi == null)
+                Debug.Log("[ControllerAssistant] Missing method: " + name);
+            return mi;
+        }
+
+        private FieldInfo CacheField(Type type, string name)
+        {
+            FieldInfo fi = type.GetField(name, BF);
+            if (fi == null)
+                Debug.Log("[ControllerAssistant] Missing field: " + name);
+            return fi;
+        }
+
+        // =========================
+        // Minimal placeholder nested types
+        // =========================
+        private class SelectorBoxOverlay
+        {
+            private readonly Panel parent;
+            private Panel root;
+            private BaseScreenComponent top;
+            private BaseScreenComponent bottom;
+            private BaseScreenComponent left;
+            private BaseScreenComponent right;
+            private bool built = false;
+
+            public SelectorBoxOverlay(Panel parent)
+            {
+                this.parent = parent;
+            }
+
+            public bool IsAttached()
+            {
+                return built && root != null && root.Parent == parent;
+            }
+
+            public void BuildCenteredBox(float boxWidth, float boxHeight, float borderThickness, Color borderColor)
+            {
+                Destroy();
+
+                if (parent == null)
+                    return;
+
+                root = new Panel();
+                root.AutoSize = AutoSizeModes.None;
+                root.Size = new Vector2(boxWidth, boxHeight);
+                root.BackgroundColor = Color.clear;
+
+                top = CreateBorderPiece(new Vector2(boxWidth, borderThickness), borderColor);
+                top.Position = Vector2.zero;
+
+                bottom = CreateBorderPiece(new Vector2(boxWidth, borderThickness), borderColor);
+                bottom.Position = new Vector2(0f, boxHeight - borderThickness);
+
+                left = CreateBorderPiece(new Vector2(borderThickness, boxHeight), borderColor);
+                left.Position = Vector2.zero;
+
+                right = CreateBorderPiece(new Vector2(borderThickness, boxHeight), borderColor);
+                right.Position = new Vector2(boxWidth - borderThickness, 0f);
+
+                root.Components.Add(top);
+                root.Components.Add(bottom);
+                root.Components.Add(left);
+                root.Components.Add(right);
+
+                parent.Components.Add(root);
+                built = true;
+            }
+
+            public void SetPosition(Vector2 topLeft)
+            {
+                if (!built || root == null)
+                    return;
+
+                root.Position = topLeft;
+            }
+
+            public void Destroy()
+            {
+                if (root != null && root.Parent != null)
+                {
+                    Panel parentPanel = root.Parent as Panel;
+                    if (parentPanel != null)
+                        parentPanel.Components.Remove(root);
+                }
+
+                root = null;
+                top = null;
+                bottom = null;
+                left = null;
+                right = null;
+                built = false;
+            }
+
+            private BaseScreenComponent CreateBorderPiece(Vector2 size, Color color)
+            {
+                Panel piece = new Panel();
+                piece.AutoSize = AutoSizeModes.None;
+                piece.Size = size;
+                piece.BackgroundColor = color;
+                return piece;
+            }
         }
 
         private class DiamondIndicatorOverlay
@@ -1799,694 +2213,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
         }
 
-        private void RefreshPaperDollIndicatorPosition()
-        {
-            if (paperDollIndicator == null)
-                return;
-
-            if (paperDollSelectedIndex < 0 || paperDollSelectedIndex >= paperDollAnchorsNative.Length)
-                return;
-
-            Vector2 pos = NativeInventoryPointToOverlay(paperDollAnchorsNative[paperDollSelectedIndex]);
-            paperDollIndicator.SetCenter(pos);
-        }
-
-        private void ToggleWagon(DaggerfallInventoryWindow menuWindow)
-        {
-            if (miWagonButtonClick == null || menuWindow == null)
-                return;
-
-            object wagonButton = fiWagonButton != null ? fiWagonButton.GetValue(menuWindow) : null;
-
-            object[] args = new object[]
-            {
-                wagonButton,
-                Vector2.zero
-            };
-
-            miWagonButtonClick.Invoke(menuWindow, args);
-        }
-
-        private void CycleTab(DaggerfallInventoryWindow menuWindow, int direction)
-        {
-            if (menuWindow == null || miSelectTabPage == null || fiSelectedTabPage == null)
-                return;
-
-            object currentValue = fiSelectedTabPage.GetValue(menuWindow);
-            if (currentValue == null)
-                return;
-
-            int current = (int)currentValue;
-            int count = 4;
-
-            int next = (current + direction + count) % count;
-            object nextEnum = Enum.ToObject(currentValue.GetType(), next);
-
-            miSelectTabPage.Invoke(menuWindow, new object[] { nextEnum });
-        }
-
-        private void CycleActionMode(DaggerfallInventoryWindow menuWindow, int direction)
-        {
-            if (menuWindow == null || miSelectActionMode == null || fiSelectedActionMode == null)
-                return;
-
-            object currentValue = fiSelectedActionMode.GetValue(menuWindow);
-            if (currentValue == null)
-                return;
-
-            int current = (int)currentValue;
-
-            int[] validModes = new int[] { 0, 1, 2, 3 };
-
-            int currentIndex = 0;
-            for (int i = 0; i < validModes.Length; i++)
-            {
-                if (validModes[i] == current)
-                {
-                    currentIndex = i;
-                    break;
-                }
-            }
-
-            int nextIndex = (currentIndex + direction + validModes.Length) % validModes.Length;
-            int nextValue = validModes[nextIndex];
-
-            object nextEnum = Enum.ToObject(currentValue.GetType(), nextValue);
-            miSelectActionMode.Invoke(menuWindow, new object[] { nextEnum });
-        }
-
-        private void OpenGoldPopup(DaggerfallInventoryWindow menuWindow)
-        {
-            if (miGoldButtonClick == null || menuWindow == null)
-                return;
-
-            if (legend != null)
-            {
-                legend.Destroy();
-                legend = null;
-            }
-
-            object goldButton = fiGoldButton != null ? fiGoldButton.GetValue(menuWindow) : null;
-
-            object[] args = new object[]
-            {
-                goldButton,
-                Vector2.zero
-            };
-
-            miGoldButtonClick.Invoke(menuWindow, args);
-
-            if (debugMODE) DaggerfallUI.AddHUDText("Gold popup opened");
-        }
-
-        // =========================
-        // Lifecycle hooks
-        // =========================
-        protected override void OnOpened(DaggerfallInventoryWindow menuWindow, ControllerManager cm)
-        {
-            if (debugMODE) DumpWindowMembers(menuWindow);
-            EnsureInitialized(menuWindow);
-            EnsureInventoryGrids(menuWindow);
-
-            if (resumeSelectorMode)
-            {
-                selectorMode = true;
-                currentRegion = resumeRegion;
-                selectedColumn = resumeColumn;
-                selectedRow = resumeRow;
-
-                EnsureSelectorVisualState(menuWindow);
-
-                resumeSelectorMode = false;
-            }
-        }
-
-        protected override void OnClosed(ControllerManager cm)
-        {
-            ResetState();
-            if (debugMODE) DaggerfallUI.AddHUDText("DaggerfallInventoryWindow closed");
-        }
-
-        public override void ResetState()
-        {
-            base.ResetState();
-
-            closeDeferred = false;
-
-            legendVisible = false;
-
-            EndSelectorHold();
-
-            if (legend != null)
-            {
-                legend.Destroy();
-                legend = null;
-            }
-
-            DestroySelectorBox();
-            DestroyPaperDollIndicator();
-            DestroyPaperDollTargetList();
-            paperDollSelectedIndex = 0;
-
-            if (debugMODE)
-                DaggerfallUI.AddHUDText("Selector mode OFF");
-
-            panelRenderWindow = null;
-            inventoryUiScale = 1f;
-            leftItemGrid = null;
-            selectedColumn = 0;
-            selectedRow = 0;
-
-            rightItemGrid = null;
-            currentRegion = REGION_LEFT_GRID;
-        }
-
-        // =========================
-        // Per-window/per-open setup
-        // =========================
-        private void EnsureInitialized(DaggerfallInventoryWindow menuWindow)
-        {
-            if (reflectionCached) return;
-            if (menuWindow == null) return;
-
-            var type = menuWindow.GetType();
-
-            fiWindowBinding = CacheField(type, "toggleClosedBinding");
-
-            miWagonButtonClick = CacheMethod(type, "WagonButton_OnMouseClick");
-            fiWagonButton = CacheField(type, "wagonButton");
-
-            miSelectTabPage = CacheMethod(type, "SelectTabPage");
-            fiSelectedTabPage = CacheField(type, "selectedTabPage");
-
-            miSelectActionMode = CacheMethod(type, "SelectActionMode");
-            fiSelectedActionMode = CacheField(type, "selectedActionMode");
-
-            miGoldButtonClick = CacheMethod(type, "GoldButton_OnMouseClick");
-            fiGoldButton = CacheField(type, "goldButton");
-
-            fiPanelRenderWindow = CacheField(type, "parentPanel");
-
-            fiLocalItemListScrollerRect = CacheField(type, "localItemListScrollerRect");
-            fiLocalItemListScroller = CacheField(type, "localItemListScroller");
-            fiLocalItems = CacheField(type, "localItems");
-            miLocalItemListScroller_OnItemLeftClick = CacheMethod(type, "LocalItemListScroller_OnItemLeftClick");
-            miLocalItemListScroller_OnItemRightClick = CacheMethod(type, "LocalItemListScroller_OnItemRightClick");
-            miLocalItemListScroller_OnItemMiddleClick = CacheMethod(type, "LocalItemListScroller_OnItemMiddleClick");
-
-            fiRemoteItemListScrollerRect = CacheField(type, "remoteItemListScrollerRect");
-            fiRemoteItemListScroller = CacheField(type, "remoteItemListScroller");
-            fiRemoteItems = CacheField(type, "remoteItems");
-            miRemoteItemListScroller_OnItemLeftClick = CacheMethod(type, "RemoteItemListScroller_OnItemLeftClick");
-            miRemoteItemListScroller_OnItemRightClick = CacheMethod(type, "RemoteItemListScroller_OnItemRightClick");
-            miRemoteItemListScroller_OnItemMiddleClick = CacheMethod(type, "RemoteItemListScroller_OnItemMiddleClick");
-
-            piNativePanel = type.GetProperty("NativePanel", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (piNativePanel == null)
-                Debug.Log("[ControllerAssistant] Missing property: NativePanel");
-
-            reflectionCached = true;
-        }
-
-        // =========================
-        // Optional UI helpers
-        // =========================
-        private void EnsureLegendUI(DaggerfallInventoryWindow menuWindow, ControllerManager cm)
-        {
-            if (menuWindow == null) return;
-
-            if (panelRenderWindow == null && fiPanelRenderWindow != null)
-                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
-
-            if (panelRenderWindow == null) return;
-
-            if (legend == null)
-            {
-                legend = new LegendOverlay(panelRenderWindow);
-
-                legend.HeaderScale = 6.0f;
-                legend.RowScale = 5.0f;
-                legend.PadL = 18f;
-                legend.PadT = 16f;
-                legend.LineGap = 36f;
-                legend.ColGap = 22f;
-                legend.MarginX = 8f;
-                legend.MarginFromBottom = 24f;
-                legend.BackgroundColor = new Color(0f, 0f, 0f, 0.60f);
-
-                List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
-                {
-                    new LegendOverlay.LegendRow("D-Pad Up Dn", "Buttons"),
-                    new LegendOverlay.LegendRow("D-Pad LR", "Tabs"),
-                    new LegendOverlay.LegendRow("Right Stick Up", "Wagon"),
-                    new LegendOverlay.LegendRow("Right Stick Dn", "Gold"),
-                };
-
-                legend.Build("Legend", rows);
-            }
-        }
-
-        private void RefreshLegendAttachment(DaggerfallInventoryWindow menuWindow)
-        {
-            if (menuWindow == null || fiPanelRenderWindow == null)
-                return;
-
-            Panel current = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
-            if (current == null)
-                return;
-
-            if (panelRenderWindow != current)
-            {
-                panelRenderWindow = current;
-                legendVisible = false;
-                legend = null;
-                return;
-            }
-
-            if (legend != null && !legend.IsAttached())
-            {
-                legendVisible = false;
-                legend = null;
-            }
-        }
-
-        // =========================
-        // Reflection helpers
-        // =========================
-        private MethodInfo CacheMethod(System.Type type, string name)
-        {
-            MethodInfo mi = type.GetMethod(name, BF);
-            if (mi == null)
-                Debug.Log("[ControllerAssistant] Missing method: " + name);
-            return mi;
-        }
-
-        private FieldInfo CacheField(System.Type type, string name)
-        {
-            FieldInfo fi = type.GetField(name, BF);
-            if (fi == null)
-                Debug.Log("[ControllerAssistant] Missing field: " + name);
-            return fi;
-        }
-
-        // =========================
-        // Diagnostics
-        // =========================
-        void DumpWindowMembers(object window)
-        {
-            var type = window.GetType();
-
-            Debug.Log("===== METHODS =====");
-            foreach (var m in type.GetMethods(BF))
-                Debug.Log(m.Name);
-
-            Debug.Log("===== FIELDS =====");
-            foreach (var f in type.GetFields(BF))
-                Debug.Log(f.Name);
-        }
-        private void LogInventoryLayoutDiagnostics(DaggerfallInventoryWindow menuWindow)
-        {
-            if (menuWindow == null)
-                return;
-
-            if (panelRenderWindow == null && fiPanelRenderWindow != null)
-                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
-
-            Rect localRect = default(Rect);
-            bool hasLocalRect = false;
-
-            if (fiLocalItemListScrollerRect != null)
-            {
-                object rectObj = fiLocalItemListScrollerRect.GetValue(menuWindow);
-                if (rectObj is Rect)
-                {
-                    localRect = (Rect)rectObj;
-                    hasLocalRect = true;
-                }
-            }
-
-            Debug.Log("===== ControllerAssistant Inventory Diagnostics =====");
-
-            if (hasLocalRect)
-                Debug.Log(string.Format(
-                    "[CA] localItemListScrollerRect = x:{0} y:{1} w:{2} h:{3}",
-                    localRect.x, localRect.y, localRect.width, localRect.height));
-            else
-                Debug.Log("[CA] localItemListScrollerRect = <unavailable>");
-
-            if (panelRenderWindow != null)
-                Debug.Log(string.Format(
-                    "[CA] parentPanel.Size = x:{0} y:{1}",
-                    panelRenderWindow.Size.x, panelRenderWindow.Size.y));
-            else
-                Debug.Log("[CA] parentPanel = <null>");
-
-            Panel nativePanel = null;
-
-            if (piNativePanel != null)
-                nativePanel = piNativePanel.GetValue(menuWindow, null) as Panel;
-
-            if (nativePanel != null)
-            {
-                Debug.Log(string.Format(
-                    "[CA] nativePanel.Position = x:{0} y:{1}",
-                    nativePanel.Position.x, nativePanel.Position.y));
-
-                Debug.Log(string.Format(
-                    "[CA] nativePanel.Size = x:{0} y:{1}",
-                    nativePanel.Size.x, nativePanel.Size.y));
-            }
-            else
-            {
-                Debug.Log("[CA] nativePanel = <null>");
-            }
-
-            if (leftItemGrid != null)
-                Debug.Log(string.Format(
-                    "[CA] leftItemGrid = originX:{0} originY:{1} cols:{2} rows:{3} cellW:{4} cellH:{5}",
-                    leftItemGrid.OriginX, leftItemGrid.OriginY,
-                    leftItemGrid.Columns, leftItemGrid.Rows,
-                    leftItemGrid.CellWidth, leftItemGrid.CellHeight));
-            else
-                Debug.Log("[CA] leftItemGrid = <null>");
-        }
-
-        private void LogLocalInventorySelectionDiagnostics(DaggerfallInventoryWindow menuWindow)
-        {
-            if (menuWindow == null)
-                return;
-
-            Debug.Log("===== ControllerAssistant Local Inventory Selection Diagnostics =====");
-            Debug.Log(string.Format("[CA] selector column={0} row={1}", selectedColumn, selectedRow));
-
-            // Dump localItems collection contents
-            object localItemsObj = null;
-            if (fiLocalItems != null)
-                localItemsObj = fiLocalItems.GetValue(menuWindow);
-
-            if (localItemsObj == null)
-            {
-                Debug.Log("[CA] localItems = <null>");
-            }
-            else
-            {
-                Debug.Log("[CA] localItems type = " + localItemsObj.GetType().FullName);
-
-                System.Collections.IEnumerable enumerable = localItemsObj as System.Collections.IEnumerable;
-                if (enumerable != null)
-                {
-                    int index = 0;
-                    foreach (object obj in enumerable)
-                    {
-                        DaggerfallUnityItem item = obj as DaggerfallUnityItem;
-                        if (item != null)
-                        {
-                            Debug.Log(string.Format(
-                                "[CA] localItems[{0}] name=\"{1}\" short=\"{2}\" stack={3}",
-                                index,
-                                item.LongName,
-                                item.shortName,
-                                item.stackCount));
-                        }
-                        else
-                        {
-                            Debug.Log(string.Format("[CA] localItems[{0}] type={1}", index, obj != null ? obj.GetType().FullName : "<null>"));
-                        }
-
-                        index++;
-                        if (index >= 24)   // keep log manageable for now
-                            break;
-                    }
-
-                    Debug.Log(string.Format("[CA] localItems first {0} entries logged", index));
-                }
-                else
-                {
-                    Debug.Log("[CA] localItems is not IEnumerable");
-                }
-            }
-
-            // Dump scroller object + its fields/properties
-            object scrollerObj = null;
-            if (fiLocalItemListScroller != null)
-                scrollerObj = fiLocalItemListScroller.GetValue(menuWindow);
-
-            if (scrollerObj == null)
-            {
-                Debug.Log("[CA] localItemListScroller = <null>");
-                return;
-            }
-
-            Type scrollerType = scrollerObj.GetType();
-            Debug.Log("[CA] localItemListScroller type = " + scrollerType.FullName);
-
-            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-            Debug.Log("----- localItemListScroller FIELDS -----");
-            foreach (FieldInfo fi in scrollerType.GetFields(flags))
-            {
-                object value = null;
-                try
-                {
-                    value = fi.GetValue(scrollerObj);
-                }
-                catch (Exception ex)
-                {
-                    value = "<error: " + ex.GetType().Name + ">";
-                }
-
-                Debug.Log(string.Format("[CA] field {0} = {1}", fi.Name, value ?? "<null>"));
-            }
-
-            Debug.Log("----- localItemListScroller PROPERTIES -----");
-            foreach (PropertyInfo pi in scrollerType.GetProperties(flags))
-            {
-                if (pi.GetIndexParameters().Length > 0)
-                    continue;
-
-                object value = null;
-                try
-                {
-                    if (pi.CanRead)
-                        value = pi.GetValue(scrollerObj, null);
-                    else
-                        value = "<write-only>";
-                }
-                catch (Exception ex)
-                {
-                    value = "<error: " + ex.GetType().Name + ">";
-                }
-
-                Debug.Log(string.Format("[CA] property {0} = {1}", pi.Name, value ?? "<null>"));
-            }
-        }
-
-        private void LogSelectedVisibleLocalItem(DaggerfallInventoryWindow menuWindow)
-        {
-            if (menuWindow == null || fiLocalItemListScroller == null)
-                return;
-
-            object scrollerObj = fiLocalItemListScroller.GetValue(menuWindow);
-            if (scrollerObj == null)
-            {
-                Debug.Log("[CA] localItemListScroller = <null>");
-                return;
-            }
-
-            Type scrollerType = scrollerObj.GetType();
-            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-            PropertyInfo piItems = scrollerType.GetProperty("Items", flags);
-            if (piItems == null)
-            {
-                Debug.Log("[CA] localItemListScroller.Items property not found");
-                return;
-            }
-
-            object itemsObj = piItems.GetValue(scrollerObj, null);
-            List<DaggerfallUnityItem> items = itemsObj as List<DaggerfallUnityItem>;
-            if (items == null)
-            {
-                Debug.Log("[CA] localItemListScroller.Items is null or not List<DaggerfallUnityItem>");
-                return;
-            }
-
-            int visibleIndex = (selectedRow * leftItemGrid.Columns) + selectedColumn;
-
-            Debug.Log("===== ControllerAssistant Selected Visible Local Item =====");
-            Debug.Log(string.Format(
-                "[CA] selector column={0} row={1} visibleIndex={2} itemCount={3}",
-                selectedColumn, selectedRow, visibleIndex, items.Count));
-
-            if (visibleIndex < 0 || visibleIndex >= items.Count)
-            {
-                Debug.Log("[CA] No item at selected visible slot.");
-                return;
-            }
-
-            DaggerfallUnityItem item = items[visibleIndex];
-            if (item == null)
-            {
-                Debug.Log("[CA] Selected item is null.");
-                return;
-            }
-
-            Debug.Log(string.Format(
-                "[CA] Selected item: long=\"{0}\" short=\"{1}\" stack={2}",
-                item.LongName, item.shortName, item.stackCount));
-        }
-
-        private void LogScrollBarDiagnostics(DaggerfallInventoryWindow menuWindow)
-        {
-            if (menuWindow == null || fiLocalItemListScroller == null)
-                return;
-
-            object scrollerObj = fiLocalItemListScroller.GetValue(menuWindow);
-            if (scrollerObj == null)
-            {
-                Debug.Log("[CA] localItemListScroller = <null>");
-                return;
-            }
-
-            Type scrollerType = scrollerObj.GetType();
-            BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-            FieldInfo fiScrollBar = scrollerType.GetField("itemListScrollBar", flags);
-
-            if (fiScrollBar == null)
-            {
-                Debug.Log("[CA] itemListScrollBar field not found");
-                return;
-            }
-
-            object scrollBar = fiScrollBar.GetValue(scrollerObj);
-
-            if (scrollBar == null)
-            {
-                Debug.Log("[CA] itemListScrollBar = <null>");
-                return;
-            }
-
-            Type sbType = scrollBar.GetType();
-
-            Debug.Log("===== ControllerAssistant ScrollBar Diagnostics =====");
-            Debug.Log("[CA] scrollBar type = " + sbType.FullName);
-
-            Debug.Log("----- FIELDS -----");
-            foreach (FieldInfo fi in sbType.GetFields(flags))
-            {
-                object value = null;
-                try { value = fi.GetValue(scrollBar); }
-                catch { value = "<error>"; }
-
-                Debug.Log("[CA] field " + fi.Name + " = " + (value ?? "<null>"));
-            }
-
-            Debug.Log("----- PROPERTIES -----");
-            foreach (PropertyInfo pi in sbType.GetProperties(flags))
-            {
-                if (pi.GetIndexParameters().Length > 0)
-                    continue;
-
-                object value = null;
-                try { value = pi.GetValue(scrollBar, null); }
-                catch { value = "<error>"; }
-
-                Debug.Log("[CA] property " + pi.Name + " = " + (value ?? "<null>"));
-            }
-        }
-
-        // =========================
-        // Simple hollow selector box
-        // =========================
-        private class SelectorBoxOverlay
-        {
-            private readonly Panel parent;
-            private Panel root;
-            private Panel borderTop;
-            private Panel borderBottom;
-            private Panel borderLeft;
-            private Panel borderRight;
-            private Vector2 position;
-
-            public SelectorBoxOverlay(Panel parent)
-            {
-                this.parent = parent;
-            }
-
-            public bool IsAttached()
-            {
-                return root != null && root.Parent == parent;
-            }
-
-            public void BuildCenteredBox(float boxWidth, float boxHeight, float borderThickness, Color borderColor)
-            {
-                if (parent == null)
-                    return;
-
-                Destroy();
-
-                float x = (parent.Size.x - boxWidth) * 0.5f;
-                float y = (parent.Size.y - boxHeight) * 0.5f;
-
-                root = DaggerfallUI.AddPanel(new Rect(x, y, boxWidth, boxHeight), parent);
-                root.BackgroundColor = new Color(0, 0, 0, 0);
-
-                borderTop = DaggerfallUI.AddPanel(new Rect(0, 0, boxWidth, borderThickness), root);
-                borderBottom = DaggerfallUI.AddPanel(new Rect(0, boxHeight - borderThickness, boxWidth, borderThickness), root);
-                borderLeft = DaggerfallUI.AddPanel(new Rect(0, 0, borderThickness, boxHeight), root);
-                borderRight = DaggerfallUI.AddPanel(new Rect(boxWidth - borderThickness, 0, borderThickness, boxHeight), root);
-
-                borderTop.BackgroundColor = borderColor;
-                borderBottom.BackgroundColor = borderColor;
-                borderLeft.BackgroundColor = borderColor;
-                borderRight.BackgroundColor = borderColor;
-
-                position = new Vector2(x, y);
-            }
-
-            public void SetPosition(Vector2 newPos)
-            {
-                position = newPos;
-                if (root != null)
-                    root.Position = position;
-            }
-
-            public void MoveBy(float dx, float dy)
-            {
-                if (root == null || parent == null)
-                    return;
-
-                Vector2 newPos = position + new Vector2(dx, dy);
-
-                // Clamp to parent bounds
-                float maxX = parent.Size.x - root.Size.x;
-                float maxY = parent.Size.y - root.Size.y;
-
-                newPos.x = Mathf.Clamp(newPos.x, 0, maxX);
-                newPos.y = Mathf.Clamp(newPos.y, 0, maxY);
-
-                SetPosition(newPos);
-            }
-
-
-            public void Destroy()
-            {
-                if (root != null && root.Parent != null)
-                {
-                    Panel parentPanel = root.Parent as Panel;
-                    if (parentPanel != null)
-                        parentPanel.Components.Remove(root);
-                }
-
-                root = null;
-                borderTop = null;
-                borderBottom = null;
-                borderLeft = null;
-                borderRight = null;
-                position = Vector2.zero;
-            }
-        }
         private class InventoryGrid
         {
             public readonly float OriginX;
@@ -2513,83 +2239,5 @@ namespace gigantibyte.DFU.ControllerAssistant
                 return new Rect(x, y, CellWidth, CellHeight);
             }
         }
-        private void EnsureInventoryGrids(DaggerfallInventoryWindow menuWindow)
-        {
-            if (leftItemGrid != null)
-                return;
-
-            if (menuWindow == null)
-                return;
-
-            if (panelRenderWindow == null && fiPanelRenderWindow != null)
-                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
-
-            if (panelRenderWindow == null)
-            {
-                Debug.Log("[ControllerAssistant] EnsureInventoryGrids(): parentPanel is null.");
-                return;
-            }
-
-            // Convert DFU native inventory-space rect to parentPanel overlay-space.
-            float nativeWidth = 320f;
-            float nativeHeight = 200f;
-
-            float parentWidth = panelRenderWindow.Size.x;
-            float parentHeight = panelRenderWindow.Size.y;
-
-            float scaleX = parentWidth / nativeWidth;
-            float scaleY = parentHeight / nativeHeight;
-            float scale = Mathf.Min(scaleX, scaleY);
-            inventoryUiScale = scale;
-
-            float scaledNativeWidth = nativeWidth * scale;
-            float scaledNativeHeight = nativeHeight * scale;
-
-            float offsetX = (parentWidth - scaledNativeWidth) * 0.5f;
-            float offsetY = (parentHeight - scaledNativeHeight) * 0.5f;
-
-            // DFU native rect for local item list
-            float nativeX = 163f;
-            float nativeY = 48f;
-            float nativeW = 59f;
-            float nativeH = 152f;
-
-            float scrollBarWidthNative = 10f;
-            float contentInsetXNative = 2f;
-            float contentNudgeXNative = -3f;
-
-            float contentX = nativeX + scrollBarWidthNative + contentInsetXNative + contentNudgeXNative;
-            float contentW = nativeW - scrollBarWidthNative - contentInsetXNative;
-
-            float columnStepNative = 25f;   // was effectively about 15.5
-            float rowStepNative = 19f;      // was about 25.33
-
-            leftItemGrid = new InventoryGrid(
-                originX: offsetX + (contentX * scale),
-                originY: offsetY + (nativeY * scale),
-                columns: 2,
-                rows: 8,
-                cellWidth: columnStepNative * scale,
-                cellHeight: rowStepNative * scale
-            );
-
-            float remoteNativeX = 261f;
-            float remoteNativeY = 48f;
-            float remoteNativeW = 59f;
-            float remoteNativeH = 152f;
-
-            float remoteContentX = remoteNativeX + scrollBarWidthNative + contentInsetXNative + contentNudgeXNative;
-
-            rightItemGrid = new InventoryGrid(
-                originX: offsetX + (remoteContentX * scale),
-                originY: offsetY + (remoteNativeY * scale),
-                columns: 2,
-                rows: 8,
-                cellWidth: columnStepNative * scale,
-                cellHeight: rowStepNative * scale
-            );
-        }
-
-
     }
 }
