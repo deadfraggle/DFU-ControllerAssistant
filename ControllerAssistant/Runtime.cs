@@ -34,6 +34,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         private static readonly MessageBoxAssist messagebox = new MessageBoxAssist();
         private static readonly TransportAssist transport = new TransportAssist();
         private static readonly CAFavoritesWindowAssist favorites = new CAFavoritesWindowAssist();
+        private static readonly PauseAssist pause = new PauseAssist();
 
         // Specialized modules (do NOT include defaults here)
         private static readonly IMenuAssist[] assists =
@@ -46,6 +47,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             messagebox,
             transport,
             favorites,
+            pause,
             // add TravelAssist, InventoryAssist, etc. here later
         };
 
