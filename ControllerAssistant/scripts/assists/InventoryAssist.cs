@@ -250,6 +250,22 @@ namespace gigantibyte.DFU.ControllerAssistant
             "Feet",
         };
 
+        private ClothingExpandOverlay clothingExpandOverlay = null;
+        private ClothingTargetListOverlay clothingTargetList = null;
+        private GearExpandOverlay gearExpandOverlay = null;
+        private int clothingSelectedIndex = 0;
+
+        private readonly string[] clothingTargetNames = new string[]
+        {
+            "Hat",
+            "Cloak",
+            "Chest",
+            "Gloves",
+            "Legs",
+            "Feet",
+        };
+
+
         private InventoryGrid rightItemGrid;
 
         private FieldInfo fiRemoteItemListScroller;
@@ -263,8 +279,9 @@ namespace gigantibyte.DFU.ControllerAssistant
         private const int REGION_LEFT_GRID = 0;
         private const int REGION_RIGHT_GRID = 1;
         private const int REGION_PAPERDOLL = 2;
-        private const int REGION_SPECIAL_ITEMS = 3;
-        private const int REGION_BUTTONS = 4;
+        private const int REGION_CLOTHING = 3;
+        private const int REGION_SPECIAL_ITEMS = 4;
+        private const int REGION_BUTTONS = 5;
 
         private int currentRegion = REGION_LEFT_GRID;
         private int gridRowMemory = -1;   // stores 0-based row index for rows 6-8 (visual), else -1
@@ -346,6 +363,10 @@ namespace gigantibyte.DFU.ControllerAssistant
                         HandlePaperDollRegion(menuWindow, cm);
                         break;
 
+                    case REGION_CLOTHING:
+                        HandleClothingRegion(menuWindow, cm);
+                        break;
+
                     case REGION_SPECIAL_ITEMS:
                         HandleSpecialItemsRegion(menuWindow, cm);
                         break;
@@ -367,8 +388,11 @@ namespace gigantibyte.DFU.ControllerAssistant
                 DestroySelectorBox();
                 DestroyPaperDollIndicator();
                 DestroyPaperDollTargetList();
+                DestroyClothingExpandLabel();
+                DestroyClothingTargetList();
+                DestroyGearExpandLabel();
 
-                menuWindow.CloseWindow();
+                //menuWindow.CloseWindow();
                 return;
             }
 
@@ -388,8 +412,11 @@ namespace gigantibyte.DFU.ControllerAssistant
                 DestroySelectorBox();
                 DestroyPaperDollIndicator();
                 DestroyPaperDollTargetList();
+                DestroyClothingExpandLabel();
+                DestroyClothingTargetList();
+                DestroyGearExpandLabel();
 
-                menuWindow.CloseWindow();
+                //menuWindow.CloseWindow();
                 return;
             }
         }
@@ -511,6 +538,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             EnsurePaperDollIndicator(menuWindow);
             EnsurePaperDollTargetList(menuWindow);
+            EnsureClothingExpandLabel(menuWindow);
 
             if (cm.Action1Pressed)
             {
@@ -531,13 +559,24 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
 
             if (cm.RStickLeftPressed || cm.RStickLeftHeldSlow)
+            {
+                DestroyPaperDollIndicator();
+                DestroyPaperDollTargetList();
+                DestroyClothingExpandLabel();
+                DestroySelectorBox();
+
+                currentRegion = REGION_CLOTHING;
+                EnsureClothingTargetList(menuWindow);
+                EnsureGearExpandLabel(menuWindow);
                 return;
+            }
 
             if (cm.RStickRightPressed || cm.RStickRightHeldSlow)
             {
                 SwitchRegion(menuWindow, REGION_LEFT_GRID, 0, 0);
                 DestroyPaperDollIndicator();
                 DestroyPaperDollTargetList();
+                DestroyClothingExpandLabel();
                 return;
             }
 
@@ -559,6 +598,72 @@ namespace gigantibyte.DFU.ControllerAssistant
                     paperDollSelectedIndex++;
                     RefreshPaperDollIndicatorPosition();
                     EnsurePaperDollTargetList(menuWindow);
+                }
+                return;
+            }
+        }
+        private void HandleClothingRegion(DaggerfallInventoryWindow menuWindow, ControllerManager cm)
+        {
+            EnsureClothingTargetList(menuWindow);
+            EnsureGearExpandLabel(menuWindow);
+
+            if (cm.Action1Pressed)
+            {
+                InvokeSelectedClothingLeftAction(menuWindow);
+                return;
+            }
+
+            if (cm.Action2Pressed)
+            {
+                InvokeSelectedClothingRightAction(menuWindow);
+                return;
+            }
+
+            if (cm.DPadUpPressed)
+            {
+                InvokeSelectedClothingMiddleAction(menuWindow);
+                return;
+            }
+
+            if (cm.RStickLeftPressed || cm.RStickLeftHeldSlow)
+            {
+                if (clothingSelectedIndex > 0)
+                {
+                    clothingSelectedIndex--;
+                    EnsureClothingTargetList(menuWindow);
+                }
+                return;
+            }
+
+            if (cm.RStickRightPressed || cm.RStickRightHeldSlow)
+            {
+                DestroyClothingTargetList();
+                DestroyGearExpandLabel();
+                DestroySelectorBox();
+
+                currentRegion = REGION_PAPERDOLL;
+                EnsurePaperDollIndicator(menuWindow);
+                EnsurePaperDollTargetList(menuWindow);
+                EnsureClothingExpandLabel(menuWindow);
+                return;
+            }
+
+            if (cm.RStickUpPressed || cm.RStickUpHeldSlow)
+            {
+                if (clothingSelectedIndex > 0)
+                {
+                    clothingSelectedIndex--;
+                    EnsureClothingTargetList(menuWindow);
+                }
+                return;
+            }
+
+            if (cm.RStickDownPressed || cm.RStickDownHeldSlow)
+            {
+                if (clothingSelectedIndex < clothingTargetNames.Length - 1)
+                {
+                    clothingSelectedIndex++;
+                    EnsureClothingTargetList(menuWindow);
                 }
                 return;
             }
@@ -664,6 +769,9 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 DestroyPaperDollIndicator();
                 DestroyPaperDollTargetList();
+                DestroyClothingExpandLabel();
+                DestroyClothingTargetList();
+                DestroyGearExpandLabel();
 
                 panelRenderWindow = current;
                 return;
@@ -867,6 +975,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 DestroySelectorBox();
                 EnsurePaperDollIndicator(menuWindow);
                 EnsurePaperDollTargetList(menuWindow);
+                EnsureClothingExpandLabel(menuWindow);
                 return true;
             }
 
@@ -987,7 +1096,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         }
         private void ApplySelectorStateChange(DaggerfallInventoryWindow menuWindow, int previousRegion)
         {
-            if (currentRegion == REGION_PAPERDOLL)
+            if (currentRegion == REGION_PAPERDOLL || currentRegion == REGION_CLOTHING)
             {
                 DestroySelectorBox();
                 return;
@@ -1526,11 +1635,22 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             if (currentRegion == newRegion)
             {
-                RefreshSelectorToCurrentRegion();
+                if (newRegion == REGION_PAPERDOLL || newRegion == REGION_CLOTHING)
+                    DestroySelectorBox();
+                else
+                    RefreshSelectorToCurrentRegion();
+
                 return;
             }
 
             currentRegion = newRegion;
+
+            if (newRegion == REGION_PAPERDOLL || newRegion == REGION_CLOTHING)
+            {
+                DestroySelectorBox();
+                return;
+            }
+
             RebuildSelectorForCurrentRegion(menuWindow);
         }
         private void SwitchRegion(DaggerfallInventoryWindow menuWindow, int newRegion, int newColumn, int newRow)
@@ -1700,14 +1820,46 @@ namespace gigantibyte.DFU.ControllerAssistant
                 default: return null;
             }
         }
+        private EquipSlots? GetClothingSelectedSlot()
+        {
+            switch (clothingSelectedIndex)
+            {
+                case 0: return EquipSlots.Head;           // Hat
+                case 1: return GetPreferredCloakSlot();   // Cloak
+                case 2: return EquipSlots.ChestClothes;   // Chest
+                case 3: return EquipSlots.Gloves;         // Gloves
+                case 4: return EquipSlots.LegsClothes;    // Legs
+                case 5: return EquipSlots.Feet;           // Feet
+                default: return null;
+            }
+        }
+        private EquipSlots GetPreferredCloakSlot()
+        {
+            if (GameManager.Instance.PlayerEntity == null || GameManager.Instance.PlayerEntity.ItemEquipTable == null)
+                return EquipSlots.Cloak1;
 
-        //private PlayerEntity GetPlayerEntity(DaggerfallInventoryWindow menuWindow)
-        //{
-        //    if (menuWindow == null || piPlayerEntity == null)
-        //        return null;
+            DaggerfallUnityItem cloak1 = GameManager.Instance.PlayerEntity.ItemEquipTable.GetItem(EquipSlots.Cloak1);
+            DaggerfallUnityItem cloak2 = GameManager.Instance.PlayerEntity.ItemEquipTable.GetItem(EquipSlots.Cloak2);
 
-        //    return piPlayerEntity.GetValue(menuWindow, null) as PlayerEntity;
-        //}
+            if (cloak1 != null)
+                return EquipSlots.Cloak1;
+
+            if (cloak2 != null)
+                return EquipSlots.Cloak2;
+
+            return EquipSlots.Cloak1;
+        }
+        private DaggerfallUnityItem GetSelectedClothingItem(DaggerfallInventoryWindow menuWindow)
+        {
+            EquipSlots? slot = GetClothingSelectedSlot();
+            if (!slot.HasValue)
+                return null;
+
+            if (GameManager.Instance.PlayerEntity == null || GameManager.Instance.PlayerEntity.ItemEquipTable == null)
+                return null;
+
+            return GameManager.Instance.PlayerEntity.ItemEquipTable.GetItem(slot.Value);
+        }
 
         private DaggerfallUnityItem GetSelectedPaperDollItem(DaggerfallInventoryWindow menuWindow)
         {
@@ -1826,6 +1978,174 @@ namespace gigantibyte.DFU.ControllerAssistant
             SaveResumeSelectorState();
             miNextVariant.Invoke(menuWindow, new object[] { item });
         }
+        private void InvokeSelectedClothingLeftAction(DaggerfallInventoryWindow menuWindow)
+        {
+            DaggerfallUnityItem item = GetSelectedClothingItem(menuWindow);
+
+            if (item == null || fiSelectedActionMode == null)
+                return;
+
+            SaveResumeSelectorState();
+
+            object actionModeObj = fiSelectedActionMode.GetValue(menuWindow);
+            if (actionModeObj == null)
+                return;
+
+            int actionMode = Convert.ToInt32(actionModeObj);
+
+            switch (actionMode)
+            {
+                case 0: // Info
+                    if (miShowInfoPopup != null)
+                        miShowInfoPopup.Invoke(menuWindow, new object[] { item });
+                    break;
+
+                case 1: // Equip
+                case 4: // Select
+                    if (miUnequipItem != null)
+                        miUnequipItem.Invoke(menuWindow, new object[] { item, true });
+                    break;
+
+                case 2: // Remove
+                    break;
+
+                case 3: // Use
+                    if (miUseItem != null)
+                        miUseItem.Invoke(menuWindow, new object[] { item, null });
+                    break;
+            }
+        }
+
+        private void InvokeSelectedClothingRightAction(DaggerfallInventoryWindow menuWindow)
+        {
+            DaggerfallUnityItem item = GetSelectedClothingItem(menuWindow);
+            if (item == null || fiSelectedActionMode == null)
+                return;
+
+            SaveResumeSelectorState();
+
+            object actionModeObj = fiSelectedActionMode.GetValue(menuWindow);
+            if (actionModeObj == null)
+                return;
+
+            int actionMode = Convert.ToInt32(actionModeObj);
+
+            if (actionMode == 1)
+                actionMode = 2;
+            else if (actionMode == 2)
+                actionMode = 1;
+            else if (actionMode == 4)
+                actionMode = 2;
+
+            switch (actionMode)
+            {
+                case 0: // Info
+                    if (miShowInfoPopup != null)
+                        miShowInfoPopup.Invoke(menuWindow, new object[] { item });
+                    break;
+
+                case 1: // Equip
+                case 4: // Select
+                    if (miUnequipItem != null)
+                        miUnequipItem.Invoke(menuWindow, new object[] { item, true });
+                    break;
+
+                case 2: // Remove
+                    break;
+
+                case 3: // Use
+                    if (miUseItem != null)
+                        miUseItem.Invoke(menuWindow, new object[] { item, null });
+                    break;
+            }
+        }
+
+        private void InvokeSelectedClothingMiddleAction(DaggerfallInventoryWindow menuWindow)
+        {
+            DaggerfallUnityItem item = GetSelectedClothingItem(menuWindow);
+            if (item == null || miNextVariant == null)
+                return;
+
+            SaveResumeSelectorState();
+            miNextVariant.Invoke(menuWindow, new object[] { item });
+        }
+
+        private void EnsureClothingExpandLabel(DaggerfallInventoryWindow menuWindow)
+        {
+            if (menuWindow == null)
+                return;
+
+            if (panelRenderWindow == null && fiPanelRenderWindow != null)
+                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+
+            if (panelRenderWindow == null)
+                return;
+
+            if (clothingExpandOverlay == null)
+            {
+                clothingExpandOverlay = new ClothingExpandOverlay(panelRenderWindow);
+                clothingExpandOverlay.Build("Clothing...");
+            }
+
+            Rect rect = NativeInventoryRectToOverlayRect(49f, 189.8f, 26f, 50f);
+
+            // Match the body-parts list text scale by using its native height (50)
+            float matchingTextScale = Mathf.Max(1.8f, (50f * inventoryUiScale) / 62f);
+
+            clothingExpandOverlay.SetRect(rect, matchingTextScale);
+        }
+
+        private void EnsureClothingTargetList(DaggerfallInventoryWindow menuWindow)
+        {
+            if (menuWindow == null)
+                return;
+
+            if (panelRenderWindow == null && fiPanelRenderWindow != null)
+                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+
+            if (panelRenderWindow == null)
+                return;
+
+            if (clothingTargetList == null)
+            {
+                clothingTargetList = new ClothingTargetListOverlay(panelRenderWindow);
+                clothingTargetList.Build(clothingTargetNames);
+            }
+
+            clothingTargetList.SetSelectedIndex(clothingSelectedIndex);
+
+            // Same x as Clothing..., lower y so the list rises upward from that area.
+            Rect listRect = NativeInventoryRectToOverlayRect(49f, 163f, 26f, 78f);
+
+            // Match paper-doll list text scale by using the same 50-native-height reference
+            float matchingTextScale = Mathf.Max(1.8f, (50f * inventoryUiScale) / 62f);
+
+            clothingTargetList.SetRect(listRect, matchingTextScale);
+        }
+
+        private void EnsureGearExpandLabel(DaggerfallInventoryWindow menuWindow)
+        {
+            if (menuWindow == null)
+                return;
+
+            if (panelRenderWindow == null && fiPanelRenderWindow != null)
+                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+
+            if (panelRenderWindow == null)
+                return;
+
+            if (gearExpandOverlay == null)
+            {
+                gearExpandOverlay = new GearExpandOverlay(panelRenderWindow);
+                gearExpandOverlay.Build("Gear...");
+            }
+
+            Rect rect = NativeInventoryRectToOverlayRect(134f, 189.8f, 26f, 50f);
+            float matchingTextScale = Mathf.Max(1.8f, (50f * inventoryUiScale) / 62f);
+
+            gearExpandOverlay.SetRect(rect, matchingTextScale);
+        }
+
 
         // =========================
         // Lifecycle hooks
@@ -1842,8 +2162,10 @@ namespace gigantibyte.DFU.ControllerAssistant
                 selectedColumn = resumeColumn;
                 selectedRow = resumeRow;
                 buttonSelectedIndex = resumeButtonIndex;
+                paperDollSelectedIndex = resumePaperDollIndex;   // RESTORE FIRST
+
                 resumeSelectorMode = false;
-                paperDollSelectedIndex = resumePaperDollIndex;
+                resumePaperDollIndex = 0;                        // optional cleanup after restore
             }
 
             if (currentRegion == REGION_PAPERDOLL)
@@ -1851,6 +2173,13 @@ namespace gigantibyte.DFU.ControllerAssistant
                 DestroySelectorBox();
                 EnsurePaperDollIndicator(menuWindow);
                 EnsurePaperDollTargetList(menuWindow);
+                EnsureClothingExpandLabel(menuWindow);
+            }
+            else if (currentRegion == REGION_CLOTHING)
+            {
+                DestroySelectorBox();
+                EnsureClothingTargetList(menuWindow);
+                EnsureGearExpandLabel(menuWindow);
             }
             else
             {
@@ -1880,9 +2209,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             DestroySelectorBox();
             DestroyPaperDollIndicator();
             DestroyPaperDollTargetList();
+            DestroyClothingExpandLabel();
+            DestroyClothingTargetList();
+            DestroyGearExpandLabel();
 
             paperDollSelectedIndex = 0;
-            resumePaperDollIndex = 0;
+            //resumePaperDollIndex = 0;
             panelRenderWindow = null;
             inventoryUiScale = 1f;
             leftItemGrid = null;
@@ -2130,6 +2462,33 @@ namespace gigantibyte.DFU.ControllerAssistant
             {
                 paperDollTargetList.Destroy();
                 paperDollTargetList = null;
+            }
+        }
+
+        private void DestroyClothingExpandLabel()
+        {
+            if (clothingExpandOverlay != null)
+            {
+                clothingExpandOverlay.Destroy();
+                clothingExpandOverlay = null;
+            }
+        }
+
+        private void DestroyClothingTargetList()
+        {
+            if (clothingTargetList != null)
+            {
+                clothingTargetList.Destroy();
+                clothingTargetList = null;
+            }
+        }
+
+        private void DestroyGearExpandLabel()
+        {
+            if (gearExpandOverlay != null)
+            {
+                gearExpandOverlay.Destroy();
+                gearExpandOverlay = null;
             }
         }
 
@@ -2444,8 +2803,9 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 float padL = Mathf.Max(3f, rect.width * 0.08f);
 
-                float topMargin = 14f;
-                float bottomMargin = 5f;
+                float scaleTo4K = rect.height / 540f;   // 50 native height becomes 540 px at 4K
+                float topMargin = 14f * scaleTo4K;
+                float bottomMargin = 5f * scaleTo4K;
 
                 float usableHeight = rect.height - topMargin - bottomMargin;
                 float rowHeight = usableHeight / labels.Length;
@@ -2496,6 +2856,265 @@ namespace gigantibyte.DFU.ControllerAssistant
                 }
 
                 labels = null;
+                root = null;
+            }
+        }
+        private class ClothingExpandOverlay
+        {
+            private readonly Panel parent;
+            private Panel root;
+            private TextLabel label;
+
+            public ClothingExpandOverlay(Panel parent)
+            {
+                this.parent = parent;
+            }
+
+            public void Build(string text)
+            {
+                if (parent == null)
+                    return;
+
+                Destroy();
+
+                root = DaggerfallUI.AddPanel(new Rect(0, 0, 64, 16), parent);
+                root.BackgroundColor = new Color(0f, 0f, 0f, 0.60f);
+                root.Enabled = true;
+
+                label = new TextLabel();
+                label.Text = text;
+                label.TextColor = Color.white;
+                label.Enabled = true;
+                root.Components.Add(label);
+            }
+
+            public void SetRect(Rect rect, float textScale)
+            {
+                if (root == null || label == null)
+                    return;
+
+                float padL = Mathf.Max(3f, rect.width * 0.08f);
+
+                float scaleTo4K = rect.height / 540f;   // 50 native height becomes 540 px at 4K
+                float topMargin = 14f * scaleTo4K;
+                float bottomMargin = 5f * scaleTo4K;
+
+                // Match one row of the 9-row paper-doll list
+                float referenceListHeight = rect.height;
+                float referenceUsableHeight = referenceListHeight - topMargin - bottomMargin;
+                float rowHeight = referenceUsableHeight / 9f;
+
+                float rowNudge = Mathf.Max(0.5f, rowHeight * 0.06f);
+
+                // Build a compact single-row panel instead of using the full 50-high rect
+                float compactHeight = topMargin + rowHeight + bottomMargin;
+
+                root.Position = new Vector2(rect.x, rect.y);
+                root.Size = new Vector2(rect.width, compactHeight);
+
+                label.Position = new Vector2(
+                    padL,
+                    topMargin - rowNudge
+                );
+
+                label.TextScale = textScale;
+            }
+
+            public void Destroy()
+            {
+                if (root != null && root.Parent != null)
+                {
+                    Panel parentPanel = root.Parent as Panel;
+                    if (parentPanel != null)
+                        parentPanel.Components.Remove(root);
+                }
+
+                label = null;
+                root = null;
+            }
+        }
+
+        private class ClothingTargetListOverlay
+        {
+            private readonly Panel parent;
+            private Panel root;
+            private TextLabel[] labels;
+
+            public ClothingTargetListOverlay(Panel parent)
+            {
+                this.parent = parent;
+            }
+
+            public void Build(string[] rows)
+            {
+                if (parent == null || rows == null || rows.Length == 0)
+                    return;
+
+                Destroy();
+
+                root = DaggerfallUI.AddPanel(new Rect(0, 0, 64, 64), parent);
+                root.BackgroundColor = new Color(0f, 0f, 0f, 0.60f);
+                root.Enabled = true;
+
+                labels = new TextLabel[rows.Length];
+
+                for (int i = 0; i < rows.Length; i++)
+                {
+                    TextLabel label = new TextLabel();
+                    label.Text = rows[i];
+                    label.TextColor = Color.white;
+                    label.Enabled = true;
+                    root.Components.Add(label);
+                    labels[i] = label;
+                }
+            }
+
+            public void SetRect(Rect rect, float textScale)
+            {
+                if (root == null)
+                    return;
+
+                root.Position = new Vector2(rect.x, rect.y);
+
+                if (labels == null || labels.Length == 0)
+                    return;
+
+                float padL = Mathf.Max(3f, rect.width * 0.08f);
+
+                // Use the same vertical metrics as the paper-doll list:
+                // reference rect = 50 native units high
+                float referenceRectHeight = 50f * (rect.height / 78f);
+
+                float scaleTo4K = referenceRectHeight / 540f;
+                float topMargin = 14f * scaleTo4K;
+                float bottomMargin = 5f * scaleTo4K;
+
+                // Paper-doll uses 9 rows. Borrow its row height exactly.
+                float referenceUsableHeight = referenceRectHeight - topMargin - bottomMargin;
+                float referenceRowHeight = referenceUsableHeight / 9f;
+
+                float rowNudge = Mathf.Max(0.5f, referenceRowHeight * 0.06f);
+
+                // Build clothing panel height from 6 rows using paper-doll row spacing
+                float compactHeight = topMargin + (referenceRowHeight * labels.Length) + bottomMargin;
+                root.Size = new Vector2(rect.width, compactHeight);
+
+                for (int i = 0; i < labels.Length; i++)
+                {
+                    float rowY = topMargin + i * referenceRowHeight;
+
+                    if (labels[i] != null)
+                    {
+                        labels[i].Position = new Vector2(
+                            padL,
+                            rowY - rowNudge
+                        );
+
+                        labels[i].TextScale = textScale;
+                    }
+                }
+            }
+
+            public void SetSelectedIndex(int selectedIndex)
+            {
+                if (labels == null)
+                    return;
+
+                for (int i = 0; i < labels.Length; i++)
+                {
+                    if (labels[i] != null)
+                    {
+                        labels[i].TextColor = (i == selectedIndex)
+                            ? new Color(1f, 0.9f, 0.2f, 1f)
+                            : Color.white;
+                    }
+                }
+            }
+
+            public void Destroy()
+            {
+                if (root != null && root.Parent != null)
+                {
+                    Panel parentPanel = root.Parent as Panel;
+                    if (parentPanel != null)
+                        parentPanel.Components.Remove(root);
+                }
+
+                labels = null;
+                root = null;
+            }
+        }
+
+        private class GearExpandOverlay
+        {
+            private readonly Panel parent;
+            private Panel root;
+            private TextLabel label;
+
+            public GearExpandOverlay(Panel parent)
+            {
+                this.parent = parent;
+            }
+
+            public void Build(string text)
+            {
+                if (parent == null)
+                    return;
+
+                Destroy();
+
+                root = DaggerfallUI.AddPanel(new Rect(0, 0, 64, 16), parent);
+                root.BackgroundColor = new Color(0f, 0f, 0f, 0.60f);
+                root.Enabled = true;
+
+                label = new TextLabel();
+                label.Text = text;
+                label.TextColor = Color.white;
+                label.Enabled = true;
+                root.Components.Add(label);
+            }
+
+            public void SetRect(Rect rect, float textScale)
+            {
+                if (root == null || label == null)
+                    return;
+
+                float padL = Mathf.Max(3f, rect.width * 0.08f);
+
+                const float referenceRectHeightAt4K = 540f;
+                const float referenceTopMarginAt4K = 14f;
+                const float referenceBottomMarginAt4K = 5f;
+
+                float scaleTo4K = rect.height / referenceRectHeightAt4K;
+                float topMargin = referenceTopMarginAt4K * scaleTo4K;
+                float bottomMargin = referenceBottomMarginAt4K * scaleTo4K;
+
+                float usableHeight = rect.height - topMargin - bottomMargin;
+                float rowHeight = usableHeight / 9f;
+                float rowNudge = Mathf.Max(0.5f, rowHeight * 0.06f);
+                float compactHeight = topMargin + rowHeight + bottomMargin;
+
+                root.Position = new Vector2(rect.x, rect.y);
+                root.Size = new Vector2(rect.width, compactHeight);
+
+                label.Position = new Vector2(
+                    padL,
+                    topMargin - rowNudge
+                );
+
+                label.TextScale = textScale;
+            }
+
+            public void Destroy()
+            {
+                if (root != null && root.Parent != null)
+                {
+                    Panel parentPanel = root.Parent as Panel;
+                    if (parentPanel != null)
+                        parentPanel.Components.Remove(root);
+                }
+
+                label = null;
                 root = null;
             }
         }
