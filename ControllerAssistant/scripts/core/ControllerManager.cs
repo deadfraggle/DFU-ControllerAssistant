@@ -7,6 +7,19 @@ namespace gigantibyte.DFU.ControllerAssistant
 {
     public class ControllerManager
     {
+        public enum StickDir8 : int
+        {
+            None = 0,
+            N,
+            NE,
+            E,
+            SE,
+            S,
+            SW,
+            W,
+            NW,
+        }
+
         private KeyCode action1Key = KeyCode.JoystickButton9; // default R3
         private KeyCode action2Key = KeyCode.JoystickButton8; // default L3
         private KeyCode legendKey = KeyCode.JoystickButton4;  // default LB
@@ -36,6 +49,26 @@ namespace gigantibyte.DFU.ControllerAssistant
         public bool RStickLeftHeldSlow { get; private set; }
         public bool RStickRightHeldSlow { get; private set; }
 
+        // 8-way right-stick direction outputs
+        private int rStickDir8 = (int)StickDir8.None;
+        private int rStickDir8Pressed = (int)StickDir8.None;
+        private int rStickDir8HeldSlow = (int)StickDir8.None;
+
+        public StickDir8 RStickDir8
+        {
+            get { return (StickDir8)rStickDir8; }
+        }
+
+        public StickDir8 RStickDir8Pressed
+        {
+            get { return (StickDir8)rStickDir8Pressed; }
+        }
+
+        public StickDir8 RStickDir8HeldSlow
+        {
+            get { return (StickDir8)rStickDir8HeldSlow; }
+        }
+
         // one-shot D-Pad direction presses
         public bool DPadLeftPressed { get; private set; }
         public bool DPadRightPressed { get; private set; }
@@ -59,12 +92,39 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private int rStickHeldSlowX = 0;   // -1 left, +1 right
         private int rStickHeldSlowY = 0;   // -1 down, +1 up
+        private int rStickHeldSlowDir8 = (int)StickDir8.None;
 
         // For closing (down-edge)
         public bool BackPressed { get; private set; }
 
         public bool DPadAny => DPadH != 0 || DPadV != 0;
         public bool RStickAny => RStickH != 0 || RStickV != 0;
+
+        private StickDir8 GetStickDir8(float axisH, float axisV, int stickH, int stickV)
+        {
+            if (stickH == 0 && stickV == 0)
+                return StickDir8.None;
+
+            // Require both axes to be meaningfully engaged for diagonal classification.
+            // This prevents slight analog wobble from producing accidental diagonals.
+            bool strongH = Mathf.Abs(axisH) > 0.5f;
+            bool strongV = Mathf.Abs(axisV) > 0.5f;
+
+            if (strongH && strongV)
+            {
+                if (stickV == 1 && stickH == 1) return StickDir8.NE;
+                if (stickV == 1 && stickH == -1) return StickDir8.NW;
+                if (stickV == -1 && stickH == 1) return StickDir8.SE;
+                if (stickV == -1 && stickH == -1) return StickDir8.SW;
+            }
+
+            if (stickV == 1) return StickDir8.N;
+            if (stickV == -1) return StickDir8.S;
+            if (stickH == 1) return StickDir8.E;
+            if (stickH == -1) return StickDir8.W;
+
+            return StickDir8.None;
+        }
 
         public void Update()
         {
@@ -82,6 +142,8 @@ namespace gigantibyte.DFU.ControllerAssistant
             RStickH = axis4Value < -0.5f ? -1 : axis4Value > 0.5f ? 1 : 0;
             RStickV = axis5Value < -0.5f ? -1 : axis5Value > 0.5f ? 1 : 0;
 
+            rStickDir8 = (int)GetStickDir8(axis4Value, axis5Value, RStickH, RStickV);
+
             // Reset one-shot outputs every frame
             RStickUpPressed = false;
             RStickDownPressed = false;
@@ -98,6 +160,9 @@ namespace gigantibyte.DFU.ControllerAssistant
             DPadUpPressed = false;
             DPadDownPressed = false;
 
+            rStickDir8Pressed = (int)StickDir8.None;
+            rStickDir8HeldSlow = (int)StickDir8.None;
+
             // Re-arm only when stick returns to center
             if (RStickH == 0 && RStickV == 0)
             {
@@ -105,7 +170,9 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
             else if (rStickReady)
             {
-                // Fire exactly once per excursion from center
+                rStickDir8Pressed = rStickDir8;
+
+                // Preserve existing dominant-axis behavior for current assists
                 if (Mathf.Abs(axis5Value) >= Mathf.Abs(axis4Value))
                 {
                     if (RStickV == 1)
@@ -127,10 +194,13 @@ namespace gigantibyte.DFU.ControllerAssistant
             // Slow-repeat right stick pulses
             int currentSlowX = 0;
             int currentSlowY = 0;
+            StickDir8 currentSlowDir8 = StickDir8.None;
 
             if (RStickH != 0 || RStickV != 0)
             {
-                // Use dominant axis so diagonals collapse to one direction
+                currentSlowDir8 = GetStickDir8(axis4Value, axis5Value, RStickH, RStickV);
+
+                // Preserve existing dominant-axis behavior for current assists
                 if (Mathf.Abs(axis5Value) >= Mathf.Abs(axis4Value))
                     currentSlowY = RStickV;   // +1 up, -1 down
                 else
@@ -142,18 +212,22 @@ namespace gigantibyte.DFU.ControllerAssistant
             {
                 rStickHeldSlowX = 0;
                 rStickHeldSlowY = 0;
+                rStickHeldSlowDir8 = (int)StickDir8.None;
                 rStickHeldSlowHoldTimer = 0f;
                 rStickHeldSlowRepeatTimer = 0f;
             }
             // changed direction (or fresh engage)
-            else if (currentSlowX != rStickHeldSlowX || currentSlowY != rStickHeldSlowY)
+            else if (currentSlowX != rStickHeldSlowX || currentSlowY != rStickHeldSlowY || (int)currentSlowDir8 != rStickHeldSlowDir8)
             {
                 rStickHeldSlowX = currentSlowX;
                 rStickHeldSlowY = currentSlowY;
+                rStickHeldSlowDir8 = (int)currentSlowDir8;
                 rStickHeldSlowHoldTimer = 0f;
                 rStickHeldSlowRepeatTimer = 0f;
 
-                // Fire immediately on first commit to direction
+                rStickDir8HeldSlow = rStickHeldSlowDir8;
+
+                // Preserve existing cardinal held-slow pulses
                 if (rStickHeldSlowY == 1)
                     RStickUpHeldSlow = true;
                 else if (rStickHeldSlowY == -1)
@@ -175,6 +249,8 @@ namespace gigantibyte.DFU.ControllerAssistant
                     if (rStickHeldSlowRepeatTimer >= rStickHeldSlowInterval)
                     {
                         rStickHeldSlowRepeatTimer -= rStickHeldSlowInterval;
+
+                        rStickDir8HeldSlow = rStickHeldSlowDir8;
 
                         if (rStickHeldSlowY == 1)
                             RStickUpHeldSlow = true;

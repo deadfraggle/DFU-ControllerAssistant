@@ -43,6 +43,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private FieldInfo fiWindowBinding;
         private bool closeDeferred = false;
+        private AnchorEditor editor;
 
         // =========================
         // Core tick / main behavior
@@ -54,8 +55,14 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             RefreshLegendAttachment(menuWindow);
 
+            if (panelRenderWindow == null && fiPanelRenderWindow != null)
+                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+
+            if (panelRenderWindow != null)
+                editor.Tick(panelRenderWindow);
+
             if (legend != null && legend.IsBuilt)
-                legend.PositionBottomLeft();
+                legend.PositionBottomRight();
 
             if (fiWindowBinding != null)
                 fiWindowBinding.SetValue(menuWindow, KeyCode.None);
@@ -67,17 +74,17 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (isAssisting)
             {
-            //     if (cm.DPadH == 1) ActionLeft(menuWindow);
-            //     if (cm.DPadH == -1) ActionRight(menuWindow);
+                //     if (cm.DPadH == 1) ActionLeft(menuWindow);
+                //     if (cm.DPadH == -1) ActionRight(menuWindow);
 
-            //     if (cm.DPadV == 1) ActionDown(menuWindow);
-            //     if (cm.DPadV == -1) ActionUp(menuWindow);
+                //     if (cm.DPadV == 1) ActionDown(menuWindow);
+                //     if (cm.DPadV == -1) ActionUp(menuWindow);
 
-            //     if (cm.RStickV == 1) ActionStickDown(menuWindow);
-            //     if (cm.RStickV == -1) ActionStickUp(menuWindow);
+                //     if (cm.RStickV == 1) ActionStickDown(menuWindow);
+                //     if (cm.RStickV == -1) ActionStickUp(menuWindow);
 
-                if (cm.Action1Pressed) TryMovePausePanelUp(menuWindow);
-            //     if (cm.Action2Pressed) Action2(menuWindow);
+                if (cm.Action1Pressed)
+                    editor.Toggle();
 
                 if (cm.LegendPressed)
                 {
@@ -143,7 +150,13 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             if (debugMODE) DumpWindowMembers(menuWindow);
             EnsureInitialized(menuWindow);
-            TryMovePausePanelUp(menuWindow);
+            //TryMovePausePanelUp(menuWindow);
+
+            if (editor == null)
+            {
+                // Match Inventory's default selector size: 25 x 19 native-ish feel
+                editor = new AnchorEditor(25f, 19f);
+            }
         }
 
         protected override void OnClosed(ControllerManager cm)
@@ -161,6 +174,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             legendVisible = false;
             legend = null;
             panelRenderWindow = null;
+
+            if (editor != null)
+            {
+                editor.Destroy();
+                editor = null;
+            }
             //pausePanelMovedThisOpen = false;
         }
 
@@ -240,10 +259,20 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("D-Pad", "Action"),
-                    new LegendOverlay.LegendRow("Right Stick", "Action"),
-                    new LegendOverlay.LegendRow(cm.Action1Name, "Action1"),
-                    new LegendOverlay.LegendRow(cm.Action2Name, "Action2"),
+                    //new LegendOverlay.LegendRow("D-Pad", "Action"),
+                    //new LegendOverlay.LegendRow("Right Stick", "Action"),
+                    //new LegendOverlay.LegendRow(cm.Action1Name, "Action1"),
+                    //new LegendOverlay.LegendRow(cm.Action2Name, "Action2"),
+                    new LegendOverlay.LegendRow("NUMPAD8", "move up"),
+                    new LegendOverlay.LegendRow("NUMPAD2", "move down"),
+                    new LegendOverlay.LegendRow("NUMPAD4", "move left"),
+                    new LegendOverlay.LegendRow("NUMPAD6", "move right"),
+                    new LegendOverlay.LegendRow("NUMPAD7", "width -"),
+                    new LegendOverlay.LegendRow("NUMPAD9", "width +"),
+                    new LegendOverlay.LegendRow("NUMPAD1", "height -"),
+                    new LegendOverlay.LegendRow("NUMPAD3", "height +"),
+                    new LegendOverlay.LegendRow("NUMPAD5", "dump X/Y/W/H"),
+                    new LegendOverlay.LegendRow("NUMPAD0", "re-center"),
                 };
 
                 legend.Build("Legend", rows);
@@ -307,5 +336,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             foreach (var f in type.GetFields(BF))
                 Debug.Log(f.Name);
         }
+
     }
 }

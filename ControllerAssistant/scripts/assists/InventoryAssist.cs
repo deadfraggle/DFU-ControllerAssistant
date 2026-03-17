@@ -311,6 +311,8 @@ namespace gigantibyte.DFU.ControllerAssistant
         private FieldInfo fiWindowBinding;
         private bool closeDeferred = false;
 
+        private AnchorEditor editor;
+
         // =========================
         // Core tick / main behavior
         // =========================
@@ -320,6 +322,12 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             RefreshLegendAttachment(menuWindow);
             RefreshSelectorAttachment(menuWindow);
+
+            if (panelRenderWindow == null && fiPanelRenderWindow != null)
+                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+
+            if (panelRenderWindow != null)
+                editor.Tick(panelRenderWindow);
 
             if (legend != null && legend.IsBuilt)
                 legend.PositionBottomLeft();
@@ -439,6 +447,8 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (cm.Action1Pressed)
             {
                 InvokeSelectedVisibleLocalItemLeftClick(menuWindow);
+                //editor.Toggle();
+                
                 return;
             }
 
@@ -1619,7 +1629,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                     return new Vector2(32f, 15f);
 
                 case REGION_SPECIAL_ITEMS:
-                    return new Vector2(32f, 24f);
+                    return new Vector2(22.6f, 21.5f);
 
                 default:
                     return new Vector2(25f, 19f);
@@ -2155,6 +2165,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             EnsureInitialized(menuWindow);
             EnsureInventoryGrids(menuWindow);
 
+            if (editor == null)
+            {
+                // Match Inventory's default selector size: 25 x 19 native-ish feel
+                editor = new AnchorEditor(25f, 19f);
+            }
+
             if (resumeSelectorMode)
             {
                 selectorMode = true;
@@ -2204,6 +2220,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             {
                 legend.Destroy();
                 legend = null;
+            }
+
+            if (editor != null)
+            {
+                editor.Destroy();
+                editor = null;
             }
 
             DestroySelectorBox();

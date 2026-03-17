@@ -109,6 +109,19 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             box.Position = new Vector2(x, y);
         }
+        public void PositionBottomRight()
+        {
+            if (parent == null || box == null)
+                return;
+
+            Rect r = parent.Rectangle;
+
+            float x = r.width - box.Size.x;
+            float y = r.height - box.Size.y - MarginFromBottom;
+
+            box.Position = new Vector2(x, y);
+        }
+
         public void PositionAt(float x, float y)
         {
             if (box == null)
