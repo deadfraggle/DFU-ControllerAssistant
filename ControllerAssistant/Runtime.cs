@@ -21,7 +21,7 @@ Controller Assistant – IMPORTANT ARCHITECTURE NOTE
 ===============================================================================
 
 DO NOT refactor the assist modules back into a shared base class such as
-MenuAssistModule<T> or similar lifecycle wrappers.
+MenuAssistModule<T> (deprecated) or similar lifecycle wrappers.
 
 This was attempted during development and caused a compatibility conflict
 with older DFU mods, most notably "Convenient Clock".
