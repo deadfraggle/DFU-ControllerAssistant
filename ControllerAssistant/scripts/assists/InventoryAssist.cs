@@ -177,10 +177,11 @@ using UnityEngine;
 
 namespace gigantibyte.DFU.ControllerAssistant
 {
-    public class InventoryAssist : MenuAssistModule<DaggerfallInventoryWindow>
+    public class InventoryAssist : IMenuAssist
     {
         private const bool debugMODE = false;
         private bool reflectionCached = false;
+        private bool wasOpen = false;
 
         // Legend
         private FieldInfo fiPanelRenderWindow;
@@ -311,12 +312,40 @@ namespace gigantibyte.DFU.ControllerAssistant
         private FieldInfo fiWindowBinding;
         private bool closeDeferred = false;
 
-        private AnchorEditor editor;
+        //private AnchorEditor editor;
+
+        public bool Claims(IUserInterfaceWindow top)
+        {
+            return top is DaggerfallInventoryWindow;
+        }
+
+        public void Tick(IUserInterfaceWindow top, ControllerManager cm)
+        {
+            DaggerfallInventoryWindow menuWindow = top as DaggerfallInventoryWindow;
+
+            if (menuWindow == null)
+            {
+                if (wasOpen)
+                {
+                    OnClosed(cm);
+                    wasOpen = false;
+                }
+                return;
+            }
+
+            if (!wasOpen)
+            {
+                wasOpen = true;
+                OnOpened(menuWindow, cm);
+            }
+
+            OnTickOpen(menuWindow, cm);
+        }
 
         // =========================
         // Core tick / main behavior
         // =========================
-        protected override void OnTickOpen(DaggerfallInventoryWindow menuWindow, ControllerManager cm)
+        private void OnTickOpen(DaggerfallInventoryWindow menuWindow, ControllerManager cm)
         {
             KeyCode windowBinding = InputManager.Instance.GetBinding(InputManager.Actions.Inventory);
 
@@ -326,8 +355,8 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (panelRenderWindow == null && fiPanelRenderWindow != null)
                 panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
 
-            if (panelRenderWindow != null)
-                editor.Tick(panelRenderWindow);
+            //if (panelRenderWindow != null)
+            //    editor.Tick(panelRenderWindow);
 
             if (legend != null && legend.IsBuilt)
                 legend.PositionBottomLeft();
@@ -337,9 +366,9 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             bool isAssisting =
                 (cm.DPadLeftPressed || cm.DPadRightPressed || cm.DPadUpPressed || cm.DPadDownPressed ||
-                 cm.RStickUpPressed || cm.RStickDownPressed || cm.RStickLeftPressed || cm.RStickRightPressed ||
-                 cm.RStickUpHeldSlow || cm.RStickDownHeldSlow || cm.RStickLeftHeldSlow || cm.RStickRightHeldSlow ||
-                 cm.Action1Pressed || cm.Action2Pressed || cm.LegendPressed);
+                    cm.RStickUpPressed || cm.RStickDownPressed || cm.RStickLeftPressed || cm.RStickRightPressed ||
+                    cm.RStickUpHeldSlow || cm.RStickDownHeldSlow || cm.RStickLeftHeldSlow || cm.RStickRightHeldSlow ||
+                    cm.Action1Pressed || cm.Action2Pressed || cm.LegendPressed);
 
             if (isAssisting)
             {
@@ -387,18 +416,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (cm.BackPressed)
             {
-                if (legend != null)
-                {
-                    legend.Destroy();
-                    legend = null;
-                }
-
-                DestroySelectorBox();
-                DestroyPaperDollIndicator();
-                DestroyPaperDollTargetList();
-                DestroyClothingExpandLabel();
-                DestroyClothingTargetList();
-                DestroyGearExpandLabel();
+                DestroyOwnedUi();
 
                 //menuWindow.CloseWindow();
                 return;
@@ -411,18 +429,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             {
                 closeDeferred = false;
 
-                if (legend != null)
-                {
-                    legend.Destroy();
-                    legend = null;
-                }
-
-                DestroySelectorBox();
-                DestroyPaperDollIndicator();
-                DestroyPaperDollTargetList();
-                DestroyClothingExpandLabel();
-                DestroyClothingTargetList();
-                DestroyGearExpandLabel();
+                DestroyOwnedUi();
 
                 //menuWindow.CloseWindow();
                 return;
@@ -448,7 +455,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             {
                 InvokeSelectedVisibleLocalItemLeftClick(menuWindow);
                 //editor.Toggle();
-                
+
                 return;
             }
 
@@ -1748,7 +1755,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             );
         }
 
-        
+
         private void EnsurePaperDollIndicator(DaggerfallInventoryWindow menuWindow)
         {
             if (menuWindow == null)
@@ -1776,7 +1783,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             RefreshPaperDollIndicatorPosition();
         }
 
-        
+
         private void EnsurePaperDollTargetList(DaggerfallInventoryWindow menuWindow)
         {
             if (menuWindow == null)
@@ -1887,7 +1894,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         private void InvokeSelectedPaperDollLeftAction(DaggerfallInventoryWindow menuWindow)
         {
             DaggerfallUnityItem item = GetSelectedPaperDollItem(menuWindow);
-            
+
             if (item == null || fiSelectedActionMode == null)
                 return;
 
@@ -1898,7 +1905,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 return;
 
             int actionMode = Convert.ToInt32(actionModeObj);
-            
+
             // ActionModes:
             // 0 = Info
             // 1 = Equip
@@ -2160,16 +2167,16 @@ namespace gigantibyte.DFU.ControllerAssistant
         // =========================
         // Lifecycle hooks
         // =========================
-        protected override void OnOpened(DaggerfallInventoryWindow menuWindow, ControllerManager cm)
+        private void OnOpened(DaggerfallInventoryWindow menuWindow, ControllerManager cm)
         {
             EnsureInitialized(menuWindow);
             EnsureInventoryGrids(menuWindow);
 
-            if (editor == null)
-            {
-                // Match Inventory's default selector size: 25 x 19 native-ish feel
-                editor = new AnchorEditor(25f, 19f);
-            }
+            //if (editor == null)
+            //{
+            //    // Match Inventory's default selector size: 25 x 19 native-ish feel
+            //    editor = new AnchorEditor(25f, 19f);
+            //}
 
             if (resumeSelectorMode)
             {
@@ -2204,39 +2211,20 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
         }
 
-        protected override void OnClosed(ControllerManager cm)
+        private void OnClosed(ControllerManager cm)
         {
             ResetState();
         }
 
-        public override void ResetState()
+        public void ResetState()
         {
-            base.ResetState();
-
+            wasOpen = false;
             closeDeferred = false;
             legendVisible = false;
 
-            if (legend != null)
-            {
-                legend.Destroy();
-                legend = null;
-            }
-
-            if (editor != null)
-            {
-                editor.Destroy();
-                editor = null;
-            }
-
-            DestroySelectorBox();
-            DestroyPaperDollIndicator();
-            DestroyPaperDollTargetList();
-            DestroyClothingExpandLabel();
-            DestroyClothingTargetList();
-            DestroyGearExpandLabel();
+            DestroyOwnedUi();
 
             paperDollSelectedIndex = 0;
-            //resumePaperDollIndex = 0;
             panelRenderWindow = null;
             inventoryUiScale = 1f;
             leftItemGrid = null;
@@ -2250,6 +2238,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             selectorMode = true;
         }
+
 
         // =========================
         // Per-window/per-open setup
@@ -2403,13 +2392,13 @@ namespace gigantibyte.DFU.ControllerAssistant
                 legend.BackgroundColor = new Color(0f, 0f, 0f, 0.60f);
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
-                {
-                    new LegendOverlay.LegendRow("D-Pad Left/Right", "Cycle Tabs"),
-                    new LegendOverlay.LegendRow(cm.Action1Name, "Left Click"),
-                    new LegendOverlay.LegendRow(cm.Action2Name, "Right Click"),
-                    new LegendOverlay.LegendRow("D-Pad Up", "Middle Click"),
-                    new LegendOverlay.LegendRow("Right Stick", "Move Selector"),
-                };
+            {
+                new LegendOverlay.LegendRow("D-Pad Left/Right", "Cycle Tabs"),
+                new LegendOverlay.LegendRow(cm.Action1Name, "Left Click"),
+                new LegendOverlay.LegendRow(cm.Action2Name, "Right Click"),
+                new LegendOverlay.LegendRow("D-Pad Up", "Middle Click"),
+                new LegendOverlay.LegendRow("Right Stick", "Move Selector"),
+            };
 
                 legend.Build("Legend", rows);
             }
@@ -2426,9 +2415,14 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (panelRenderWindow != current)
             {
+                if (legend != null)
+                {
+                    legend.Destroy();
+                    legend = null;
+                }
+
                 panelRenderWindow = current;
                 legendVisible = false;
-                legend = null;
                 return;
             }
 
@@ -3167,5 +3161,21 @@ namespace gigantibyte.DFU.ControllerAssistant
                 return new Rect(x, y, CellWidth, CellHeight);
             }
         }
+        private void DestroyOwnedUi()
+        {
+            if (legend != null)
+            {
+                legend.Destroy();
+                legend = null;
+            }
+
+            DestroySelectorBox();
+            DestroyPaperDollIndicator();
+            DestroyPaperDollTargetList();
+            DestroyClothingExpandLabel();
+            DestroyClothingTargetList();
+            DestroyGearExpandLabel();
+        }
     }
+
 }

@@ -8,10 +8,11 @@ using UnityEngine;
 
 namespace gigantibyte.DFU.ControllerAssistant
 {
-    public class PauseAssist : MenuAssistModule<DaggerfallPauseOptionsWindow> //! IMPORTANT: Register this module in Runtime so it is included in the assist list
+    public class PauseAssist : IMenuAssist //! IMPORTANT: Register this module in Runtime so it is included in the assist list
     {
         private const bool debugMODE = false;
         private bool reflectionCached = false;  // prevents re-caching Reflection members
+        private bool wasOpen = false;
 
         // Legend
         private FieldInfo fiPanelRenderWindow;
@@ -43,23 +44,51 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private FieldInfo fiWindowBinding;
         private bool closeDeferred = false;
-        private AnchorEditor editor;
+        //private AnchorEditor editor;
+
+        public bool Claims(IUserInterfaceWindow top)
+        {
+            return top is DaggerfallPauseOptionsWindow;
+        }
+
+        public void Tick(IUserInterfaceWindow top, ControllerManager cm)
+        {
+            DaggerfallPauseOptionsWindow menuWindow = top as DaggerfallPauseOptionsWindow;
+
+            if (menuWindow == null)
+            {
+                if (wasOpen)
+                {
+                    OnClosed(cm);
+                    wasOpen = false;
+                }
+                return;
+            }
+
+            if (!wasOpen)
+            {
+                wasOpen = true;
+                OnOpened(menuWindow, cm);
+            }
+
+            OnTickOpen(menuWindow, cm);
+        }
 
         // =========================
         // Core tick / main behavior
         // =========================
-        protected override void OnTickOpen(DaggerfallPauseOptionsWindow menuWindow, ControllerManager cm)
+        private void OnTickOpen(DaggerfallPauseOptionsWindow menuWindow, ControllerManager cm)
         {
             //! REPLACE Inventory WITH THE CORRECT VANILLA BINDING FOR THIS WINDOW
             // KeyCode windowBinding = InputManager.Instance.GetBinding(InputManager.Actions.Inventory);
 
             RefreshLegendAttachment(menuWindow);
 
-            if (panelRenderWindow == null && fiPanelRenderWindow != null)
-                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+            //if (panelRenderWindow == null && fiPanelRenderWindow != null)
+            //    panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
 
-            if (panelRenderWindow != null)
-                editor.Tick(panelRenderWindow);
+            //if (panelRenderWindow != null)
+            //    editor.Tick(panelRenderWindow);
 
             if (legend != null && legend.IsBuilt)
                 legend.PositionBottomRight();
@@ -83,8 +112,8 @@ namespace gigantibyte.DFU.ControllerAssistant
                 //     if (cm.RStickV == 1) ActionStickDown(menuWindow);
                 //     if (cm.RStickV == -1) ActionStickUp(menuWindow);
 
-                if (cm.Action1Pressed)
-                    editor.Toggle();
+                //if (cm.Action1Pressed)
+                //    editor.Toggle();
 
                 if (cm.LegendPressed)
                 {
@@ -146,40 +175,39 @@ namespace gigantibyte.DFU.ControllerAssistant
         // =========================
         // Lifecycle hooks
         // =========================
-        protected override void OnOpened(DaggerfallPauseOptionsWindow menuWindow, ControllerManager cm)
+        private void OnOpened(DaggerfallPauseOptionsWindow menuWindow, ControllerManager cm)
         {
             if (debugMODE) DumpWindowMembers(menuWindow);
             EnsureInitialized(menuWindow);
-            //TryMovePausePanelUp(menuWindow);
+            TryMovePausePanelUp(menuWindow);
 
-            if (editor == null)
-            {
-                // Match Inventory's default selector size: 25 x 19 native-ish feel
-                editor = new AnchorEditor(25f, 19f);
-            }
+            //if (editor == null)
+            //{
+            //    // Match Inventory's default selector size: 25 x 19 native-ish feel
+            //    editor = new AnchorEditor(25f, 19f);
+            //}
         }
 
-        protected override void OnClosed(ControllerManager cm)
+        private void OnClosed(ControllerManager cm)
         {
             ResetState();
             if (debugMODE) DaggerfallUI.AddHUDText("DaggerfallPauseOptionsWindow closed");
         }
 
-        public override void ResetState()
+        public void ResetState()
         {
-            base.ResetState(); // sets wasOpen = false
+            wasOpen = false;
 
             closeDeferred = false;
 
-            legendVisible = false;
-            legend = null;
-            panelRenderWindow = null;
-
-            if (editor != null)
+            if (legend != null)
             {
-                editor.Destroy();
-                editor = null;
+                legend.Destroy();
+                legend = null;
             }
+
+            legendVisible = false;
+            panelRenderWindow = null;
             //pausePanelMovedThisOpen = false;
         }
 

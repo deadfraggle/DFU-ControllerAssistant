@@ -16,10 +16,11 @@ namespace gigantibyte.DFU.ControllerAssistant
         Wait,
     }
 
-    public class InputMessageBoxAssist : MenuAssistModule<DaggerfallInputMessageBox>
+    public class InputMessageBoxAssist : IMenuAssist
     {
         private const bool debugMODE = true;
         private bool reflectionCached = false;  //prevents re-caching Reflection methods
+        private bool wasOpen = false;
 
         private InputMessageBoxPopupMode activeMode = InputMessageBoxPopupMode.None;
         private float goldRepeatDelay = 0.30f;      // pause before repeat starts
@@ -42,23 +43,43 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         //private bool isInventoryGoldPopup = false;
 
-        // Used in EnsureInitialized()
-        // Cache for reflection so we don’t re-query every press
-        //!EXAMPLES FROM ExtAutomap. NAMES BASED ON ACTIONS FOUND IN WINDOW SOURCE
-        //private MethodInfo miActionMoveLeft;
-        //private MethodInfo miActionMoveRight;
-        //private MethodInfo miActionMoveForward;
-
-
-        private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
+       private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
 
         //private FieldInfo fiWindowBinding;
         private FieldInfo fiOnGotUserInput;
 
+        public bool Claims(IUserInterfaceWindow top)
+        {
+            return top is DaggerfallInputMessageBox;
+        }
+
+        public void Tick(IUserInterfaceWindow top, ControllerManager cm)
+        {
+            DaggerfallInputMessageBox menuWindow = top as DaggerfallInputMessageBox;
+
+            if (menuWindow == null)
+            {
+                if (wasOpen)
+                {
+                    OnClosed(cm);
+                    wasOpen = false;
+                }
+                return;
+            }
+
+            if (!wasOpen)
+            {
+                wasOpen = true;
+                OnOpened(menuWindow, cm);
+            }
+
+            OnTickOpen(menuWindow, cm);
+        }
+
         // =========================
         // Core tick / main behavior
         // =========================
-        protected override void OnTickOpen(DaggerfallInputMessageBox menuWindow, ControllerManager cm)
+        private void OnTickOpen(DaggerfallInputMessageBox menuWindow, ControllerManager cm)
         {
             switch (activeMode)
             {
@@ -339,7 +360,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         // =========================
         // Lifecycle hooks
         // =========================
-        protected override void OnOpened(DaggerfallInputMessageBox menuWindow, ControllerManager cm)
+        private void OnOpened(DaggerfallInputMessageBox menuWindow, ControllerManager cm)
         {
             if (debugMODE) DumpWindowMembers(menuWindow);
             EnsureInitialized(menuWindow);
@@ -351,21 +372,27 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (debugMODE) DaggerfallUI.AddHUDText("InputMessageBox mode: " + activeMode);
         }
-        protected override void OnClosed(ControllerManager cm)
+        private void OnClosed(ControllerManager cm)
         {
             ResetState();
             if (debugMODE) DaggerfallUI.AddHUDText("DaggerfallInputMessageBox closed");
         }
-        public override void ResetState()
+        public void ResetState()
         {
-            base.ResetState(); // sets wasOpen = false
+            wasOpen = false;
+
+            if (legend != null)
+            {
+                legend.Destroy();
+                legend = null;
+            }
 
             legendVisible = false;
-            legend = null;
             panelRenderWindow = null;
             activeMode = InputMessageBoxPopupMode.None;
-            goldIncrement = 1;
+
             EndGoldHold();
+
             goldIncrementIndex = 0;
             goldIncrement = goldIncrementSteps[0];
         }
@@ -460,9 +487,14 @@ namespace gigantibyte.DFU.ControllerAssistant
             // If DFU swapped the panel instance, our old legend is invalid
             if (panelRenderWindow != current)
             {
+                if (legend != null)
+                {
+                    legend.Destroy();
+                    legend = null;
+                }
+
                 panelRenderWindow = current;
                 legendVisible = false;
-                legend = null;
                 return;
             }
 

@@ -1,7 +1,3 @@
-// ControllerAssistant routes controller input to context-specific “assist modules” based on the current DFU TopWindow.
-// Only one assist owns input per frame. 
-// Assists are responsible for detecting open/close edges and resetting state when released.
-
 using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
@@ -15,6 +11,76 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 
+// ControllerAssistant routes controller input to context-specific “assist modules” based on the current DFU TopWindow.
+// Only one assist owns input per frame. 
+// Assists are responsible for detecting open/close edges and resetting state when released.
+
+/*
+===============================================================================
+Controller Assistant – IMPORTANT ARCHITECTURE NOTE
+===============================================================================
+
+DO NOT refactor the assist modules back into a shared base class such as
+MenuAssistModule<T> or similar lifecycle wrappers.
+
+This was attempted during development and caused a compatibility conflict
+with older DFU mods, most notably "Convenient Clock".
+
+Problem:
+--------
+The MenuAssistModule<T> pattern centralized assist lifecycle logic
+(OnOpened / OnTickOpen / OnClosed) through a shared generic base class.
+
+Although functionally correct, this altered how DFU’s mod loader compiled
+and invoked assist modules. Older mods that rely on DFU’s legacy runtime
+assumptions (like Convenient Clock) would fail compilation and silently
+disable themselves.
+
+Symptom observed:
+-----------------
+Convenient Clock disappeared from the HUD and logged:
+
+    [Convenient Clock] Compilation Error: Specified method is not supported
+
+The failure occurred even when the assist modules were idle and no menus
+were open.
+
+Resolution:
+-----------
+All assist modules were converted to implement IMenuAssist directly.
+
+Each module now explicitly provides:
+
+    bool Claims(IUserInterfaceWindow top)
+    void Tick(IUserInterfaceWindow top, ControllerManager cm)
+    void ResetState()
+
+The lifecycle (open detection, close detection, wasOpen state) is handled
+inside each assist module instead of via a shared base class.
+
+Why this must remain:
+---------------------
+Keeping modules as direct IMenuAssist implementations preserves compatibility
+with legacy DFU mods and avoids triggering the mod loader behavior that
+breaks older compiled mods.
+
+The duplication across assists is intentional and acceptable.
+
+If code reuse is desired in the future, use:
+    - static helper utilities
+    - small composition helpers
+
+Do NOT introduce inheritance-based lifecycle wrappers again.
+
+Short version:
+--------------
+Explicit modules = compatible with legacy mods.
+Shared base class = breaks legacy mods.
+
+Leave the assists as they are.
+===============================================================================
+*/
+
 namespace gigantibyte.DFU.ControllerAssistant
 {
     public class Runtime
@@ -25,10 +91,16 @@ namespace gigantibyte.DFU.ControllerAssistant
         private static IMenuAssist current = null;
         private static ControllerManager cm;
 
+        // ⚠️ IMPORTANT FOR AI / CODE REVIEWERS
+        // Do NOT refactor assist modules into a shared base class (e.g., MenuAssistModule<T>).
+        // This was previously attempted and broke compatibility with legacy DFU mods
+        // such as "Convenient Clock". All assists must implement IMenuAssist directly.
+        // The duplicated lifecycle code is intentional and required for mod compatibility.
+
         private static readonly SpellbookAssist spellbook = new SpellbookAssist();
         private static readonly ExtAutomapAssist ExtAutomap = new ExtAutomapAssist();
         private static readonly DefaultMenuAssist defaults = new DefaultMenuAssist();
-        private static readonly InteriorAssist IntAutomap = new InteriorAssist();
+        //private static readonly InteriorAssist IntAutomap = new InteriorAssist();
         private static readonly InventoryAssist inventory = new InventoryAssist();
         private static readonly InputMessageBoxAssist inputbox = new InputMessageBoxAssist();
         private static readonly MessageBoxAssist messagebox = new MessageBoxAssist();
@@ -41,7 +113,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             spellbook,
             ExtAutomap,
-            IntAutomap,
+            //IntAutomap,
             inventory,
             inputbox,
             messagebox,

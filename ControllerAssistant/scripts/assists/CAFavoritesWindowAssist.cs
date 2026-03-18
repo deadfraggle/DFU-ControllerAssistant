@@ -9,10 +9,11 @@ using UnityEngine;
 
 namespace gigantibyte.DFU.ControllerAssistant
 {
-    public class CAFavoritesWindowAssist : MenuAssistModule<ControllerAssistantFavoritesWindow>
+    public class CAFavoritesWindowAssist : IMenuAssist
     {
         private const bool debugMODE = false;
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
+        private bool wasOpen = false;
 
         private bool reflectionCached = false;
 
@@ -22,7 +23,35 @@ namespace gigantibyte.DFU.ControllerAssistant
         private LegendOverlay legend;
         private bool legendVisible = false;
 
-        protected override void OnTickOpen(ControllerAssistantFavoritesWindow menuWindow, ControllerManager cm)
+        public bool Claims(IUserInterfaceWindow top)
+        {
+            return top is ControllerAssistantFavoritesWindow;
+        }
+
+        public void Tick(IUserInterfaceWindow top, ControllerManager cm)
+        {
+            ControllerAssistantFavoritesWindow menuWindow = top as ControllerAssistantFavoritesWindow;
+
+            if (menuWindow == null)
+            {
+                if (wasOpen)
+                {
+                    OnClosed(cm);
+                    wasOpen = false;
+                }
+                return;
+            }
+
+            if (!wasOpen)
+            {
+                wasOpen = true;
+                OnOpened(menuWindow, cm);
+            }
+
+            OnTickOpen(menuWindow, cm);
+        }
+
+        private void OnTickOpen(ControllerAssistantFavoritesWindow menuWindow, ControllerManager cm)
         {
             RefreshLegendAttachment(menuWindow);
 
@@ -80,7 +109,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
         }
 
-        protected override void OnOpened(ControllerAssistantFavoritesWindow menuWindow, ControllerManager cm)
+        private void OnOpened(ControllerAssistantFavoritesWindow menuWindow, ControllerManager cm)
         {
             if (debugMODE)
                 DumpWindowMembers(menuWindow);
@@ -88,7 +117,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             EnsureInitialized(menuWindow);
         }
 
-        protected override void OnClosed(ControllerManager cm)
+        private void OnClosed(ControllerManager cm)
         {
             ResetState();
 
@@ -96,12 +125,13 @@ namespace gigantibyte.DFU.ControllerAssistant
                 DaggerfallUI.AddHUDText("ControllerAssistantFavoritesWindow closed");
         }
 
-        public override void ResetState()
+        public void ResetState()
         {
-            base.ResetState(); // sets wasOpen = false
+            wasOpen = false;
+
+            DestroyLegend();
 
             legendVisible = false;
-            legend = null;
             panelRenderWindow = null;
         }
 
@@ -260,9 +290,9 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (panelRenderWindow != current)
             {
+                DestroyLegend();
                 panelRenderWindow = current;
                 legendVisible = false;
-                legend = null;
                 return;
             }
 

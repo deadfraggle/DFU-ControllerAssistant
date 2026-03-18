@@ -8,10 +8,11 @@ using UnityEngine;
 
 namespace gigantibyte.DFU.ControllerAssistant
 {
-    public class SpellbookAssist : MenuAssistModule<DaggerfallSpellBookWindow>
+    public class SpellbookAssist : IMenuAssist
     {
         private const bool debugMODE = false;
         private bool reflectionCached = false;
+        private bool wasOpen = false;
 
         // Legend
         private FieldInfo fiPanelRenderWindow;
@@ -33,7 +34,50 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private bool closeDeferred = false;
 
-        protected override void OnTickOpen(DaggerfallSpellBookWindow menuWindow, ControllerManager cm)
+        public bool Claims(IUserInterfaceWindow top)
+        {
+            return top is DaggerfallSpellBookWindow;
+        }
+
+        public void Tick(IUserInterfaceWindow top, ControllerManager cm)
+        {
+            DaggerfallSpellBookWindow menuWindow = top as DaggerfallSpellBookWindow;
+
+            if (menuWindow == null)
+            {
+                if (wasOpen)
+                {
+                    OnClosed(cm);
+                    wasOpen = false;
+                }
+                return;
+            }
+
+            if (!wasOpen)
+            {
+                wasOpen = true;
+                OnOpened(menuWindow, cm);
+            }
+
+            OnTickOpen(menuWindow, cm);
+        }
+
+        public void ResetState()
+        {
+            wasOpen = false;
+            closeDeferred = false;
+
+            if (legend != null)
+            {
+                legend.Destroy();
+                legend = null;
+            }
+
+            legendVisible = false;
+            panelRenderWindow = null;
+        }
+
+        private void OnTickOpen(DaggerfallSpellBookWindow menuWindow, ControllerManager cm)
         {
             KeyCode windowBinding = InputManager.Instance.GetBinding(InputManager.Actions.CastSpell);
 
@@ -87,7 +131,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                     legend = null;
                 }
 
-                menuWindow.CloseWindow();
+                //menuWindow.CloseWindow();
                 return;
             }
 
@@ -109,6 +153,18 @@ namespace gigantibyte.DFU.ControllerAssistant
                 menuWindow.CloseWindow();
                 return;
             }
+        }
+
+        private void OnOpened(DaggerfallSpellBookWindow menuWindow, ControllerManager cm)
+        {
+            if (debugMODE) DumpWindowMembers(menuWindow);
+            EnsureInitialized(menuWindow);
+        }
+
+        private void OnClosed(ControllerManager cm)
+        {
+            ResetState();
+            if (debugMODE) DaggerfallUI.AddHUDText("DaggerfallSpellBookWindow closed");
         }
 
         private void ActionMoveSpellUp(DaggerfallSpellBookWindow menuWindow)
@@ -150,29 +206,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             };
 
             miActionSort.Invoke(menuWindow, args);
-        }
-
-        protected override void OnOpened(DaggerfallSpellBookWindow menuWindow, ControllerManager cm)
-        {
-            if (debugMODE) DumpWindowMembers(menuWindow);
-            EnsureInitialized(menuWindow);
-        }
-
-        protected override void OnClosed(ControllerManager cm)
-        {
-            ResetState();
-            if (debugMODE) DaggerfallUI.AddHUDText("DaggerfallSpellBookWindow closed");
-        }
-
-        public override void ResetState()
-        {
-            base.ResetState();
-
-            closeDeferred = false;
-
-            legendVisible = false;
-            legend = null;
-            panelRenderWindow = null;
         }
 
         private void EnsureInitialized(DaggerfallSpellBookWindow menuWindow)
@@ -220,13 +253,13 @@ namespace gigantibyte.DFU.ControllerAssistant
                 legend.BackgroundColor = new Color(0f, 0f, 0f, 0.60f);
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
-        {
-            new LegendOverlay.LegendRow("D-Pad", "Select spell"),
-            new LegendOverlay.LegendRow(cm.Action1Name, "Activate"),
-            new LegendOverlay.LegendRow(cm.Action2Name, "Sort"),
-            new LegendOverlay.LegendRow("Right Stick Up", "Move spell up"),
-            new LegendOverlay.LegendRow("Right Stick Down", "Move spell down"),
-        };
+                {
+                    new LegendOverlay.LegendRow("D-Pad", "Select spell"),
+                    new LegendOverlay.LegendRow(cm.Action1Name, "Activate"),
+                    new LegendOverlay.LegendRow(cm.Action2Name, "Sort"),
+                    new LegendOverlay.LegendRow("Right Stick Up", "Move spell up"),
+                    new LegendOverlay.LegendRow("Right Stick Down", "Move spell down"),
+                };
 
                 legend.Build("Legend", rows);
             }

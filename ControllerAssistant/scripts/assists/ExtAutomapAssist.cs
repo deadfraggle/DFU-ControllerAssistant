@@ -8,10 +8,11 @@ using UnityEngine;
 
 namespace gigantibyte.DFU.ControllerAssistant
 {
-    public class ExtAutomapAssist : MenuAssistModule<DaggerfallExteriorAutomapWindow>
+    public class ExtAutomapAssist : IMenuAssist
     {
         private const bool debugMODE = false;
-        private bool reflectionCached = false;  //prevents re-caching Reflection methods
+        private bool reflectionCached = false;
+        private bool wasOpen = false;
 
         // Legend
         private FieldInfo fiPanelRenderWindow;
@@ -36,15 +37,53 @@ namespace gigantibyte.DFU.ControllerAssistant
         private FieldInfo fiWindowBinding;
         private bool closeDeferred = false;
 
-        // =========================
-        // Core tick / main behavior
-        // =========================
-        protected override void OnTickOpen(DaggerfallExteriorAutomapWindow menuWindow, ControllerManager cm)
+        public bool Claims(IUserInterfaceWindow top)
         {
-            // Current vanilla binding for this window's open/close action
+            return top is DaggerfallExteriorAutomapWindow;
+        }
+
+        public void Tick(IUserInterfaceWindow top, ControllerManager cm)
+        {
+            DaggerfallExteriorAutomapWindow menuWindow = top as DaggerfallExteriorAutomapWindow;
+
+            if (menuWindow == null)
+            {
+                if (wasOpen)
+                {
+                    OnClosed(cm);
+                    wasOpen = false;
+                }
+                return;
+            }
+
+            if (!wasOpen)
+            {
+                wasOpen = true;
+                OnOpened(menuWindow, cm);
+            }
+
+            OnTickOpen(menuWindow, cm);
+        }
+
+        public void ResetState()
+        {
+            wasOpen = false;
+            closeDeferred = false;
+
+            if (legend != null)
+            {
+                legend.Destroy();
+                legend = null;
+            }
+
+            legendVisible = false;
+            panelRenderWindow = null;
+        }
+
+        private void OnTickOpen(DaggerfallExteriorAutomapWindow menuWindow, ControllerManager cm)
+        {
             KeyCode windowBinding = InputManager.Instance.GetBinding(InputManager.Actions.AutoMap);
 
-            // Everything from your old Tick() AFTER the cast succeeds
             RefreshLegendAttachment(menuWindow);
 
             if (legend != null && legend.IsBuilt)
@@ -52,8 +91,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (fiWindowBinding != null)
                 fiWindowBinding.SetValue(menuWindow, KeyCode.None);
-
-            // Read current controller state
 
             bool isAssisting =
                 (cm.DPadH != 0 || cm.DPadV != 0 || cm.RStickV != 0 || cm.RStickH != 0 ||
@@ -103,9 +140,19 @@ namespace gigantibyte.DFU.ControllerAssistant
                 return;
             }
         }
-        // =========================
-        // Assist action helpers
-        // =========================
+
+        private void OnOpened(DaggerfallExteriorAutomapWindow menuWindow, ControllerManager cm)
+        {
+            if (debugMODE) DumpWindowMembers(menuWindow);
+            EnsureInitialized(menuWindow);
+        }
+
+        private void OnClosed(ControllerManager cm)
+        {
+            ResetState();
+            if (debugMODE) DaggerfallUI.AddHUDText("Automap closed");
+        }
+
         private void PanMapLeft(DaggerfallExteriorAutomapWindow menuWindow)
         {
             miActionMoveRight?.Invoke(menuWindow, null);
@@ -121,18 +168,15 @@ namespace gigantibyte.DFU.ControllerAssistant
             miActionMoveForward?.Invoke(menuWindow, null);
         }
 
-
         private void PanMapUp(DaggerfallExteriorAutomapWindow menuWindow)
         {
             miActionMoveBackward?.Invoke(menuWindow, null);
         }
 
-
         private void ZoomMapOut(DaggerfallExteriorAutomapWindow menuWindow)
         {
             miActionMoveUpstairs?.Invoke(menuWindow, null);
         }
-
 
         private void ZoomMapIn(DaggerfallExteriorAutomapWindow menuWindow)
         {
@@ -159,36 +203,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             miActionCenterMapOnPlayer?.Invoke(menuWindow, null);
         }
 
-        // =========================
-        // Lifecycle hooks
-        // =========================
-        protected override void OnOpened(DaggerfallExteriorAutomapWindow menuWindow, ControllerManager cm)
-        {
-            if (debugMODE) DumpWindowMembers(menuWindow);
-            EnsureInitialized(menuWindow);
-            //BeginSession();
-        }
-        protected override void OnClosed(ControllerManager cm)
-        {
-            ResetState();
-            if (debugMODE) DaggerfallUI.AddHUDText("Automap closed");
-        }
-        public override void ResetState()
-        {
-            base.ResetState(); // sets wasOpen = false
-
-            closeDeferred = false;
-
-            legendVisible = false;
-            legend = null;
-            panelRenderWindow = null;
-        }
-
-        // =========================
-        // Per-window/per-open setup
-        // =========================
-
-        // cache reflection handles once (expensive + stable)
         private void EnsureInitialized(DaggerfallExteriorAutomapWindow menuWindow)
         {
             if (reflectionCached) return;
@@ -214,14 +228,10 @@ namespace gigantibyte.DFU.ControllerAssistant
             reflectionCached = true;
         }
 
-        // =========================
-        // Optional UI helpers
-        // =========================
         private void EnsureLegendUI(DaggerfallExteriorAutomapWindow menuWindow, ControllerManager cm)
         {
             if (menuWindow == null) return;
 
-            // Grab the render panel once per open
             if (panelRenderWindow == null && fiPanelRenderWindow != null)
                 panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
 
@@ -231,7 +241,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             {
                 legend = new LegendOverlay(panelRenderWindow);
 
-                // tuned sizing
                 legend.HeaderScale = 6.0f;
                 legend.RowScale = 5.0f;
                 legend.PadL = 18f;
@@ -264,16 +273,19 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (current == null)
                 return;
 
-            // If DFU swapped the panel instance, our old legend is invalid
             if (panelRenderWindow != current)
             {
+                if (legend != null)
+                {
+                    legend.Destroy();
+                    legend = null;
+                }
+
                 panelRenderWindow = current;
                 legendVisible = false;
-                legend = null;
                 return;
             }
 
-            // If DFU cleared components, our legend may be detached
             if (legend != null && !legend.IsAttached())
             {
                 legendVisible = false;
@@ -281,9 +293,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
         }
 
-        // =========================
-        // Reflection helpers
-        // =========================
         private MethodInfo CacheMethod(System.Type type, string name)
         {
             MethodInfo mi = type.GetMethod(name, BF);
@@ -300,20 +309,17 @@ namespace gigantibyte.DFU.ControllerAssistant
             return fi;
         }
 
-        void DumpWindowMembers(object window)
+        private void DumpWindowMembers(object window)
         {
             var type = window.GetType();
 
             Debug.Log("===== METHODS =====");
             foreach (var m in type.GetMethods(BF))
-                Debug.Log(m.Name); //or Debug.Log(m.ToString());
+                Debug.Log(m.Name);
 
             Debug.Log("===== FIELDS =====");
             foreach (var f in type.GetFields(BF))
                 Debug.Log(f.Name);
         }
-
     }
 }
-
-

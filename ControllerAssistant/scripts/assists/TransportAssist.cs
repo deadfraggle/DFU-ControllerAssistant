@@ -8,10 +8,11 @@ using UnityEngine;
 
 namespace gigantibyte.DFU.ControllerAssistant
 {
-    public class TransportAssist : MenuAssistModule<DaggerfallTransportWindow>
+    public class TransportAssist : IMenuAssist
     {
         private const bool debugMODE = false;
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
+        private bool wasOpen = false;
 
         private bool reflectionCached = false;
 
@@ -25,7 +26,35 @@ namespace gigantibyte.DFU.ControllerAssistant
         private FieldInfo fiWindowBinding;
         private bool closeDeferred = false;
 
-        protected override void OnTickOpen(DaggerfallTransportWindow menuWindow, ControllerManager cm)
+        public bool Claims(IUserInterfaceWindow top)
+        {
+            return top is DaggerfallTransportWindow;
+        }
+
+        public void Tick(IUserInterfaceWindow top, ControllerManager cm)
+        {
+            DaggerfallTransportWindow menuWindow = top as DaggerfallTransportWindow;
+
+            if (menuWindow == null)
+            {
+                if (wasOpen)
+                {
+                    OnClosed(cm);
+                    wasOpen = false;
+                }
+                return;
+            }
+
+            if (!wasOpen)
+            {
+                wasOpen = true;
+                OnOpened(menuWindow, cm);
+            }
+
+            OnTickOpen(menuWindow, cm);
+        }
+
+        private void OnTickOpen(DaggerfallTransportWindow menuWindow, ControllerManager cm)
         {
             KeyCode windowBinding = InputManager.Instance.GetBinding(InputManager.Actions.Transport);
 
@@ -127,7 +156,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
         }
 
-        protected override void OnOpened(DaggerfallTransportWindow menuWindow, ControllerManager cm)
+        private void OnOpened(DaggerfallTransportWindow menuWindow, ControllerManager cm)
         {
             if (debugMODE)
                 DumpWindowMembers(menuWindow);
@@ -135,7 +164,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             EnsureInitialized(menuWindow);
         }
 
-        protected override void OnClosed(ControllerManager cm)
+        private void OnClosed(ControllerManager cm)
         {
             ResetState();
 
@@ -143,13 +172,14 @@ namespace gigantibyte.DFU.ControllerAssistant
                 DaggerfallUI.AddHUDText("DaggerfallTransportWindow closed");
         }
 
-        public override void ResetState()
+        public void ResetState()
         {
-            base.ResetState(); // sets wasOpen = false
-
+            wasOpen = false;
             closeDeferred = false;
+
+            DestroyLegend();
+
             legendVisible = false;
-            legend = null;
             panelRenderWindow = null;
         }
 
@@ -275,9 +305,9 @@ namespace gigantibyte.DFU.ControllerAssistant
             // If DFU swapped the panel instance, our old legend is invalid
             if (panelRenderWindow != current)
             {
+                DestroyLegend();
                 panelRenderWindow = current;
                 legendVisible = false;
-                legend = null;
                 return;
             }
 

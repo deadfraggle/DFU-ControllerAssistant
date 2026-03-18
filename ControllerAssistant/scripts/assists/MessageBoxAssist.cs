@@ -10,10 +10,11 @@ using UnityEngine;
 
 namespace gigantibyte.DFU.ControllerAssistant
 {
-    public class MessageBoxAssist : MenuAssistModule<DaggerfallMessageBox>
+    public class MessageBoxAssist : IMenuAssist
     {
         private const bool debugMODE = false;
         private bool reflectionCached = false;
+        private bool wasOpen = false;
 
         // Legend
         private FieldInfo fiPanelRenderWindow;
@@ -29,10 +30,38 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
+        public bool Claims(IUserInterfaceWindow top)
+        {
+            return top is DaggerfallMessageBox;
+        }
+
+        public void Tick(IUserInterfaceWindow top, ControllerManager cm)
+        {
+            DaggerfallMessageBox menuWindow = top as DaggerfallMessageBox;
+
+            if (menuWindow == null)
+            {
+                if (wasOpen)
+                {
+                    OnClosed(cm);
+                    wasOpen = false;
+                }
+                return;
+            }
+
+            if (!wasOpen)
+            {
+                wasOpen = true;
+                OnOpened(menuWindow, cm);
+            }
+
+            OnTickOpen(menuWindow, cm);
+        }
+
         // =========================
         // Core tick / main behavior
         // =========================
-        protected override void OnTickOpen(DaggerfallMessageBox menuWindow, ControllerManager cm)
+        private void OnTickOpen(DaggerfallMessageBox menuWindow, ControllerManager cm)
         {
             RefreshLegendAttachment(menuWindow);
 
@@ -174,24 +203,29 @@ namespace gigantibyte.DFU.ControllerAssistant
         // =========================
         // Lifecycle hooks
         // =========================
-        protected override void OnOpened(DaggerfallMessageBox menuWindow, ControllerManager cm)
+        private void OnOpened(DaggerfallMessageBox menuWindow, ControllerManager cm)
         {
             if (debugMODE) DumpWindowMembers(menuWindow);
             EnsureInitialized(menuWindow);
         }
 
-        protected override void OnClosed(ControllerManager cm)
+        private void OnClosed(ControllerManager cm)
         {
             ResetState();
             if (debugMODE) DaggerfallUI.AddHUDText("DaggerfallMessageBox closed");
         }
 
-        public override void ResetState()
+        public void ResetState()
         {
-            base.ResetState();
+            wasOpen = false;
+
+            if (legend != null)
+            {
+                legend.Destroy();
+                legend = null;
+            }
 
             legendVisible = false;
-            legend = null;
             panelRenderWindow = null;
         }
 
@@ -261,9 +295,14 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (panelRenderWindow != current)
             {
+                if (legend != null)
+                {
+                    legend.Destroy();
+                    legend = null;
+                }
+
                 panelRenderWindow = current;
                 legendVisible = false;
-                legend = null;
                 return;
             }
 

@@ -8,10 +8,11 @@ using UnityEngine;
 
 namespace gigantibyte.DFU.ControllerAssistant
 {
-    public class REPLACE_WITH_MODULE_NAME_Assist : MenuAssistModule<REPLACE_WITH_WINDOW_TYPE> //! IMPORTANT: Register this module in Runtime so it is included in the assist list
+    public class REPLACE_WITH_MODULE_NAME_Assist : IMenuAssist //! IMPORTANT: Register this module in Runtime so it is included in the assist list
     {
         private const bool debugMODE = false;
-        private bool reflectionCached = false;  // prevents re-caching Reflection members
+        private bool reflectionCached = false;
+        private bool wasOpen = false;
 
         // Legend
         private FieldInfo fiPanelRenderWindow;
@@ -39,9 +40,51 @@ namespace gigantibyte.DFU.ControllerAssistant
         private bool closeDeferred = false;
 
         // =========================
+        // IMenuAssist
+        // =========================
+        public bool Claims(IUserInterfaceWindow top)
+        {
+            return top is REPLACE_WITH_WINDOW_TYPE;
+        }
+
+        public void Tick(IUserInterfaceWindow top, ControllerManager cm)
+        {
+            REPLACE_WITH_WINDOW_TYPE menuWindow = top as REPLACE_WITH_WINDOW_TYPE;
+
+            if (menuWindow == null)
+            {
+                if (wasOpen)
+                {
+                    OnClosed(cm);
+                    wasOpen = false;
+                }
+                return;
+            }
+
+            if (!wasOpen)
+            {
+                wasOpen = true;
+                OnOpened(menuWindow, cm);
+            }
+
+            OnTickOpen(menuWindow, cm);
+        }
+
+        public void ResetState()
+        {
+            wasOpen = false;
+            closeDeferred = false;
+
+            DestroyLegend();
+
+            legendVisible = false;
+            panelRenderWindow = null;
+        }
+
+        // =========================
         // Core tick / main behavior
         // =========================
-        protected override void OnTickOpen(REPLACE_WITH_WINDOW_TYPE menuWindow, ControllerManager cm)
+        private void OnTickOpen(REPLACE_WITH_WINDOW_TYPE menuWindow, ControllerManager cm)
         {
             //! REPLACE Inventory WITH THE CORRECT VANILLA BINDING FOR THIS WINDOW
             // KeyCode windowBinding = InputManager.Instance.GetBinding(InputManager.Actions.Inventory);
@@ -70,8 +113,15 @@ namespace gigantibyte.DFU.ControllerAssistant
             //     if (cm.RStickV == 1) ActionStickDown(menuWindow);
             //     if (cm.RStickV == -1) ActionStickUp(menuWindow);
 
-            //     if (cm.Action1Pressed) Action1(menuWindow);
-            //     if (cm.Action2Pressed) Action2(menuWindow);
+            //     if (cm.Action1Pressed)
+            //     {
+            //         Action1(menuWindow);
+            //     }
+
+            //     if (cm.Action2Pressed)
+            //     {
+            //         Action2(menuWindow);
+            //     }
 
             //     if (cm.LegendPressed)
             //     {
@@ -84,12 +134,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (cm.BackPressed)
             {
-                if (legend != null)
-                {
-                    legend.Destroy();
-                    legend = null;
-                }
-
+                DestroyLegend();
                 menuWindow.CloseWindow();
                 return;
             }
@@ -103,13 +148,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             // if (closeDeferred && InputManager.Instance.GetKeyUp(windowBinding))
             // {
             //     closeDeferred = false;
-
-            //     if (legend != null)
-            //     {
-            //         legend.Destroy();
-            //         legend = null;
-            //     }
-
+            //     DestroyLegend();
             //     menuWindow.CloseWindow();
             //     return;
             // }
@@ -130,37 +169,36 @@ namespace gigantibyte.DFU.ControllerAssistant
         //     miActionMoveRight?.Invoke(menuWindow, null);
         // }
 
+        // private void Action1(REPLACE_WITH_WINDOW_TYPE menuWindow)
+        // {
+        // }
+
+        // private void Action2(REPLACE_WITH_WINDOW_TYPE menuWindow)
+        // {
+        // }
+
         // =========================
         // Lifecycle hooks
         // =========================
-        protected override void OnOpened(REPLACE_WITH_WINDOW_TYPE menuWindow, ControllerManager cm)
+        private void OnOpened(REPLACE_WITH_WINDOW_TYPE menuWindow, ControllerManager cm)
         {
-            if (debugMODE) DumpWindowMembers(menuWindow);
+            if (debugMODE)
+                DumpWindowMembers(menuWindow);
+
             EnsureInitialized(menuWindow);
         }
 
-        protected override void OnClosed(ControllerManager cm)
+        private void OnClosed(ControllerManager cm)
         {
             ResetState();
-            if (debugMODE) DaggerfallUI.AddHUDText("REPLACE_WITH_WINDOW_TYPE closed");
-        }
 
-        public override void ResetState()
-        {
-            base.ResetState(); // sets wasOpen = false
-
-            closeDeferred = false;
-
-            legendVisible = false;
-            legend = null;
-            panelRenderWindow = null;
+            if (debugMODE)
+                DaggerfallUI.AddHUDText("REPLACE_WITH_WINDOW_TYPE closed");
         }
 
         // =========================
         // Per-window/per-open setup
         // =========================
-
-        // cache reflection handles once (expensive + stable)
         private void EnsureInitialized(REPLACE_WITH_WINDOW_TYPE menuWindow)
         {
             if (reflectionCached) return;
@@ -232,9 +270,9 @@ namespace gigantibyte.DFU.ControllerAssistant
             // If DFU swapped the panel instance, our old legend is invalid
             if (panelRenderWindow != current)
             {
+                DestroyLegend();
                 panelRenderWindow = current;
                 legendVisible = false;
-                legend = null;
                 return;
             }
 
@@ -242,6 +280,15 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (legend != null && !legend.IsAttached())
             {
                 legendVisible = false;
+                legend = null;
+            }
+        }
+
+        private void DestroyLegend()
+        {
+            if (legend != null)
+            {
+                legend.Destroy();
                 legend = null;
             }
         }

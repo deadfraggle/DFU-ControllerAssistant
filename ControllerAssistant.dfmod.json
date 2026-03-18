@@ -7,25 +7,22 @@
     "ModDescription": "Controller Assistant for DFU menus",
     "GUID": "d2494981-7b03-4bf1-b1d3-ce3285cf07c4",
     "Files": [
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBoxAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/DefaultMenuAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InventoryAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/ExtAutomapAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InteriorAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/SpellbookAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/core/ControllerManager.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/core/IMenuAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/core/MenuAssistModule.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/UI/LegendOverlay.cs",
         "Assets/Game/Mods/ControllerAssistant/settings/modsettings.json",
         "Assets/Game/Mods/ControllerAssistant/Runtime.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBoxAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TransportAssist.cs",
         "Assets/Game/Mods/ControllerAssistant.dfmod.json",
         "Assets/Game/Mods/ControllerAssistant/scripts/UI/ControllerAssistantFavoritesWindow.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/core/FavoritesStore.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/SpellbookAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/ExtAutomapAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InventoryAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBoxAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBoxAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TransportAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/CAFavoritesWindowAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/PauseAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/tools/AnchorEditor.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/PauseAssist.cs"
     ]
 }

@@ -1,15 +1,19 @@
 using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Game.UserInterface;
+using DaggerfallWorkshop.Game.UserInterfaceWindows;
 using System.Reflection;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace gigantibyte.DFU.ControllerAssistant
 {
-    public class DefaultMenuAssist : MenuAssistModule<IUserInterfaceWindow>
+    public class DefaultMenuAssist : IMenuAssist
     {
         private const bool debugMODE = false;
         private bool reflectionCached = false;
+
+        // Open/close edge tracking (replaces MenuAssistModule state handling)
+        private bool wasOpen = false;
 
         // Legend
         private FieldInfo fiPanelRenderWindow;
@@ -19,7 +23,51 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
 
-        protected override void OnTickOpen(IUserInterfaceWindow menuWindow, ControllerManager cm)
+        public bool Claims(IUserInterfaceWindow top)
+        {
+            // Default assist is the fallback for ordinary menu windows.
+            // It should NOT claim HUD / no-menu state.
+            return top != null && !(top is DaggerfallHUD);
+        }
+
+        public void Tick(IUserInterfaceWindow top, ControllerManager cm)
+        {
+            IUserInterfaceWindow menuWindow = top;
+
+            if (menuWindow == null)
+            {
+                if (wasOpen)
+                {
+                    OnClosed(cm);
+                    wasOpen = false;
+                }
+                return;
+            }
+
+            if (!wasOpen)
+            {
+                wasOpen = true;
+                OnOpened(menuWindow, cm);
+            }
+
+            OnTickOpen(menuWindow, cm);
+        }
+
+        public void ResetState()
+        {
+            wasOpen = false;
+
+            if (legend != null)
+            {
+                legend.Destroy();
+                legend = null;
+            }
+
+            legendVisible = false;
+            panelRenderWindow = null;
+        }
+
+        private void OnTickOpen(IUserInterfaceWindow menuWindow, ControllerManager cm)
         {
             RefreshLegendAttachment(menuWindow);
 
@@ -48,28 +96,18 @@ namespace gigantibyte.DFU.ControllerAssistant
                 if (legend != null)
                     legend.SetEnabled(legendVisible);
             }
-
         }
 
-        protected override void OnOpened(IUserInterfaceWindow menuWindow, ControllerManager cm)
+        private void OnOpened(IUserInterfaceWindow menuWindow, ControllerManager cm)
         {
             if (debugMODE) DumpWindowMembers(menuWindow);
             EnsureInitialized(menuWindow);
         }
 
-        protected override void OnClosed(ControllerManager cm)
+        private void OnClosed(ControllerManager cm)
         {
             ResetState();
             if (debugMODE) DaggerfallUI.AddHUDText("DefaultMenuAssist closed");
-        }
-
-        public override void ResetState()
-        {
-            base.ResetState();
-
-            legendVisible = false;
-            legend = null;
-            panelRenderWindow = null;
         }
 
         private void EnsureInitialized(IUserInterfaceWindow menuWindow)
@@ -124,7 +162,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (menuWindow == null)
                 return;
 
-            // If we have not yet cached the field for this window type, try now.
             if (fiPanelRenderWindow == null)
                 fiPanelRenderWindow = CacheField(menuWindow.GetType(), "parentPanel");
 
