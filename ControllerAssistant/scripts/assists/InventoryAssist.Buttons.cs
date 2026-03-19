@@ -1,6 +1,8 @@
 using DaggerfallWorkshop.Game;
+using DaggerfallWorkshop.Game.UserInterface;
 using DaggerfallWorkshop.Game.UserInterfaceWindows;
 using System;
+using System.Reflection;
 using UnityEngine;
 
 namespace gigantibyte.DFU.ControllerAssistant
@@ -14,7 +16,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (selectorBox == null)
                 EnsureSelectorBox(menuWindow);
 
-            RefreshSelectorToCurrentRegion();
+            RefreshSelectorToCurrentRegion(menuWindow);
 
             if (cm.Action1Pressed)
             {
@@ -24,15 +26,14 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (cm.RStickUpPressed || cm.RStickUpHeldSlow)
             {
-                if (MoveButtonSelectionUp())
-                    RefreshSelectorToCurrentRegion();
-                return;
+                if (MoveButtonSelectionUp(menuWindow))
+                    RefreshSelectorToCurrentRegion(menuWindow);
             }
 
             if (cm.RStickDownPressed || cm.RStickDownHeldSlow)
             {
-                if (MoveButtonSelectionDown())
-                    RefreshSelectorToCurrentRegion();
+                if (MoveButtonSelectionDown(menuWindow))
+                    RefreshSelectorToCurrentRegion(menuWindow);
                 return;
             }
 
@@ -54,6 +55,12 @@ namespace gigantibyte.DFU.ControllerAssistant
                 return;
 
             SaveResumeSelectorState();
+
+            if (IsTradeWindow(menuWindow))
+            {
+                InvokeSelectedTradeButton(menuWindow);
+                return;
+            }
 
             switch (buttonSelectedIndex)
             {
@@ -92,6 +99,54 @@ namespace gigantibyte.DFU.ControllerAssistant
                     break;
             }
         }
+
+        private void InvokeTradeButtonClick(DaggerfallInventoryWindow menuWindow, FieldInfo fiButton, MethodInfo miClick)
+        {
+            if (menuWindow == null || fiButton == null || miClick == null)
+                return;
+
+            object button = fiButton.GetValue(menuWindow);
+            if (button == null)
+                return;
+
+            BaseScreenComponent component = button as BaseScreenComponent;
+            if (component != null && !component.Enabled)
+                return;
+
+            miClick.Invoke(menuWindow, new object[] { button, Vector2.zero });
+        }
+
+        private void InvokeSelectedTradeButton(DaggerfallInventoryWindow menuWindow)
+        {
+            switch (buttonSelectedIndex)
+            {
+                case 0: // Wagon
+                    InvokeTradeButtonClick(menuWindow, fiWagonButton, miWagonButtonClick);
+                    break;
+
+                case 1: // Info
+                    InvokeSelectActionMode(menuWindow, 0);
+                    break;
+
+                case 2: // Select
+                    InvokeTradeButtonClick(menuWindow, fiSelectButton, miSelectButtonClick);
+                    break;
+
+                case 3: // Steal (Buy only)
+                    if (IsTradeBuyMode(menuWindow))
+                        InvokeTradeButtonClick(menuWindow, fiStealButton, miStealButtonClick);
+                    break;
+
+                case 4: // Buy / Sell / Repair / Identify
+                    InvokeTradeButtonClick(menuWindow, fiModeActionButton, miModeActionButtonClick);
+                    break;
+
+                case 5: // Clear
+                    InvokeTradeButtonClick(menuWindow, fiClearButton, miClearButtonClick);
+                    break;
+            }
+        }
+
         private void InvokeSelectActionMode(DaggerfallInventoryWindow menuWindow, int modeValue)
         {
             if (menuWindow == null || miSelectActionMode == null || fiSelectedActionMode == null)
@@ -104,28 +159,67 @@ namespace gigantibyte.DFU.ControllerAssistant
             object nextEnum = Enum.ToObject(currentValue.GetType(), modeValue);
             miSelectActionMode.Invoke(menuWindow, new object[] { nextEnum });
         }
-        private bool MoveButtonSelectionUp()
+        private bool MoveButtonSelectionUp(DaggerfallInventoryWindow menuWindow)
         {
-            if (buttonSelectedIndex <= 0)
-                return false;
-
             ClearGridRowMemory();
-            buttonSelectedIndex--;
-            return true;
+
+            if (!IsTradeWindow(menuWindow))
+            {
+                if (buttonSelectedIndex <= 0)
+                    return false;
+
+                buttonSelectedIndex--;
+                return true;
+            }
+
+            int next = buttonSelectedIndex - 1;
+            while (next >= 0)
+            {
+                if (IsTradeButtonIndexValid(menuWindow, next))
+                {
+                    buttonSelectedIndex = next;
+                    return true;
+                }
+
+                next--;
+            }
+
+            return false;
         }
 
-        private bool MoveButtonSelectionDown()
+        private bool MoveButtonSelectionDown(DaggerfallInventoryWindow menuWindow)
         {
-            if (buttonSelectedIndex >= buttonAnchorsNative.Length - 1)
-                return false;
-
             ClearGridRowMemory();
-            buttonSelectedIndex++;
-            return true;
+
+            if (!IsTradeWindow(menuWindow))
+            {
+                if (buttonSelectedIndex >= buttonAnchorsNative.Length - 1)
+                    return false;
+
+                buttonSelectedIndex++;
+                return true;
+            }
+
+            int next = buttonSelectedIndex + 1;
+            while (next < tradeButtonAnchorsNative.Length)
+            {
+                if (IsTradeButtonIndexValid(menuWindow, next))
+                {
+                    buttonSelectedIndex = next;
+                    return true;
+                }
+
+                next++;
+            }
+
+            return false;
         }
 
-        private int GetButtonIndexFromLocalGridRow(int row)
+        private int GetButtonIndexFromLocalGridRow(DaggerfallInventoryWindow menuWindow, int row)
         {
+            if (IsTradeWindow(menuWindow))
+                return GetTradeButtonIndexFromLocalGridRow(menuWindow, row);
+
             switch (row)
             {
                 case 0: return 1; // Info
@@ -136,8 +230,11 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
         }
 
-        private int GetButtonIndexFromRemoteGridRow(int row)
+        private int GetButtonIndexFromRemoteGridRow(DaggerfallInventoryWindow menuWindow, int row)
         {
+            if (IsTradeWindow(menuWindow))
+                return GetTradeButtonIndexFromRemoteGridRow(menuWindow, row);
+
             switch (row)
             {
                 case 0: return 1; // Info
@@ -148,8 +245,11 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
         }
 
-        private int GetLocalRowFromButtons()
+        private int GetLocalRowFromButtons(DaggerfallInventoryWindow menuWindow)
         {
+            if (IsTradeWindow(menuWindow))
+                return GetTradeLocalRowFromButtons(menuWindow);
+
             if (gridRowMemory >= 0)
             {
                 int rememberedRow = gridRowMemory;
@@ -169,8 +269,11 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
         }
 
-        private int GetRemoteRowFromButtons()
+        private int GetRemoteRowFromButtons(DaggerfallInventoryWindow menuWindow)
         {
+            if (IsTradeWindow(menuWindow))
+                return GetTradeRemoteRowFromButtons(menuWindow);
+
             if (gridRowMemory >= 0)
             {
                 int rememberedRow = gridRowMemory;
@@ -190,27 +293,121 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
         }
 
+        private int GetTradeLocalRowFromButtons(DaggerfallInventoryWindow menuWindow)
+        {
+            if (gridRowMemory >= 0)
+            {
+                int rememberedRow = gridRowMemory;
+                gridRowMemory = -1;
+                return rememberedRow;
+            }
+
+            switch (buttonSelectedIndex)
+            {
+                case 0: return 0; // Wagon
+                case 1: return 0; // Info
+                case 2: return 1; // Select
+                case 3: return 3; // Steal anchor / Buy-only
+                case 4: return IsTradeBuyMode(menuWindow) ? 4 : 4; // Buy / Sell / Repair
+                case 5: return 5; // Clear
+                default: return 0;
+            }
+        }
+
+        private int GetTradeRemoteRowFromButtons(DaggerfallInventoryWindow menuWindow)
+        {
+            if (gridRowMemory >= 0)
+            {
+                int rememberedRow = gridRowMemory;
+                gridRowMemory = -1;
+                return rememberedRow;
+            }
+
+            switch (buttonSelectedIndex)
+            {
+                case 0: return 0; // Wagon
+                case 1: return 0; // Info
+                case 2: return 1; // Select
+                case 3: return 3; // Steal anchor / Buy-only
+                case 4: return IsTradeBuyMode(menuWindow) ? 4 : 4; // Buy / Sell / Repair
+                case 5: return 5; // Clear
+                default: return 0;
+            }
+        }
+
+        private int GetTradeButtonIndexFromLocalGridRow(DaggerfallInventoryWindow menuWindow, int row)
+        {
+            if (IsTradeBuyMode(menuWindow))
+            {
+                switch (row)
+                {
+                    case 0: return 1; // Info
+                    case 1: return 2; // Select
+                    case 2: return 3; // Steal
+                    case 3: return 3; // Steal
+                    case 4: return 4; // Buy
+                    default: return 5; // Clear
+                }
+            }
+
+            switch (row)
+            {
+                case 0: return 1; // Info
+                case 1: return 2; // Select
+                case 2: return 4; // Sell / Repair
+                case 3: return 4; // Sell / Repair
+                case 4: return 4; // Sell / Repair
+                default: return 5; // Clear
+            }
+        }
+
+        private int GetTradeButtonIndexFromRemoteGridRow(DaggerfallInventoryWindow menuWindow, int row)
+        {
+            if (IsTradeBuyMode(menuWindow))
+            {
+                switch (row)
+                {
+                    case 0: return 1; // Info
+                    case 1: return 2; // Select
+                    case 2: return 3; // Steal
+                    case 3: return 3; // Steal
+                    case 4: return 4; // Buy
+                    default: return 5; // Clear
+                }
+            }
+
+            switch (row)
+            {
+                case 0: return 1; // Info
+                case 1: return 2; // Select
+                case 2: return 4; // Sell / Repair
+                case 3: return 4; // Sell / Repair
+                case 4: return 4; // Sell / Repair
+                default: return 5; // Clear
+            }
+        }
+
         private void RouteLeftGridToButtons(DaggerfallInventoryWindow menuWindow)
         {
             RememberGridRowIfExtended();
-            SwitchRegionToButtons(menuWindow, GetButtonIndexFromLocalGridRow(selectedRow));
+            SwitchRegionToButtons(menuWindow, GetButtonIndexFromLocalGridRow(menuWindow, selectedRow));
         }
 
         private void RouteRightGridToButtons(DaggerfallInventoryWindow menuWindow)
         {
             RememberGridRowIfExtended();
-            SwitchRegionToButtons(menuWindow, GetButtonIndexFromRemoteGridRow(selectedRow));
+            SwitchRegionToButtons(menuWindow, GetButtonIndexFromRemoteGridRow(menuWindow, selectedRow));
         }
 
         private void RouteButtonsToLeftGrid(DaggerfallInventoryWindow menuWindow)
         {
-            int targetRow = GetLocalRowFromButtons();
+            int targetRow = GetLocalRowFromButtons(menuWindow);
             SwitchRegion(menuWindow, REGION_LEFT_GRID, 1, targetRow); // Local col 2 = zero-based col 1
         }
 
         private void RouteButtonsToRightGrid(DaggerfallInventoryWindow menuWindow)
         {
-            int targetRow = GetRemoteRowFromButtons();
+            int targetRow = GetRemoteRowFromButtons(menuWindow);
             SwitchRegion(menuWindow, REGION_RIGHT_GRID, 0, targetRow); // Remote col 1 = zero-based col 0
         }
     }

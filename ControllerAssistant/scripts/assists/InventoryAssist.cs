@@ -179,8 +179,15 @@ namespace gigantibyte.DFU.ControllerAssistant
 {
     public partial class InventoryAssist : IMenuAssist
     {
-        private const bool debugMODE = false;
-        private bool reflectionCached = false;
+        private const bool debugMODE = true;
+
+        private Type cachedReflectionType = null;
+        private PropertyInfo piTradeWindowMode = null;
+
+        private string lastLoggedWindowTypeName = null;
+        private string lastLoggedTradeModeName = null;
+        private bool tradeButtonsLoggedThisOpen = false;
+
         private bool wasOpen = false;
 
         // Legend
@@ -217,6 +224,15 @@ namespace gigantibyte.DFU.ControllerAssistant
             new Vector2(225.5f, 79.4f),  // Remove
             new Vector2(225.5f, 102.4f),  // Use
             new Vector2(225.5f, 125.4f),  // Gold
+        };
+        private readonly Vector2[] tradeButtonAnchorsNative = new Vector2[]
+        {
+            new Vector2(225.5f, 13.4f),   // Wagon
+            new Vector2(225.5f, 35.4f),   // Info
+            new Vector2(225.5f, 57.4f),   // Select
+            new Vector2(225.5f, 111.6f),   // Steal (Buy only)
+            new Vector2(225.5f, 133.7f),  // ModeAction (Buy/Sell/Repair/Identify)
+            new Vector2(225.5f, 155.7f),  // Clear
         };
 
         private DiamondIndicatorOverlay paperDollIndicator = null;
@@ -304,11 +320,21 @@ namespace gigantibyte.DFU.ControllerAssistant
         private MethodInfo miUseItem;
         private MethodInfo miNextVariant;
 
-        private PropertyInfo piPlayerEntity;
-
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
-
         private FieldInfo fiWindowBinding;
+
+        // Trade window button fields
+        private FieldInfo fiSelectButton;
+        private FieldInfo fiStealButton;
+        private FieldInfo fiModeActionButton;
+        private FieldInfo fiClearButton;
+
+        // Trade window button methods
+        private MethodInfo miSelectButtonClick;
+        private MethodInfo miStealButtonClick;
+        private MethodInfo miModeActionButtonClick;
+        private MethodInfo miClearButtonClick;
+
         private bool closeDeferred = false;
 
         //private AnchorEditor editor;
@@ -351,6 +377,54 @@ namespace gigantibyte.DFU.ControllerAssistant
             RefreshLegendAttachment(menuWindow);
             RefreshSelectorAttachment(menuWindow);
 
+            EnsureInitialized(menuWindow);
+            LogInventoryWindowStateIfChanged(menuWindow);
+
+            bool gridsWereInvalid = !HasValidInventoryGrids();
+
+            EnsureInventoryGrids(menuWindow);
+
+
+            //// Anchor Editor
+            //if (panelRenderWindow == null && fiPanelRenderWindow != null)
+            //    panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+
+            //if (panelRenderWindow != null)
+            //    editor.Tick(panelRenderWindow);
+
+            if (gridsWereInvalid && HasValidInventoryGrids())
+            {
+                if (debugMODE)
+                    Debug.Log("[ControllerAssistant][InventoryAssist] Inventory grids became valid during tick.");
+
+                if (selectorBox != null &&
+                    currentRegion != REGION_PAPERDOLL &&
+                    currentRegion != REGION_CLOTHING)
+                {
+                    RebuildSelectorForCurrentRegion(menuWindow);
+                }
+            }
+
+            if (IsTradeWindow(menuWindow) && !tradeButtonsLoggedThisOpen)
+            {
+                bool anyTradeButtonLive =
+                    HasLiveButton(menuWindow, fiWagonButton) ||
+                    HasLiveButton(menuWindow, fiSelectButton) ||
+                    HasLiveButton(menuWindow, fiStealButton) ||
+                    HasLiveButton(menuWindow, fiModeActionButton) ||
+                    HasLiveButton(menuWindow, fiClearButton);
+
+                if (anyTradeButtonLive)
+                {
+                    LogTradeButtonsIfChanged(menuWindow, "first-live-tick");
+
+                    if (IsTradeBuyMode(menuWindow))
+                        LogSelectorState(menuWindow, "buy-first-live-tick");
+
+                    tradeButtonsLoggedThisOpen = true;
+                }
+            }
+
             if (panelRenderWindow == null && fiPanelRenderWindow != null)
                 panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
 
@@ -383,6 +457,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                     legendVisible = !legendVisible;
                     if (legend != null)
                         legend.SetEnabled(legendVisible);
+                    //editor.Toggle();
                 }
 
                 switch (currentRegion)
@@ -481,6 +556,9 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (panelRenderWindow != current)
             {
+                if (debugMODE)
+                    Debug.Log("[ControllerAssistant][InventoryAssist] Selector attachment changed to a new panel. Rebuilding selector and grids.");
+
                 if (selectorBox != null)
                 {
                     selectorBox.Destroy();
@@ -494,12 +572,25 @@ namespace gigantibyte.DFU.ControllerAssistant
                 DestroyGearExpandLabel();
 
                 panelRenderWindow = current;
+
+                // Grids are panel-scaled, so force a rebuild for the new panel
+                leftItemGrid = null;
+                rightItemGrid = null;
+
+                if (currentRegion != REGION_PAPERDOLL && currentRegion != REGION_CLOTHING)
+                {
+                    EnsureInventoryGrids(menuWindow);
+                    EnsureSelectorBox(menuWindow);
+                    RefreshSelectorToCurrentRegion(menuWindow);
+                }
+
                 return;
             }
 
             if (selectorBox != null && !selectorBox.IsAttached())
                 selectorBox = null;
         }
+
         private void EnsureSelectorBox(DaggerfallInventoryWindow menuWindow)
         {
             if (menuWindow == null)
@@ -577,8 +668,17 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             gridRowMemory = -1;
         }
+        private bool HasValidInventoryGrids()
+        {
+            return leftItemGrid != null &&
+                   rightItemGrid != null &&
+                   leftItemGrid.CellWidth > 0f &&
+                   leftItemGrid.CellHeight > 0f &&
+                   rightItemGrid.CellWidth > 0f &&
+                   rightItemGrid.CellHeight > 0f;
+        }
 
-        
+
         private bool AdvanceSelectorLeftState(DaggerfallInventoryWindow menuWindow)
         {
             if (currentRegion == REGION_RIGHT_GRID)
@@ -783,7 +883,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (currentRegion != previousRegion)
                 RebuildSelectorForCurrentRegion(menuWindow);
             else
-                RefreshSelectorToCurrentRegion();
+                RefreshSelectorToCurrentRegion(menuWindow);
         }
         private bool TryMoveSelectorLeft(DaggerfallInventoryWindow menuWindow)
         {
@@ -1049,7 +1149,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             DestroySelectorBox();
             EnsureSelectorBox(menuWindow);
-            RefreshSelectorToCurrentRegion();
+            RefreshSelectorToCurrentRegion(menuWindow);
         }
         private void SwitchRegion(DaggerfallInventoryWindow menuWindow, int newRegion)
         {
@@ -1058,7 +1158,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 if (newRegion == REGION_PAPERDOLL || newRegion == REGION_CLOTHING)
                     DestroySelectorBox();
                 else
-                    RefreshSelectorToCurrentRegion();
+                    RefreshSelectorToCurrentRegion(menuWindow);
 
                 return;
             }
@@ -1082,17 +1182,24 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private void SwitchRegionToButtons(DaggerfallInventoryWindow menuWindow, int newButtonIndex)
         {
-            buttonSelectedIndex = Mathf.Clamp(newButtonIndex, 0, buttonAnchorsNative.Length - 1);
+            if (IsTradeWindow(menuWindow))
+                buttonSelectedIndex = ClampToValidTradeButtonIndex(menuWindow, newButtonIndex, +1);
+            else
+                buttonSelectedIndex = Mathf.Clamp(newButtonIndex, 0, buttonAnchorsNative.Length - 1);
+
             SwitchRegion(menuWindow, REGION_BUTTONS);
         }
-        private void RefreshSelectorToCurrentRegion()
+
+        private void RefreshSelectorToCurrentRegion(DaggerfallInventoryWindow menuWindow = null)
         {
             if (selectorBox == null)
                 return;
 
             if (currentRegion == REGION_BUTTONS)
             {
-                Vector2 pos = GetScaledNativePoint(buttonAnchorsNative[buttonSelectedIndex]);
+                Vector2[] anchors = GetActiveButtonAnchors(menuWindow);
+                int index = Mathf.Clamp(buttonSelectedIndex, 0, anchors.Length - 1);
+                Vector2 pos = GetScaledNativePoint(anchors[index]);
                 selectorBox.SetPosition(pos);
                 return;
             }
@@ -1164,6 +1271,22 @@ namespace gigantibyte.DFU.ControllerAssistant
                 nativeH * scale
             );
         }
+        private int GetTradeLeftGridRowFromButton(int buttonIndex)
+        {
+            // Map visible buttons (top → bottom) to reasonable rows
+            // We’ll tune later if needed
+
+            switch (buttonIndex)
+            {
+                case 0: return 0; // Wagon
+                case 1: return 0; // Info
+                case 2: return 1; // Select
+                case 3: return 2; // Steal (if present)
+                case 4: return 3; // Buy / Sell / Repair
+                case 5: return 4; // Clear
+                default: return 0;
+            }
+        }
 
 
         // =========================
@@ -1173,6 +1296,15 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             EnsureInitialized(menuWindow);
             EnsureInventoryGrids(menuWindow);
+
+            LogInventoryWindowStateIfChanged(menuWindow, "opened");
+
+            //if (editor == null)
+            //{
+            //    // Match Inventory's default selector size: 25 x 19 native-ish feel
+            //    editor = new AnchorEditor(25f, 19f);
+            //}
+
 
             if (resumeSelectorMode)
             {
@@ -1203,7 +1335,9 @@ namespace gigantibyte.DFU.ControllerAssistant
             else
             {
                 EnsureSelectorBox(menuWindow);
-                RefreshSelectorToCurrentRegion();
+                LogSelectorState(menuWindow, "after-EnsureSelectorBox");
+                RefreshSelectorToCurrentRegion(menuWindow);
+                LogSelectorState(menuWindow, "after-RefreshSelectorToCurrentRegion");
             }
         }
 
@@ -1214,6 +1348,10 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         public void ResetState()
         {
+            lastLoggedWindowTypeName = null;
+            lastLoggedTradeModeName = null;
+            tradeButtonsLoggedThisOpen = false;
+
             wasOpen = false;
             closeDeferred = false;
             legendVisible = false;
@@ -1241,10 +1379,16 @@ namespace gigantibyte.DFU.ControllerAssistant
         // =========================
         private void EnsureInitialized(DaggerfallInventoryWindow menuWindow)
         {
-            if (reflectionCached) return;
-            if (menuWindow == null) return;
+            if (menuWindow == null)
+                return;
 
             var type = menuWindow.GetType();
+
+            if (cachedReflectionType == type)
+                return;
+
+            if (debugMODE)
+                Debug.Log("[ControllerAssistant][InventoryAssist] Rebuilding reflection cache for type: " + type.FullName);
 
             fiWindowBinding = CacheField(type, "toggleClosedBinding");
 
@@ -1281,16 +1425,25 @@ namespace gigantibyte.DFU.ControllerAssistant
             miUseItem = CacheMethod(type, "UseItem");
             miNextVariant = CacheMethod(type, "NextVariant");
 
-            piPlayerEntity = type.GetProperty("PlayerEntity", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            fiSelectButton = CacheField(type, "selectButton");
+            fiStealButton = CacheField(type, "stealButton");
+            fiModeActionButton = CacheField(type, "modeActionButton");
+            fiClearButton = CacheField(type, "clearButton");
+
+            miSelectButtonClick = CacheMethod(type, "SelectButton_OnMouseClick");
+            miStealButtonClick = CacheMethod(type, "StealButton_OnMouseClick");
+            miModeActionButtonClick = CacheMethod(type, "ModeActionButton_OnMouseClick");
+            miClearButtonClick = CacheMethod(type, "ClearButton_OnMouseClick");
 
             piNativePanel = type.GetProperty("NativePanel", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            piTradeWindowMode = type.GetProperty("WindowMode", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-            reflectionCached = true;
+            cachedReflectionType = type;
         }
 
         private void EnsureInventoryGrids(DaggerfallInventoryWindow menuWindow)
         {
-            if (leftItemGrid != null && rightItemGrid != null)
+            if (HasValidInventoryGrids())
                 return;
 
             if (menuWindow == null)
@@ -1301,6 +1454,13 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (panelRenderWindow == null)
                 return;
+
+            if (panelRenderWindow.Size.x <= 0f || panelRenderWindow.Size.y <= 0f)
+            {
+                leftItemGrid = null;
+                rightItemGrid = null;
+                return;
+            }
 
             float nativeWidth = 320f;
             float nativeHeight = 200f;
@@ -1326,34 +1486,41 @@ namespace gigantibyte.DFU.ControllerAssistant
             float columnStepNative = 25f;
             float rowStepNative = 19f;
 
-            // Local grid
-            float localNativeX = 163f;
-            float localNativeY = 48f;
-            float localNativeW = 59f;
+            Rect localRectNative = new Rect(163f, 48f, 59f, 152f);
+            Rect remoteRectNative = new Rect(261f, 48f, 59f, 152f);
 
-            float localContentX = localNativeX + scrollBarWidthNative + contentInsetXNative + contentNudgeXNative;
-            float localContentW = localNativeW - scrollBarWidthNative - contentInsetXNative;
+            if (fiLocalItemListScrollerRect != null)
+            {
+                object value = fiLocalItemListScrollerRect.GetValue(menuWindow);
+                if (value != null && value is Rect)
+                    localRectNative = (Rect)value;
+            }
+
+            if (fiRemoteItemListScrollerRect != null)
+            {
+                object value = fiRemoteItemListScrollerRect.GetValue(menuWindow);
+                if (value != null && value is Rect)
+                    remoteRectNative = (Rect)value;
+            }
+
+            float localContentX = localRectNative.x + scrollBarWidthNative + contentInsetXNative + contentNudgeXNative;
+            float localContentY = localRectNative.y;
 
             leftItemGrid = new InventoryGrid(
                 originX: offsetX + (localContentX * scale),
-                originY: offsetY + (localNativeY * scale),
+                originY: offsetY + (localContentY * scale),
                 columns: 2,
                 rows: 8,
                 cellWidth: columnStepNative * scale,
                 cellHeight: rowStepNative * scale
             );
 
-            // Remote grid
-            float remoteNativeX = 261f;
-            float remoteNativeY = 48f;
-            float remoteNativeW = 59f;
-
-            float remoteContentX = remoteNativeX + scrollBarWidthNative + contentInsetXNative + contentNudgeXNative;
-            float remoteContentW = remoteNativeW - scrollBarWidthNative - contentInsetXNative;
+            float remoteContentX = remoteRectNative.x + scrollBarWidthNative + contentInsetXNative + contentNudgeXNative;
+            float remoteContentY = remoteRectNative.y;
 
             rightItemGrid = new InventoryGrid(
                 originX: offsetX + (remoteContentX * scale),
-                originY: offsetY + (remoteNativeY * scale),
+                originY: offsetY + (remoteContentY * scale),
                 columns: 2,
                 rows: 8,
                 cellWidth: columnStepNative * scale,
@@ -1521,6 +1688,114 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (fi == null)
                 Debug.Log("[ControllerAssistant] Missing field: " + name);
             return fi;
+        }
+
+        private bool IsTradeWindow(DaggerfallInventoryWindow menuWindow)
+        {
+            return menuWindow is DaggerfallTradeWindow;
+        }
+
+        private string GetTradeWindowModeName(DaggerfallInventoryWindow menuWindow)
+        {
+            if (menuWindow == null)
+                return null;
+
+            if (piTradeWindowMode == null)
+                return null;
+
+            object value = piTradeWindowMode.GetValue(menuWindow, null);
+            return value != null ? value.ToString() : null;
+        }
+
+        private bool IsTradeBuyMode(DaggerfallInventoryWindow menuWindow)
+        {
+            return string.Equals(GetTradeWindowModeName(menuWindow), "Buy", StringComparison.Ordinal);
+        }
+
+        private bool IsTradeButtonIndexValid(DaggerfallInventoryWindow menuWindow, int index)
+        {
+            if (!IsTradeWindow(menuWindow))
+                return index >= 0 && index < buttonAnchorsNative.Length;
+
+            switch (index)
+            {
+                case 0: // Wagon
+                    return true;
+                case 1: // Info
+                    return true;
+                case 2: // Select
+                    return true;
+                case 3: // Steal
+                    return IsTradeBuyMode(menuWindow);
+                case 4: // ModeAction
+                    return true;
+                case 5: // Clear
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private int ClampToValidTradeButtonIndex(DaggerfallInventoryWindow menuWindow, int index, int fallbackDirection)
+        {
+            if (!IsTradeWindow(menuWindow))
+                return Mathf.Clamp(index, 0, buttonAnchorsNative.Length - 1);
+
+            index = Mathf.Clamp(index, 0, tradeButtonAnchorsNative.Length - 1);
+
+            if (IsTradeButtonIndexValid(menuWindow, index))
+                return index;
+
+            int dir = fallbackDirection < 0 ? -1 : 1;
+            int probe = index;
+
+            while (probe >= 0 && probe < tradeButtonAnchorsNative.Length)
+            {
+                probe += dir;
+                if (probe >= 0 && probe < tradeButtonAnchorsNative.Length && IsTradeButtonIndexValid(menuWindow, probe))
+                    return probe;
+            }
+
+            for (int i = 0; i < tradeButtonAnchorsNative.Length; i++)
+            {
+                if (IsTradeButtonIndexValid(menuWindow, i))
+                    return i;
+            }
+
+            return 0;
+        }
+
+        private Vector2[] GetActiveButtonAnchors(DaggerfallInventoryWindow menuWindow)
+        {
+            return IsTradeWindow(menuWindow) ? tradeButtonAnchorsNative : buttonAnchorsNative;
+        }
+
+        private void LogInventoryWindowStateIfChanged(DaggerfallInventoryWindow menuWindow, string reason = null)
+        {
+            if (!debugMODE || menuWindow == null)
+                return;
+
+            string typeName = menuWindow.GetType().Name;
+            string modeName = IsTradeWindow(menuWindow) ? GetTradeWindowModeName(menuWindow) : null;
+
+            bool changed =
+                typeName != lastLoggedWindowTypeName ||
+                modeName != lastLoggedTradeModeName ||
+                !string.IsNullOrEmpty(reason);
+
+            if (!changed)
+                return;
+
+            Debug.Log(string.Format(
+                "[ControllerAssistant][InventoryAssist] WindowState reason={0} type={1} isTrade={2} mode={3}",
+                string.IsNullOrEmpty(reason) ? "tick-change" : reason,
+                typeName,
+                IsTradeWindow(menuWindow),
+                string.IsNullOrEmpty(modeName) ? "-" : modeName
+            ));
+
+            lastLoggedWindowTypeName = typeName;
+            lastLoggedTradeModeName = modeName;
         }
 
         // =========================
@@ -2173,7 +2448,70 @@ namespace gigantibyte.DFU.ControllerAssistant
             DestroyGearExpandLabel();
         }
 
-        
+        private bool HasLiveButton(DaggerfallInventoryWindow menuWindow, FieldInfo fiButton)
+        {
+            if (menuWindow == null || fiButton == null)
+                return false;
+
+            return fiButton.GetValue(menuWindow) != null;
+        }
+
+        private void LogTradeButtonsIfChanged(DaggerfallInventoryWindow menuWindow, string reason = null)
+        {
+            if (!debugMODE || menuWindow == null || !IsTradeWindow(menuWindow))
+                return;
+
+            string modeName = GetTradeWindowModeName(menuWindow) ?? "-";
+
+            bool hasWagon = HasLiveButton(menuWindow, fiWagonButton);
+            bool hasInfo = true; // trade window always has an Info action path
+            bool hasSelect = HasLiveButton(menuWindow, fiSelectButton);
+            bool hasSteal = HasLiveButton(menuWindow, fiStealButton);
+            bool hasModeAction = HasLiveButton(menuWindow, fiModeActionButton);
+            bool hasClear = HasLiveButton(menuWindow, fiClearButton);
+
+            Debug.Log(string.Format(
+                "[ControllerAssistant][InventoryAssist] TradeButtons reason={0} mode={1} wagon={2} info={3} select={4} steal={5} modeAction={6} clear={7}",
+                string.IsNullOrEmpty(reason) ? "state" : reason,
+                modeName,
+                hasWagon,
+                hasInfo,
+                hasSelect,
+                hasSteal,
+                hasModeAction,
+                hasClear
+            ));
+        }
+        private void LogSelectorState(DaggerfallInventoryWindow menuWindow, string reason)
+        {
+            if (!debugMODE || menuWindow == null)
+                return;
+
+            string modeName = IsTradeWindow(menuWindow) ? (GetTradeWindowModeName(menuWindow) ?? "-") : "-";
+
+            string leftGridInfo = "null";
+            if (leftItemGrid != null)
+            {
+                Rect leftCell = leftItemGrid.GetCellRect(0, 0);
+                leftGridInfo = string.Format("origin=({0:F1},{1:F1}) cell00=({2:F1},{3:F1},{4:F1},{5:F1})",
+                    leftItemGrid.OriginX, leftItemGrid.OriginY,
+                    leftCell.x, leftCell.y, leftCell.width, leftCell.height);
+            }
+
+            Debug.Log(string.Format(
+                "[ControllerAssistant][InventoryAssist] SelectorState reason={0} mode={1} region={2} col={3} row={4} buttonIndex={5} selectorExists={6} leftGrid={7}",
+                reason,
+                modeName,
+                currentRegion,
+                selectedColumn,
+                selectedRow,
+                buttonSelectedIndex,
+                selectorBox != null,
+                leftGridInfo
+            ));
+        }
+
+
     }
 
 }
