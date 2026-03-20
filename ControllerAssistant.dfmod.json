@@ -23,13 +23,15 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/TransportAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/CAFavoritesWindowAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/PauseAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InventoryAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InventoryAssist.LeftGrid.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InventoryAssist.RightGrid.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InventoryAssist.Buttons.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InventoryAssist.PaperDoll.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InventoryAssist.SpecialItems.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InventoryAssist.Clothing.cs",
-        "Assets/Game/Mods/ControllerAssistant/tools/AnchorEditor.cs"
+        "Assets/Game/Mods/ControllerAssistant/tools/AnchorEditor.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Inventory/InventoryAssist.Buttons.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Inventory/InventoryAssist.PaperDoll.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Inventory/InventoryAssist.LeftGrid.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Inventory/InventoryAssist.RightGrid.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Inventory/InventoryAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Inventory/InventoryAssist.SpecialItems.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Inventory/InventoryAssist.Clothing.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Inventory/InventoryAssist.Selector.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Inventory/InventoryAssist.Overlays.cs"
     ]
 }
