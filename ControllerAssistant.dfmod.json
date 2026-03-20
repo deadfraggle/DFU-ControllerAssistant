@@ -32,6 +32,8 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/Inventory/InventoryAssist.SpecialItems.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/Inventory/InventoryAssist.Clothing.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/Inventory/InventoryAssist.Selector.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Inventory/InventoryAssist.Overlays.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Inventory/InventoryAssist.Overlays.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/UI/DefaultSelectorBoxOverlay.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/UI/DefaultSelectorBoxHost.cs"
     ]
 }

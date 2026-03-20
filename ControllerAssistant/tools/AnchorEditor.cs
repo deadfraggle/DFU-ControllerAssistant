@@ -1,6 +1,7 @@
 using UnityEngine;
 using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Game.UserInterface;
+using DaggerfallWorkshop.Game.UserInterfaceWindows;
 
 namespace gigantibyte.DFU.ControllerAssistant
 {
@@ -126,16 +127,16 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (Input.GetKeyDown(KeyCode.KeypadDivide))
             {
                 fineMode = !fineMode;
-                Debug.Log("[AnchorEditor] Fine mode: " + (fineMode ? "ON" : "OFF"));
+                //Debug.Log("[AnchorEditor] Fine mode: " + (fineMode ? "ON" : "OFF"));
             }
 
             // Clamp so it never collapses into nonsense
             w = Mathf.Max(2f, w);
             h = Mathf.Max(2f, h);
 
-            // Dump to Player.log
+            // Dump to Player.log (with name input)
             if (Input.GetKeyDown(KeyCode.Keypad5))
-                PrintCurrentBox();
+                OpenNameInputBox();
 
             // Re-center current box
             if (Input.GetKeyDown(KeyCode.Keypad0))
@@ -168,14 +169,51 @@ namespace gigantibyte.DFU.ControllerAssistant
             right.Position = new Vector2(w - borderThickness, 0f);
             right.Size = new Vector2(borderThickness, h);
         }
-        private void PrintCurrentBox()
+
+        private void OpenNameInputBox()
+        {
+            if (GameManager.Instance == null || DaggerfallUI.UIManager == null)
+                return;
+
+            DaggerfallBaseWindow parentWindow = DaggerfallUI.UIManager.TopWindow as DaggerfallBaseWindow;
+            if (parentWindow == null)
+            {
+                Debug.Log("[AnchorEditor] Could not open name input box: no active DaggerfallBaseWindow.");
+                return;
+            }
+
+            DaggerfallInputMessageBox inputBox = new DaggerfallInputMessageBox(DaggerfallUI.UIManager, parentWindow);
+
+            inputBox.SetTextBoxLabel("Enter anchor name:");
+            inputBox.TextBox.Text = "";
+
+            inputBox.OnGotUserInput += (sender, userInput) =>
+            {
+                PrintCurrentBox(userInput);
+            };
+
+            inputBox.Show();
+        }
+
+        private void PrintCurrentBox(string name = null)
         {
             Rect nativeRect = GetNativeRectFromScaledRect(x, y, w, h);
 
-            Debug.Log(
-                $"[AnchorEditor] new Rect({nativeRect.x:F1}f, {nativeRect.y:F1}f, {nativeRect.width:F1}f, {nativeRect.height:F1}f)"
-            );
+            if (string.IsNullOrEmpty(name))
+            {
+                Debug.Log(
+                    $"[AnchorEditor] new Rect({nativeRect.x:F1}f, {nativeRect.y:F1}f, {nativeRect.width:F1}f, {nativeRect.height:F1}f)"
+                );
+            }
+            else
+            {
+                Debug.Log(
+                    $"[AnchorEditor] {name}: new Rect({nativeRect.x:F1}f, {nativeRect.y:F1}f, {nativeRect.width:F1}f, {nativeRect.height:F1}f)"
+                );
+            }
         }
+
+
 
         private void Hide()
         {

@@ -36,6 +36,8 @@ namespace gigantibyte.DFU.ControllerAssistant
         public bool Action1Pressed { get; private set; }
         public bool Action2Pressed { get; private set; }
         public bool LegendPressed { get; private set; }
+        public bool Action1Released { get; private set; }
+        public bool Action2Released { get; private set; }
 
         // one-shot right-stick direction presses
         public bool RStickUpPressed { get; private set; }
@@ -74,6 +76,12 @@ namespace gigantibyte.DFU.ControllerAssistant
         public bool DPadRightPressed { get; private set; }
         public bool DPadUpPressed { get; private set; }
         public bool DPadDownPressed { get; private set; }
+        public bool DPadReleased { get; private set; }
+        public bool DPadLeftReleased { get; private set; }
+        public bool DPadRightReleased { get; private set; }
+        public bool DPadUpReleased { get; private set; }
+        public bool DPadDownReleased { get; private set; }
+
 
         private bool prevAction1Held = false;
         private bool prevAction2Held = false;
@@ -82,6 +90,10 @@ namespace gigantibyte.DFU.ControllerAssistant
         // latch/re-arm state for right stick & D-Pad
         private bool rStickReady = true;
         private bool dPadReady = true;
+        private bool dPadLeftReady = true;
+        private bool dPadRightReady = true;
+        private bool dPadUpReady = true;
+        private bool dPadDownReady = true;
 
         // slow-repeat tuning for right stick
         private float rStickHeldSlowDelay = 0.35f;
@@ -155,10 +167,26 @@ namespace gigantibyte.DFU.ControllerAssistant
             RStickLeftHeldSlow = false;
             RStickRightHeldSlow = false;
 
+            DPadLeftReleased = false;
+            DPadRightReleased = false;
+            DPadUpReleased = false;
+            DPadDownReleased = false;
+            DPadReleased = false;
+
+            Action1Released = false;
+            Action2Released = false;
+
+            if (DPadUpPressed) dPadUpReady = false;
+            else if (DPadRightPressed) dPadRightReady = false;
+            else if (DPadDownPressed) dPadDownReady = false;
+            else if (DPadLeftPressed) dPadLeftReady = false;
+
             DPadLeftPressed = false;
             DPadRightPressed = false;
             DPadUpPressed = false;
             DPadDownPressed = false;
+
+            DPadReleased = false;
 
             rStickDir8Pressed = (int)StickDir8.None;
             rStickDir8HeldSlow = (int)StickDir8.None;
@@ -267,7 +295,20 @@ namespace gigantibyte.DFU.ControllerAssistant
             // Re-arm only when D-Pad returns to center
             if (DPadH == 0 && DPadV == 0)
             {
+                if (dPadReady == false)
+                    DPadReleased = true;
+
+                if (!dPadUpReady) DPadUpReleased = true;
+                else if (!dPadRightReady) DPadRightReleased = true;
+                else if (!dPadDownReady) DPadDownReleased = true;
+                else if (!dPadLeftReady) DPadLeftReleased = true;
+
                 dPadReady = true;
+                dPadUpReady = true;
+                dPadRightReady = true;
+                dPadDownReady = true;
+                dPadLeftReady = true;
+
             }
             else if (dPadReady)
             {
@@ -292,13 +333,19 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             // Action1
             bool action1Held = action1Key != KeyCode.None && Input.GetKey(action1Key);
+
             Action1Pressed = action1Held && !prevAction1Held;
+            Action1Released = !action1Held && prevAction1Held;
+
             Action1 = action1Held;
             prevAction1Held = action1Held;
 
             // Action2
             bool action2Held = action2Key != KeyCode.None && Input.GetKey(action2Key);
+
             Action2Pressed = action2Held && !prevAction2Held;
+            Action2Released = !action2Held && prevAction2Held;
+
             Action2 = action2Held;
             prevAction2Held = action2Held;
 

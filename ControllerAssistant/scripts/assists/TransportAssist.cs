@@ -13,6 +13,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         private const bool debugMODE = false;
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
         private bool wasOpen = false;
+        private float inputCooldownTimer = 0f;
 
         private bool reflectionCached = false;
 
@@ -25,6 +26,175 @@ namespace gigantibyte.DFU.ControllerAssistant
         // Window close binding
         private FieldInfo fiWindowBinding;
         private bool closeDeferred = false;
+
+        //private AnchorEditor editor;
+
+        // Button & selector setup
+
+        private DefaultSelectorBoxHost selectorHost;
+
+        const int FootButton = 0;
+        const int HorseButton = 1;
+        const int CartButton = 2;
+        const int ShipButton = 3;
+        const int ExitButton = 4;
+
+
+        public class ButtonInfoArray
+        {
+            public Rect rect;
+            public int N = -1;
+            public int S = -1;
+        }
+
+        public ButtonInfoArray[] menuButton = new ButtonInfoArray[]
+        {
+            new ButtonInfoArray { rect = new Rect(99.4f, 74.3f, 121.4f, 8.5f), N = ExitButton, S = HorseButton }, // FootButton
+            new ButtonInfoArray { rect = new Rect(99.4f, 83.2f, 121.4f, 8.5f), N = FootButton, S = CartButton }, // HorseButton
+            new ButtonInfoArray { rect = new Rect(99.4f, 92.3f, 121.4f, 8.5f), N = HorseButton, S = ShipButton }, // CartButton
+            new ButtonInfoArray { rect = new Rect(99.4f, 101.2f, 121.4f, 8.5f), N = CartButton, S = ExitButton }, // ShipButton
+            new ButtonInfoArray { rect = new Rect(142.2f, 114.7f, 37.5f, 9.3f), N = ShipButton, S = FootButton }, // ExitButton
+        };
+
+        public int buttonSelected = FootButton;
+
+        private void ActivateSelectedButton(DaggerfallTransportWindow menuWindow)
+        {
+            if (buttonSelected == FootButton) SelectFoot(menuWindow);
+            else if (buttonSelected == HorseButton) SelectHorse(menuWindow);
+            else if (buttonSelected == CartButton) SelectCart(menuWindow);
+            else if (buttonSelected == ShipButton) SelectShip(menuWindow);
+            else if (buttonSelected == ExitButton) SelectExit(menuWindow);
+        }
+
+        private bool IsButtonEnabled(int buttonIndex)
+        {
+            switch (buttonIndex)
+            {
+                case FootButton:
+                case ExitButton:
+                    return true;
+
+                case HorseButton:
+                    return GameManager.Instance != null &&
+                           GameManager.Instance.TransportManager != null &&
+                           GameManager.Instance.TransportManager.HasHorse();
+
+                case CartButton:
+                    return GameManager.Instance != null &&
+                           GameManager.Instance.TransportManager != null &&
+                           GameManager.Instance.TransportManager.HasCart();
+
+                case ShipButton:
+                    return GameManager.Instance != null &&
+                           GameManager.Instance.TransportManager != null &&
+                           GameManager.Instance.TransportManager.ShipAvailiable();
+
+                default:
+                    return false;
+            }
+        }
+
+        private int FindNextEnabledButtonInDirection(int startButton, ControllerManager.StickDir8 dir)
+        {
+            int current = startButton;
+
+            // Prevent infinite loops in a malformed graph
+            HashSet<int> visited = new HashSet<int>();
+            visited.Add(current);
+
+            while (true)
+            {
+                int next = -1;
+                var btn = menuButton[current];
+
+                switch (dir)
+                {
+                    case ControllerManager.StickDir8.N:
+                        next = btn.N;
+                        break;
+
+                    case ControllerManager.StickDir8.S:
+                        next = btn.S;
+                        break;
+
+                    default:
+                        return -1;
+                }
+
+                if (next < 0)
+                    return -1;
+
+                if (visited.Contains(next))
+                    return -1;
+
+                if (IsButtonEnabled(next))
+                    return next;
+
+                visited.Add(next);
+                current = next;
+            }
+        }
+
+        private void TryMoveSelector(DaggerfallTransportWindow menuWindow, ControllerManager.StickDir8 dir)
+        {
+            if (dir == ControllerManager.StickDir8.None)
+                return;
+
+            int previous = buttonSelected;
+            int next = FindNextEnabledButtonInDirection(buttonSelected, dir);
+
+            if (next > -1)
+                buttonSelected = next;
+
+            if (buttonSelected != previous)
+                RefreshSelectorToCurrentButton(menuWindow);
+        }
+        private Panel GetCurrentRenderPanel(DaggerfallTransportWindow menuWindow)
+        {
+            if (menuWindow == null || fiPanelRenderWindow == null)
+                return null;
+
+            return fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+        }
+
+        private void RefreshSelectorToCurrentButton(DaggerfallTransportWindow menuWindow)
+        {
+            Panel currentPanel = GetCurrentRenderPanel(menuWindow);
+            if (currentPanel == null)
+                return;
+
+            panelRenderWindow = currentPanel;
+
+            if (selectorHost == null)
+                selectorHost = new DefaultSelectorBoxHost();
+
+            selectorHost.ShowAtNativeRect(
+                currentPanel,
+                menuButton[buttonSelected].rect,
+                new Color(0.1f, 1f, 1f, 1f)
+            );
+        }
+
+        private void RefreshSelectorAttachment(DaggerfallTransportWindow menuWindow)
+        {
+            Panel currentPanel = GetCurrentRenderPanel(menuWindow);
+            if (currentPanel == null)
+                return;
+
+            panelRenderWindow = currentPanel;
+
+            if (selectorHost == null)
+                selectorHost = new DefaultSelectorBoxHost();
+
+            selectorHost.RefreshAttachment(currentPanel);
+        }
+
+        private void DestroySelectorBox()
+        {
+            if (selectorHost != null)
+                selectorHost.Destroy();
+        }
 
         public bool Claims(IUserInterfaceWindow top)
         {
@@ -59,6 +229,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             KeyCode windowBinding = InputManager.Instance.GetBinding(InputManager.Actions.Transport);
 
             RefreshLegendAttachment(menuWindow);
+            RefreshSelectorAttachment(menuWindow);
 
             if (legend != null && legend.IsBuilt)
                 legend.PositionBottomLeft();
@@ -67,25 +238,46 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (fiWindowBinding != null)
                 fiWindowBinding.SetValue(menuWindow, KeyCode.None);
 
+            //// Anchor Editor
+            //if (panelRenderWindow == null && fiPanelRenderWindow != null)
+            //    panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+
+            //if (panelRenderWindow != null)
+            //    editor.Tick(panelRenderWindow);
+
+            ControllerManager.StickDir8 dir =
+                cm.RStickDir8Pressed != ControllerManager.StickDir8.None
+                ? cm.RStickDir8Pressed
+        :       cm.RStickDir8HeldSlow;
+
+            if (dir != ControllerManager.StickDir8.None)
+            {
+                TryMoveSelector(menuWindow, dir);
+                return;
+            }
+
             bool isAssisting =
-                (cm.RStickUpPressed || cm.RStickDownPressed || cm.RStickLeftPressed || cm.RStickRightPressed ||
-                cm.Action1Pressed || cm.Action2Pressed || cm.LegendPressed);
+                (cm.DPadUpPressed || cm.DPadDownReleased || cm.Action1Released || cm.LegendPressed);
 
             if (isAssisting)
             {
-                if (cm.RStickUpPressed)
-                    SelectFoot(menuWindow);
+                if (cm.LegendPressed)
+                {
+                    EnsureLegendUI(menuWindow, cm);
+                    legendVisible = !legendVisible;
 
-                if (cm.RStickRightPressed)
-                    SelectHorse(menuWindow);
+                    if (legend != null)
+                        legend.SetEnabled(legendVisible);
+                    //editor.Toggle();
+                }
 
-                if (cm.RStickDownPressed)
-                    SelectCart(menuWindow); 
+                if (cm.Action1Released)
+                    ActivateSelectedButton(menuWindow);
 
-                if (cm.RStickLeftPressed)
-                    SelectShip(menuWindow);
+                if (cm.DPadUpPressed)
+                    OpenFavoritesWindow(menuWindow);
 
-                if (cm.Action1Pressed)
+                if (cm.DPadDownReleased)
                 {
                     AddFavoriteResult result = FavoritesStore.AddCurrentLocation();
 
@@ -121,23 +313,12 @@ namespace gigantibyte.DFU.ControllerAssistant
                     }
                 }
 
-                if (cm.Action2Pressed)
-                    OpenFavoritesWindow(menuWindow);
-
-                if (cm.LegendPressed)
-                {
-                    EnsureLegendUI(menuWindow, cm);
-                    legendVisible = !legendVisible;
-
-                    if (legend != null)
-                        legend.SetEnabled(legendVisible);
-                }
             }
 
             if (cm.BackPressed)
             {
                 DestroyLegend();
-                menuWindow.CloseWindow();
+                //menuWindow.CloseWindow();
                 return;
             }
 
@@ -156,12 +337,22 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
         }
 
+
+        // Life cycle methods
+
         private void OnOpened(DaggerfallTransportWindow menuWindow, ControllerManager cm)
         {
             if (debugMODE)
                 DumpWindowMembers(menuWindow);
 
             EnsureInitialized(menuWindow);
+            
+            RefreshSelectorToCurrentButton(menuWindow);
+
+            //if (editor == null)
+            //{
+            //    editor = new AnchorEditor(25f, 19f);
+            //}
         }
 
         private void OnClosed(ControllerManager cm)
@@ -178,6 +369,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             closeDeferred = false;
 
             DestroyLegend();
+            DestroySelectorBox();
 
             legendVisible = false;
             panelRenderWindow = null;
@@ -201,6 +393,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (menuWindow == null)
                 return;
 
+            StartInputCooldown(0.2f);
             GameManager.Instance.TransportManager.TransportMode = TransportModes.Foot;
             DestroyLegend();
             menuWindow.CloseWindow();
@@ -235,7 +428,13 @@ namespace gigantibyte.DFU.ControllerAssistant
             DestroyLegend();
             menuWindow.CloseWindow();
         }
-        private void OpenFavoritesWindow(DaggerfallTransportWindow menuWindow)
+        private void SelectExit(DaggerfallTransportWindow menuWindow)
+        {
+            DestroyLegend();
+            menuWindow.CloseWindow();
+            return;
+        }
+    private void OpenFavoritesWindow(DaggerfallTransportWindow menuWindow)
         {
             if (menuWindow == null)
                 return;
@@ -274,20 +473,9 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>();
 
-                rows.Add(new LegendOverlay.LegendRow("Right Stick Up", "Foot"));
-
-                if (GameManager.Instance.TransportManager.HasHorse())
-                    rows.Add(new LegendOverlay.LegendRow("Right Stick Right", "Horse"));
-
-                if (GameManager.Instance.TransportManager.HasCart())
-                    rows.Add(new LegendOverlay.LegendRow("Right Stick Down", "Cart"));
-
-                if (GameManager.Instance.TransportManager.ShipAvailiable())
-                    rows.Add(new LegendOverlay.LegendRow("Right Stick Left", "Ship"));
-
-                rows.Add(new LegendOverlay.LegendRow(cm.Action1Name, "Add current location to Favorites"));
-
-                rows.Add(new LegendOverlay.LegendRow(cm.Action2Name, "View Favorites"));
+                rows.Add(new LegendOverlay.LegendRow(cm.Action1Name, "Activate"));
+                rows.Add(new LegendOverlay.LegendRow("DPad Up", "View Favorites"));
+                rows.Add(new LegendOverlay.LegendRow("DPad Down", "Add current location to Favorites"));
 
                 legend.Build("Transport", rows);
             }
@@ -317,6 +505,11 @@ namespace gigantibyte.DFU.ControllerAssistant
                 legendVisible = false;
                 legend = null;
             }
+        }
+
+        public void StartInputCooldown(float duration)
+        {
+            inputCooldownTimer = Time.unscaledTime + duration;
         }
 
         private void DestroyLegend()

@@ -1,3 +1,4 @@
+using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Game.UserInterface;
 using DaggerfallWorkshop.Game.UserInterfaceWindows;
@@ -423,12 +424,6 @@ namespace gigantibyte.DFU.ControllerAssistant
                 }
             }
 
-            if (panelRenderWindow == null && fiPanelRenderWindow != null)
-                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
-
-            //if (panelRenderWindow != null)
-            //    editor.Tick(panelRenderWindow);
-
             if (legend != null && legend.IsBuilt)
                 legend.PositionBottomLeft();
 
@@ -456,6 +451,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                     if (legend != null)
                         legend.SetEnabled(legendVisible);
                     //editor.Toggle();
+                    DaggerfallUI.Instance.PlayOneShot(SoundClips.ButtonClick);
                 }
 
                 if (cm.DPadDownPressed)
@@ -509,7 +505,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 DestroyOwnedUi();
 
-                //menuWindow.CloseWindow();
+                menuWindow.CloseWindow();
                 return;
             }
         }
