@@ -19,7 +19,6 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/SpellbookAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/ExtAutomapAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBoxAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBoxAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/TransportAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/CAFavoritesWindowAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/PauseAssist.cs",
@@ -34,6 +33,12 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/Inventory/InventoryAssist.Selector.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/Inventory/InventoryAssist.Overlays.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/UI/DefaultSelectorBoxOverlay.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/UI/DefaultSelectorBoxHost.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/UI/DefaultSelectorBoxHost.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBox/MessageBoxAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBox/MessageBoxAssist.Status.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBox/MessageBoxAssist.YesNo.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBox/MessageBoxAssist.Handlers.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/UI/SelectorButtonInfo.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBox/MessageBoxAssist.StatusLabelOverlay.cs"
     ]
 }
