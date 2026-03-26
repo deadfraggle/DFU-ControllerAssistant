@@ -64,7 +64,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                         "Status Probe",
                         new System.Collections.Generic.List<LegendOverlay.LegendRow>()
                         {
-                new LegendOverlay.LegendRow("Matched", "Status popup v11"),
+                new LegendOverlay.LegendRow("Matched", "Status popup v20"),
                         });
 
                     owner.SetLegendVisible(!owner.GetLegendVisible());

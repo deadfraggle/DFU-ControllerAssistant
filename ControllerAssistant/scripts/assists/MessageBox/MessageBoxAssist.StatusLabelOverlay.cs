@@ -28,6 +28,8 @@ namespace gigantibyte.DFU.ControllerAssistant
         private Panel stealRoot;
         private Button stealButton;
 
+        private TextLabel manualLabel; // You may want to store these in a list or array if needed
+
         public bool IsBuilt
         {
             get { return root != null; }
@@ -125,16 +127,18 @@ namespace gigantibyte.DFU.ControllerAssistant
             panel.BackgroundColor = Color.black;
             panel.Enabled = true;
 
-            button = DaggerfallUI.AddTextButton(new Rect(0, 0, 64, 16), text, panel);
+            // Create a button that fills the panel but has NO text of its own
+            button = DaggerfallUI.AddButton(new Rect(0, 0, 64, 16), panel);
             button.BackgroundColor = Color.clear;
-            button.Outline.Enabled = false;
 
-            // Keep enabled so label still renders.
-            button.Enabled = true;
+            // Add the label directly to the PANEL, not the button
+            TextLabel label = DaggerfallUI.AddTextLabel(DaggerfallUI.DefaultFont, Vector2.zero, text, panel);
+            label.HorizontalAlignment = HorizontalAlignment.Center;
+            label.TextColor = Color.white;
+            label.ShadowColor = Color.clear;
 
-            button.Label.TextColor = Color.white;
-            button.Label.ShadowColor = Color.clear;
-            button.Label.ShadowPosition = Vector2.zero;
+            // Store reference to label on the button's user data or handle it in ApplyBoxRect
+            button.Tag = label;
         }
 
         private void ApplyBoxRect(Panel panel, Button button, Rect rect, float textScale)
@@ -148,12 +152,26 @@ namespace gigantibyte.DFU.ControllerAssistant
             button.Position = Vector2.zero;
             button.Size = new Vector2(rect.width, rect.height);
 
-            button.Label.TextScale = textScale;
+            TextLabel label = (TextLabel)button.Tag;
+            if (label == null) return;
 
-            // Button labels are horizontally centered already, but ride a bit high
-            // once scaled up. Nudge them down in proportion to the text scale.
-            float yNudge = Mathf.Lerp(0.75f, 2.5f, Mathf.InverseLerp(2.0f, 8.2f, textScale));
-            button.Label.Position = new Vector2(0f, yNudge);
+            label.TextScale = textScale;
+
+            // In DFU, some label alignments treat Position.y as the baseline.
+            // We calculate the center of the box, then adjust for the scaled font height.
+            // The default font height is roughly 7 units.
+            float scaledFontHeight = 7f * textScale;
+
+            // We want the text to sit roughly at the bottom of the middle 'gap'.
+            // If the text is 7 units tall and the box is 10 units, we need a 1.5 unit margin.
+            float yOffset = (rect.height - scaledFontHeight) / 2f;
+
+            // If it's still too high, increase the first number (e.g., to 1.5f or 2.0f)
+            // to push it further down into the black box.
+            label.Position = new Vector2(0, yOffset + (0.6f * textScale));
+
+            // Ensure it stays centered horizontally
+            label.HorizontalAlignment = HorizontalAlignment.Center;
         }
 
         private Rect NativeToPanelRect(Rect nativeRect)
