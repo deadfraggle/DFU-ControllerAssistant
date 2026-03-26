@@ -36,6 +36,9 @@ namespace gigantibyte.DFU.ControllerAssistant
         // Active handler for this popup instance
         private IMessageBoxAssistHandler activeHandler;
 
+        // Status selector persistent state
+        internal int statusButtonSelected = 0;
+
         private AnchorEditor editor;
 
         public bool Claims(IUserInterfaceWindow top)
