@@ -109,8 +109,8 @@ namespace gigantibyte.DFU.ControllerAssistant
                     owner.SetLegendVisible(!owner.GetLegendVisible());
                 }
 
-                if (cm.Action2Pressed)
-                    owner.ToggleAnchorEditor();
+                //if (cm.Action2Pressed)
+                //    owner.ToggleAnchorEditor();
 
                 if (labelOverlay != null && !labelOverlay.IsAttached())
                 {

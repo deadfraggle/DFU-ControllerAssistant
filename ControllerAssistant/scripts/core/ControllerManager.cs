@@ -82,6 +82,12 @@ namespace gigantibyte.DFU.ControllerAssistant
         public bool DPadUpReleased { get; private set; }
         public bool DPadDownReleased { get; private set; }
 
+        // slow-repeat D-Pad direction pulses
+        public bool DPadUpHeldSlow { get; private set; }
+        public bool DPadDownHeldSlow { get; private set; }
+        public bool DPadLeftHeldSlow { get; private set; }
+        public bool DPadRightHeldSlow { get; private set; }
+
 
         private bool prevAction1Held = false;
         private bool prevAction2Held = false;
@@ -105,6 +111,16 @@ namespace gigantibyte.DFU.ControllerAssistant
         private int rStickHeldSlowX = 0;   // -1 left, +1 right
         private int rStickHeldSlowY = 0;   // -1 down, +1 up
         private int rStickHeldSlowDir8 = (int)StickDir8.None;
+
+        // slow-repeat tuning for D-Pad
+        private float dPadHeldSlowDelay = 0.35f;
+        private float dPadHeldSlowInterval = 0.10f;
+
+        private float dPadHeldSlowHoldTimer = 0f;
+        private float dPadHeldSlowRepeatTimer = 0f;
+
+        private int dPadHeldSlowX = 0;   // -1 left, +1 right
+        private int dPadHeldSlowY = 0;   // -1 down, +1 up
 
         // For closing (down-edge)
         public bool BackPressed { get; private set; }
@@ -166,6 +182,11 @@ namespace gigantibyte.DFU.ControllerAssistant
             RStickDownHeldSlow = false;
             RStickLeftHeldSlow = false;
             RStickRightHeldSlow = false;
+
+            DPadUpHeldSlow = false;
+            DPadDownHeldSlow = false;
+            DPadLeftHeldSlow = false;
+            DPadRightHeldSlow = false;
 
             DPadLeftReleased = false;
             DPadRightReleased = false;
@@ -288,6 +309,69 @@ namespace gigantibyte.DFU.ControllerAssistant
                             RStickLeftHeldSlow = true;
                         else if (rStickHeldSlowX == 1)
                             RStickRightHeldSlow = true;
+                    }
+                }
+            }
+
+            // Slow-repeat D-Pad pulses
+            int currentDPadSlowX = 0;
+            int currentDPadSlowY = 0;
+
+            if (DPadH != 0 || DPadV != 0)
+            {
+                // Preserve existing dominant-axis behavior for current assists
+                if (Mathf.Abs(axis7Value) >= Mathf.Abs(axis6Value))
+                    currentDPadSlowY = DPadV;   // +1 up, -1 down
+                else
+                    currentDPadSlowX = DPadH;   // -1 left, +1 right
+            }
+
+            // returned to center
+            if (currentDPadSlowX == 0 && currentDPadSlowY == 0)
+            {
+                dPadHeldSlowX = 0;
+                dPadHeldSlowY = 0;
+                dPadHeldSlowHoldTimer = 0f;
+                dPadHeldSlowRepeatTimer = 0f;
+            }
+            // changed direction (or fresh engage)
+            else if (currentDPadSlowX != dPadHeldSlowX || currentDPadSlowY != dPadHeldSlowY)
+            {
+                dPadHeldSlowX = currentDPadSlowX;
+                dPadHeldSlowY = currentDPadSlowY;
+                dPadHeldSlowHoldTimer = 0f;
+                dPadHeldSlowRepeatTimer = 0f;
+
+                if (dPadHeldSlowY == 1)
+                    DPadUpHeldSlow = true;
+                else if (dPadHeldSlowY == -1)
+                    DPadDownHeldSlow = true;
+                else if (dPadHeldSlowX == -1)
+                    DPadLeftHeldSlow = true;
+                else if (dPadHeldSlowX == 1)
+                    DPadRightHeldSlow = true;
+            }
+            // still holding same direction
+            else
+            {
+                dPadHeldSlowHoldTimer += Time.unscaledDeltaTime;
+
+                if (dPadHeldSlowHoldTimer >= dPadHeldSlowDelay)
+                {
+                    dPadHeldSlowRepeatTimer += Time.unscaledDeltaTime;
+
+                    if (dPadHeldSlowRepeatTimer >= dPadHeldSlowInterval)
+                    {
+                        dPadHeldSlowRepeatTimer -= dPadHeldSlowInterval;
+
+                        if (dPadHeldSlowY == 1)
+                            DPadUpHeldSlow = true;
+                        else if (dPadHeldSlowY == -1)
+                            DPadDownHeldSlow = true;
+                        else if (dPadHeldSlowX == -1)
+                            DPadLeftHeldSlow = true;
+                        else if (dPadHeldSlowX == 1)
+                            DPadRightHeldSlow = true;
                     }
                 }
             }

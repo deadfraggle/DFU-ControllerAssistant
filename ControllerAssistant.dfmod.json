@@ -39,6 +39,9 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBox/MessageBoxAssist.YesNo.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBox/MessageBoxAssist.Handlers.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/UI/SelectorButtonInfo.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBox/MessageBoxAssist.StatusLabelOverlay.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBox/MessageBoxAssist.StatusLabelOverlay.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TalkWindowAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TalkWindowAssist.Buttons.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TalkWindowAssist.SelectionList.cs"
     ]
 }
