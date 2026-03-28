@@ -108,6 +108,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         private static readonly CAFavoritesWindowAssist favorites = new CAFavoritesWindowAssist();
         private static readonly PauseAssist pause = new PauseAssist();
         private static readonly TalkWindowAssist talk = new TalkWindowAssist();
+        private static readonly SpellMakerAssist spellmaker = new SpellMakerAssist();
 
         // Specialized modules (do NOT include defaults here)
         private static readonly IMenuAssist[] assists =
@@ -122,6 +123,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             favorites,
             pause,
             talk,
+            spellmaker,
             // add TravelAssist, InventoryAssist, etc. here later
         };
 
