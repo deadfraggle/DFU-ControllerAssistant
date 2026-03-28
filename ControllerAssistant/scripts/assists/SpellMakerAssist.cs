@@ -67,51 +67,51 @@ namespace gigantibyte.DFU.ControllerAssistant
         public SelectorButtonInfo[] menuButton = new SelectorButtonInfo[]
         {
             new SelectorButtonInfo { rect = new Rect(244.1f, 114.1f, 27.9f, 27.9f), // AddEffectButton
-                N = Effect3Button, NW = Effect3Button, W = SpellNameButton, S = BuyButton, SE = TargetButton, E = CasterOnlyButton, NE = PreviousIconButton },
+                N = Effect3Button, NE = PreviousIconButton, E = CasterOnlyButton, SE = TargetButton, S = BuyButton, SW = SpellNameButton, W = SpellNameButton, NW = Effect3Button },
             new SelectorButtonInfo { rect = new Rect(244.4f, 147.2f, 23.1f, 15.6f), // BuyButton
-                                                                                                             },
+                N = AddEffectButton, NE = ByTouchButton, E = TargetButton, SE = CasterAreaButton, S = NewButton, SW = SpellNameButton, W = SpellNameButton, NW = Effect3Button },
             new SelectorButtonInfo { rect = new Rect(244.4f, 163.1f, 23.1f, 15.6f), // NewButton
-                                                                                                             },
+                N = BuyButton, NE = TargetButton, E = CasterAreaButton, SE = RangeAreaButton, S = ExitButton, SW = SpellNameButton, W = SpellNameButton, NW = Effect3Button },
             new SelectorButtonInfo { rect = new Rect(244.4f, 178.7f, 23.1f, 15.6f), // ExitButton
-                                                                                                             },
+                N = NewButton, NE = CasterAreaButton, E = RangeAreaButton, SE = SpellNameButton, S = Effect1Button, SW = SpellNameButton, W = SpellNameButton, NW = Effect3Button },
             new SelectorButtonInfo { rect = new Rect(275.1f, 178.1f, 24.0f, 15.7f), // RangeAreaButton
-                                                                                                             },
+                N = CasterAreaButton, NE = ShockBasedButton, E = MagicBasedButton, SE = MagicBasedButton, S = SelectIconButton, SW = ExitButton, W = ExitButton, NW = NewButton },
             new SelectorButtonInfo { rect = new Rect(275.1f, 162.1f, 24.0f, 15.7f), // CasterAreaButton
-                                                                                                             },
+                N = TargetButton, NE = PoisonBasedButton, E = ShockBasedButton, SE = MagicBasedButton, S = RangeAreaButton, SW = ExitButton, W = NewButton, NW = BuyButton  },
             new SelectorButtonInfo { rect = new Rect(275.1f, 146.0f, 24.0f, 15.7f), // TargetButton
-                                                                                                             },
+                N = ByTouchButton, NE = ColdBasedButton, E = PoisonBasedButton, SE = ShockBasedButton, S = CasterAreaButton, SW = NewButton, W = BuyButton, NW = AddEffectButton },
             new SelectorButtonInfo { rect = new Rect(275.1f, 130.0f, 24.0f, 15.7f), // ByTouchButton
-                                                                                                             },
+                N = CasterOnlyButton, NE = FireBasedButton, E = ColdBasedButton, SE = PoisonBasedButton, S = TargetButton, SW = BuyButton, W = AddEffectButton, NW = AddEffectButton },
             new SelectorButtonInfo { rect = new Rect(275.1f, 114.1f, 24.0f, 15.7f), // CasterOnlyButton
-                                                                                                             },
+                N = SelectIconButton, NE = SelectIconButton, E = FireBasedButton, SE = ColdBasedButton, S = ByTouchButton, SW = AddEffectButton, W = AddEffectButton, NW = PreviousIconButton },
             new SelectorButtonInfo { rect = new Rect(299.0f, 114.1f, 15.9f, 15.9f), // FireBasedButton
-                                                                                                             },
+                N = SelectIconButton, NE = Effect3Button, E = AddEffectButton, SE = SpellNameButton, S = ColdBasedButton, SW = ByTouchButton, W = CasterOnlyButton, NW = SelectIconButton },
             new SelectorButtonInfo { rect = new Rect(299.0f, 130.1f, 15.9f, 15.9f), // ColdBasedButton
-                                                                                                             },
+                N = FireBasedButton, NE = Effect3Button, E = AddEffectButton, SE = SpellNameButton, S = PoisonBasedButton, SW = TargetButton, W = ByTouchButton, NW = CasterOnlyButton },
             new SelectorButtonInfo { rect = new Rect(299.0f, 146.0f, 15.9f, 15.9f), // PoisonBasedButton
-                                                                                                             },
+                N = ColdBasedButton, NE = Effect3Button, E = BuyButton, SE = SpellNameButton, S = ShockBasedButton, SW = CasterAreaButton, W = TargetButton, NW = ByTouchButton },
             new SelectorButtonInfo { rect = new Rect(299.0f, 162.0f, 15.9f, 15.9f), // ShockBasedButton
-                                                                                                             },
+                N = PoisonBasedButton, NE = Effect3Button, E = NewButton, SE = SpellNameButton, S = MagicBasedButton, SW = RangeAreaButton, W = CasterAreaButton, NW = TargetButton },
             new SelectorButtonInfo { rect = new Rect(299.0f, 178.0f, 15.9f, 15.9f), // MagicBasedButton
-                                                                                                             },
+                N = ShockBasedButton, NE = Effect3Button, E = SpellNameButton, SE = Effect1Button, S = SelectIconButton, SW = Effect1Button, W = RangeAreaButton, NW = CasterAreaButton },
             new SelectorButtonInfo { rect = new Rect(7.2f, 182.6f, 194.9f, 9.1f), // SpellNameButton
-                                                                                                             },
+                N = Effect3Button, NE = AddEffectButton, E = ExitButton, SE = Effect1Button, S = Effect1Button, SW = Effect1Button, W = MagicBasedButton, NW = Effect3Button },
             new SelectorButtonInfo { rect = new Rect(78.8f, 89.7f, 163.9f, 20.0f), // Effect3Button
-                                                                                                             },
+                N = Effect2Button, NE = Effect2Button, E = PreviousIconButton, SE = AddEffectButton, S = SpellNameButton, SW = SpellNameButton, W = SelectIconButton, NW = Effect2Button },
             new SelectorButtonInfo { rect = new Rect(78.8f, 58.0f, 163.9f, 20.0f), // Effect2Button
-                                                                                                             },
+                N = Effect1Button, NE = Effect1Button, E = PreviousIconButton, SE = AddEffectButton, S = Effect3Button, SW = Effect3Button, W = SelectIconButton, NW = Effect1Button },
             new SelectorButtonInfo { rect = new Rect(78.8f, 26.2f, 163.9f, 20.0f), // Effect1Button
-                                                                                                             },
+                N = SpellNameButton, NE = ExitButton, E = PreviousIconButton, SE = AddEffectButton, S = Effect2Button, SW = Effect2Button, W = SelectIconButton, NW = SpellNameButton },
             new SelectorButtonInfo { rect = new Rect(275.0f, 80.0f, 9.1f, 15.9f), // NextIconButton
-                                                                                                             },
+                N = RangeAreaButton, NE = SpellNameButton, E = SelectIconButton, SE = SelectIconButton, S = PreviousIconButton, SW = AddEffectButton, W = Effect3Button, NW = Effect2Button },
             new SelectorButtonInfo { rect = new Rect(275.0f, 95.9f, 9.1f, 15.9f), // PreviousIconButton
-                                                                                                             },
+                N = NextIconButton, NE = SelectIconButton, E = SelectIconButton, SE = CasterOnlyButton, S = CasterOnlyButton, SW = AddEffectButton, W = Effect3Button, NW = Effect2Button },
             new SelectorButtonInfo { rect = new Rect(285.1f, 90.5f, 22.0f, 22.1f), // SelectIconButton
-                                                                                                             },
+                N = RangeAreaButton, NE = Effect2Button, E = Effect3Button, SE = FireBasedButton, S = CasterOnlyButton, SW = CasterOnlyButton, W = PreviousIconButton, NW = NextIconButton },
         };
 
 
-        private AnchorEditor editor;
+        //private AnchorEditor editor;
 
         public int buttonSelected = AddEffectButton;
 
@@ -261,12 +261,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (legend != null && legend.IsBuilt)
                 legend.PositionBottomLeft();
 
-            // Anchor Editor
-            if (panelRenderWindow == null && fiPanelRenderWindow != null)
-                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+            //// Anchor Editor
+            //if (panelRenderWindow == null && fiPanelRenderWindow != null)
+            //    panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
 
-            if (panelRenderWindow != null)
-                editor.Tick(panelRenderWindow);
+            //if (panelRenderWindow != null)
+            //    editor.Tick(panelRenderWindow);
 
 
             ControllerManager.StickDir8 dir =
@@ -289,12 +289,12 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 if (cm.LegendPressed)
                 {
-                    //EnsureLegendUI(menuWindow, cm);
-                    //legendVisible = !legendVisible;
+                    EnsureLegendUI(menuWindow, cm);
+                    legendVisible = !legendVisible;
 
-                    //if (legend != null)
-                    //    legend.SetEnabled(legendVisible);
-                    editor.Toggle();
+                    if (legend != null)
+                        legend.SetEnabled(legendVisible);
+                    //editor.Toggle();
                 }
             }
 
@@ -328,12 +328,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             EnsureInitialized(menuWindow);
             RefreshSelectorToCurrentButton(menuWindow);
 
-            // Anchor Editor
-            if (editor == null)
-            {
-                // Match Inventory's default selector size: 25 x 19 native-ish feel
-                editor = new AnchorEditor(25f, 19f);
-            }
+            //// Anchor Editor
+            //if (editor == null)
+            //{
+            //    // Match Inventory's default selector size: 25 x 19 native-ish feel
+            //    editor = new AnchorEditor(25f, 19f);
+            //}
         }
 
         private void OnClosed(ControllerManager cm)
@@ -392,10 +392,10 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("D-Pad", "move scroll bars"),
+                    //new LegendOverlay.LegendRow("D-Pad", "move scroll bars"),
                     new LegendOverlay.LegendRow("Right Stick", "move selector"),
                     new LegendOverlay.LegendRow(cm.Action1Name, "activate selection"),
-                    new LegendOverlay.LegendRow(cm.Action2Name, "change tone"),
+                    //new LegendOverlay.LegendRow(cm.Action2Name, "change tone"),
                 };
 
                 legend.Build("Legend", rows);
