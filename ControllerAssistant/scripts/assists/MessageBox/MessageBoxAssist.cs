@@ -146,7 +146,8 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             IMessageBoxAssistHandler[] handlers = new IMessageBoxAssistHandler[]
             {
-                new StatusProbeHandler(),   // temporary detector only
+                new AlterSpellHandler(),
+                new StatusProbeHandler(),
                 new YesNoHandler(),
             };
 
@@ -333,6 +334,70 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             menuWindow.CloseWindow();
         }
+
+        internal void ClickSemanticButton(
+            DaggerfallMessageBox menuWindow,
+            DaggerfallMessageBox.MessageBoxButtons button)
+        {
+            if (menuWindow == null || fiButtons == null)
+                return;
+
+            DestroyLegend();
+
+            object value = fiButtons.GetValue(menuWindow);
+            IList list = value as IList;
+            if (list == null)
+                return;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                Button uiButton = list[i] as Button;
+                if (uiButton == null)
+                    continue;
+
+                if (!(uiButton.Tag is DaggerfallMessageBox.MessageBoxButtons))
+                    continue;
+
+                if ((DaggerfallMessageBox.MessageBoxButtons)uiButton.Tag != button)
+                    continue;
+
+                try
+                {
+                    // Invoke the button's own OnMouseClick event so any per-button
+                    // handlers fire first (e.g. Edit/Delete in SpellMaker).
+                    FieldInfo fiOnMouseClick = typeof(BaseScreenComponent).GetField(
+                        "OnMouseClick",
+                        BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+
+                    if (fiOnMouseClick != null)
+                    {
+                        object delObj = fiOnMouseClick.GetValue(uiButton);
+                        Delegate del = delObj as Delegate;
+
+                        if (del != null)
+                        {
+                            Delegate[] calls = del.GetInvocationList();
+                            for (int j = 0; j < calls.Length; j++)
+                                calls[j].DynamicInvoke(uiButton, Vector2.zero);
+
+                            return;
+                        }
+                    }
+
+                    // Fallback: if for some reason the button has no click delegate,
+                    // use the older semantic path.
+                    SelectButton(menuWindow, button);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    Debug.Log("[ControllerAssistant] ClickSemanticButton failed: " + ex);
+                    SelectButton(menuWindow, button);
+                    return;
+                }
+            }
+        }
+
         internal bool HasNextMessageBox(DaggerfallMessageBox menuWindow)
         {
             if (menuWindow == null || fiNextMessageBox == null)

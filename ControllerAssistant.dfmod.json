@@ -18,7 +18,6 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/core/FavoritesStore.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/SpellbookAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/ExtAutomapAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBoxAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/TransportAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/CAFavoritesWindowAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/PauseAssist.cs",
@@ -43,6 +42,12 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/TalkWindow/TalkWindowAssist.Buttons.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/TalkWindow/TalkWindowAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/TalkWindow/TalkWindowAssist.SelectionList.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/SpellMakerAssist.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/SpellMakerAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBox/MessageBoxAssist.AlterSpell.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.Handlers.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.InventoryGold.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.SpellName.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/UI/OnScreenKeyboardOverlay.cs"
     ]
 }

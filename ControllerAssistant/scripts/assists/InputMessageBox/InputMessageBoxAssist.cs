@@ -9,20 +9,15 @@ using UnityEngine;
 
 namespace gigantibyte.DFU.ControllerAssistant
 {
-    public enum InputMessageBoxPopupMode
-    {
-        None,
-        InventoryGold,
-        Wait,
-    }
-
-    public class InputMessageBoxAssist : IMenuAssist
+    public partial class InputMessageBoxAssist : IMenuAssist
     {
         private const bool debugMODE = true;
         private bool reflectionCached = false;  //prevents re-caching Reflection methods
         private bool wasOpen = false;
 
-        private InputMessageBoxPopupMode activeMode = InputMessageBoxPopupMode.None;
+        private DaggerfallInputMessageBox currentWindow;
+        private IInputMessageBoxAssistHandler activeHandler;
+
         private float goldRepeatDelay = 0.30f;      // pause before repeat starts
         private float goldRepeatInterval = 0.08f;   // repeat speed after delay
         private float goldHoldTimer = 0f;
@@ -63,13 +58,20 @@ namespace gigantibyte.DFU.ControllerAssistant
                 {
                     OnClosed(cm);
                     wasOpen = false;
+                    currentWindow = null;
                 }
                 return;
             }
 
-            if (!wasOpen)
+            bool windowChanged = !object.ReferenceEquals(currentWindow, menuWindow);
+
+            if (!wasOpen || windowChanged)
             {
+                if (wasOpen)
+                    OnClosed(cm);
+
                 wasOpen = true;
+                currentWindow = menuWindow;
                 OnOpened(menuWindow, cm);
             }
 
@@ -81,79 +83,65 @@ namespace gigantibyte.DFU.ControllerAssistant
         // =========================
         private void OnTickOpen(DaggerfallInputMessageBox menuWindow, ControllerManager cm)
         {
-            switch (activeMode)
-            {
-                case InputMessageBoxPopupMode.InventoryGold:
-                    TickInventoryGold(menuWindow, cm);
-                    break;
-
-                case InputMessageBoxPopupMode.Wait:
-                    TickWait(menuWindow, cm);
-                    break;
-            }
-        }
-        private void TickInventoryGold(DaggerfallInputMessageBox menuWindow, ControllerManager cm)
-        {
             RefreshLegendAttachment(menuWindow);
 
             if (legend != null && legend.IsBuilt)
                 legend.PositionNormalized(legendPosXNorm, legendPosYNorm, LegendOverlay.LegendAnchor.Center);
 
-            // Read current controller state
+            if (activeHandler != null)
+                activeHandler.Tick(this, menuWindow, cm);
 
-            bool isAssisting =
-                (cm.DPadH != 0 || cm.DPadV != 0 || cm.RStickLeftPressed ||
-                 cm.Action1 || cm.Action2 || cm.Legend);
-
-            if (isAssisting)
-            {
-                if (cm.DPadUpPressed)
-                    BeginGoldHold(menuWindow, 1);
-
-                if (cm.DPadDownPressed)
-                    BeginGoldHold(menuWindow, -1);
-
-                if (cm.DPadRightPressed)
-                    IncreaseIncrement(menuWindow, cm);
-
-                if (cm.DPadLeftPressed)
-                    DecreaseIncrement(menuWindow, cm);
-
-                if (cm.RStickLeftPressed)
-                    BackspaceGoldAmount(menuWindow);
-
-                UpdateGoldHold(menuWindow, cm);
-
-                if (cm.Action1Pressed)
-                    SubmitInputBox(menuWindow);
-
-                if (cm.Action2Pressed)
-                    SetGoldAmount(menuWindow, 0);
-
-                if (cm.LegendPressed)
-                {
-                    EnsureLegendUI(menuWindow, cm);
-                    legendVisible = !legendVisible;
-                    if (legend != null)
-                        legend.SetEnabled(legendVisible);
-                }
-            }
-            else
-            {
-                EndGoldHold();
-            }
-
-            if ((cm.BackPressed) && (legend != null))
-            {
-                legend.Destroy();
-                legend = null;
-                legendVisible = false;
-            }
-
+            if (cm.BackPressed && legend != null)
+                DestroyLegend();
         }
-        private void TickWait(DaggerfallInputMessageBox menuWindow, ControllerManager cm)
+        
+
+        private IInputMessageBoxAssistHandler ResolveHandler(DaggerfallInputMessageBox menuWindow)
         {
-            //...
+            IInputMessageBoxAssistHandler[] handlers = new IInputMessageBoxAssistHandler[]
+            {
+                new InventoryGoldHandler(),
+                new SpellNameHandler(),
+                // new WaitHandler(),
+            };
+
+            for (int i = 0; i < handlers.Length; i++)
+            {
+                if (handlers[i].CanHandle(this, menuWindow))
+                    return handlers[i];
+            }
+
+            return null;
+        }
+        private bool IsSpellNamePopup(DaggerfallInputMessageBox menuWindow)
+        {
+            if (menuWindow == null || fiOnGotUserInput == null)
+                return false;
+
+            object value = fiOnGotUserInput.GetValue(menuWindow);
+            if (value == null)
+                return false;
+
+            Delegate del = value as Delegate;
+            if (del == null)
+                return false;
+
+            Delegate[] calls = del.GetInvocationList();
+            for (int i = 0; i < calls.Length; i++)
+            {
+                if (calls[i].Method.Name == "EnterName_OnGotUserInput")
+                    return true;
+            }
+
+            return false;
+        }
+
+        internal Panel GetInputMessageBoxRenderPanel(DaggerfallInputMessageBox menuWindow)
+        {
+            if (menuWindow == null || fiPanelRenderWindow == null)
+                return null;
+
+            return fiPanelRenderWindow.GetValue(menuWindow) as Panel;
         }
 
         // =========================
@@ -340,9 +328,10 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             menuWindow.TextBox.Text = value.ToString();
         }
-        private void RefreshGoldLegend(DaggerfallInputMessageBox menuWindow, ControllerManager cm)
+        internal void RefreshGoldLegend(DaggerfallInputMessageBox menuWindow, ControllerManager cm)
         {
-            if (!legendVisible)
+            bool wasVisible = legendVisible;
+            if (!wasVisible)
                 return;
 
             if (legend != null)
@@ -351,10 +340,25 @@ namespace gigantibyte.DFU.ControllerAssistant
                 legend = null;
             }
 
-            EnsureLegendUI(menuWindow, cm);
+            EnsureLegendUI(
+                menuWindow,
+                "Legend",
+                new List<LegendOverlay.LegendRow>()
+                {
+                    new LegendOverlay.LegendRow("D-Pad Up", "Increase amount"),
+                    new LegendOverlay.LegendRow("D-Pad Down", "Decrease amount"),
+                    new LegendOverlay.LegendRow("Current increment:", goldIncrement.ToString()),
+                    new LegendOverlay.LegendRow("D-Pad Right", "Increase increment"),
+                    new LegendOverlay.LegendRow("D-Pad Left", "Decrease increment"),
+                    new LegendOverlay.LegendRow("Right Stick Left", "Backspace"),
+                    new LegendOverlay.LegendRow(cm.Action1Name, "Submit"),
+                    new LegendOverlay.LegendRow(cm.Action2Name, "Reset to 0"),
+                });
+
+            legendVisible = wasVisible;
 
             if (legend != null)
-                legend.SetEnabled(true);
+                legend.SetEnabled(legendVisible);
         }
 
         // =========================
@@ -362,37 +366,40 @@ namespace gigantibyte.DFU.ControllerAssistant
         // =========================
         private void OnOpened(DaggerfallInputMessageBox menuWindow, ControllerManager cm)
         {
-            if (debugMODE) DumpWindowMembers(menuWindow);
+            if (debugMODE)
+                DumpWindowMembers(menuWindow);
+
             EnsureInitialized(menuWindow);
 
-            if (IsInventoryGoldPopup(menuWindow))
-                activeMode = InputMessageBoxPopupMode.InventoryGold;
-            else
-                activeMode = InputMessageBoxPopupMode.None;
+            activeHandler = ResolveHandler(menuWindow);
 
-            if (debugMODE) DaggerfallUI.AddHUDText("InputMessageBox mode: " + activeMode);
+            if (debugMODE && activeHandler != null)
+                Debug.Log("[ControllerAssistant] InputMessageBoxAssist handler = " + activeHandler.GetType().Name);
+
+            if (activeHandler != null)
+                activeHandler.OnOpen(this, menuWindow, cm);
         }
         private void OnClosed(ControllerManager cm)
         {
+            if (activeHandler != null)
+                activeHandler.OnClose(this, cm);
+
             ResetState();
-            if (debugMODE) DaggerfallUI.AddHUDText("DaggerfallInputMessageBox closed");
+
+            if (debugMODE)
+                DaggerfallUI.AddHUDText("DaggerfallInputMessageBox closed");
         }
+
         public void ResetState()
         {
             wasOpen = false;
+            activeHandler = null;
+            currentWindow = null;
 
-            if (legend != null)
-            {
-                legend.Destroy();
-                legend = null;
-            }
-
-            legendVisible = false;
+            DestroyLegend();
             panelRenderWindow = null;
-            activeMode = InputMessageBoxPopupMode.None;
 
             EndGoldHold();
-
             goldIncrementIndex = 0;
             goldIncrement = goldIncrementSteps[0];
         }
@@ -418,35 +425,24 @@ namespace gigantibyte.DFU.ControllerAssistant
         // =========================
         // Optional UI helpers
         // =========================
-        private void EnsureLegendUI(DaggerfallInputMessageBox menuWindow, ControllerManager cm)
+        internal void EnsureLegendUI(
+            DaggerfallInputMessageBox menuWindow,
+            string header,
+            List<LegendOverlay.LegendRow> rows)
         {
-            if (menuWindow == null) return;
+            if (menuWindow == null)
+                return;
 
             if (panelRenderWindow == null && fiPanelRenderWindow != null)
                 panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
 
-            if (panelRenderWindow == null) return;
-            if (legend != null) return;
+            if (panelRenderWindow == null)
+                return;
+
+            if (legend != null)
+                return;
 
             legend = new LegendOverlay(panelRenderWindow);
-
-            switch (activeMode)
-            {
-                case InputMessageBoxPopupMode.InventoryGold:
-                    BuildInventoryGoldLegend(cm);
-                    break;
-
-                //case PopupMode.Wait:
-                //    BuildWaitLegend(cm);
-                //    break;
-
-                default:
-                    legend = null;
-                    return;
-            }
-        }
-        private void BuildInventoryGoldLegend(ControllerManager cm)
-        {
             legend.HeaderScale = 6.0f;
             legend.HeaderScaleBoost = 0.2f;
             legend.RowScale = 5.0f;
@@ -458,22 +454,33 @@ namespace gigantibyte.DFU.ControllerAssistant
             legend.MarginFromBottom = 24f;
             legend.BackgroundColor = new Color(0f, 0f, 0f, 0.60f);
 
-            List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
-            {
-                new LegendOverlay.LegendRow("D-Pad Up", "Increase amount"),
-                new LegendOverlay.LegendRow("D-Pad Down", "Decrease amount"),
-                new LegendOverlay.LegendRow("Current increment:", goldIncrement.ToString()),
-                new LegendOverlay.LegendRow("D-Pad Right", "Increase increment"),
-                new LegendOverlay.LegendRow("D-Pad Left", "Decrease increment"),
-                new LegendOverlay.LegendRow("Right Stick Left", "Backspace"),
-                new LegendOverlay.LegendRow(cm.Action1Name, "Submit"),
-                new LegendOverlay.LegendRow(cm.Action2Name, "Reset to 0"),
-             };
-
             float scale = Mathf.Clamp(panelRenderWindow.Rectangle.width / 3840f, 0.50f, 1.00f);
             legend.ApplyScale(scale);
-            legend.Build("Legend", rows);
+            legend.Build(header, rows);
             legend.PositionNormalized(legendPosXNorm, legendPosYNorm, LegendOverlay.LegendAnchor.Center);
+        }
+
+        internal void SetLegendVisible(bool visible)
+        {
+            legendVisible = visible;
+            if (legend != null)
+                legend.SetEnabled(visible);
+        }
+
+        internal bool GetLegendVisible()
+        {
+            return legendVisible;
+        }
+
+        internal void DestroyLegend()
+        {
+            if (legend != null)
+            {
+                legend.Destroy();
+                legend = null;
+            }
+
+            legendVisible = false;
         }
         private void RefreshLegendAttachment(DaggerfallInputMessageBox menuWindow)
         {
@@ -487,14 +494,8 @@ namespace gigantibyte.DFU.ControllerAssistant
             // If DFU swapped the panel instance, our old legend is invalid
             if (panelRenderWindow != current)
             {
-                if (legend != null)
-                {
-                    legend.Destroy();
-                    legend = null;
-                }
-
+                DestroyLegend();
                 panelRenderWindow = current;
-                legendVisible = false;
                 return;
             }
 

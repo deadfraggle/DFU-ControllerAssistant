@@ -2,6 +2,8 @@ using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Game.UserInterface;
 using DaggerfallWorkshop.Game.UserInterfaceWindows;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
+using System;
+using System.Collections;
 using System.Reflection;
 using System.Collections.Generic;
 using UnityEngine;
@@ -22,21 +24,45 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         // Used in EnsureInitialized()
         // Cache for reflection so we don’t re-query every press
-        //! EXAMPLES: declare only what the target window actually needs
-        // private MethodInfo miActionMoveLeft;
-        // private MethodInfo miActionMoveRight;
-        // private MethodInfo miActionMoveForward;
-        // private MethodInfo miActionMoveBackward;
-        // private MethodInfo miActionMoveUpstairs;
-        // private MethodInfo miActionMoveDownstairs;
-        // private MethodInfo miActionResetView;
-        // private MethodInfo miActionRotateLeft;
-        // private MethodInfo miActionRotateRight;
-        // private MethodInfo miActionCenterMapOnPlayer;
+
+        // Reflected action methods
+        private MethodInfo miAddEffectButton;
+        private MethodInfo miBuyButton;
+        private MethodInfo miNewSpellButton;
+        private MethodInfo miNameSpellButton;
+
+        private MethodInfo miCasterOnlyButton;
+        private MethodInfo miByTouchButton;
+        private MethodInfo miSingleTargetAtRangeButton;
+        private MethodInfo miAreaAroundCasterButton;
+        private MethodInfo miAreaAtRangeButton;
+
+        private MethodInfo miFireBasedButton;
+        private MethodInfo miColdBasedButton;
+        private MethodInfo miPoisonBasedButton;
+        private MethodInfo miShockBasedButton;
+        private MethodInfo miMagicBasedButton;
+
+        private MethodInfo miNextIconButton;
+        private MethodInfo miPreviousIconButton;
+        private MethodInfo miSelectIconButton;
+
+        private MethodInfo miEffect1NamePanel;
+        private MethodInfo miEffect2NamePanel;
+        private MethodInfo miEffect3NamePanel;
+
+        // Reflected data for effect existence checks
+        private FieldInfo fiEffectEntries;
 
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
 
         private bool closeDeferred = false;
+
+        // Last known occupancy of effect slots so we can detect add/delete/reset changes
+        private bool lastEffect1Exists = false;
+        private bool lastEffect2Exists = false;
+        private bool lastEffect3Exists = false;
+        private bool effectStateInitialized = false;
 
         // Button & selector setup
 
@@ -117,7 +143,95 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private void ActivateSelectedButton(DaggerfallSpellMakerWindow menuWindow)
         {
-            if (buttonSelected == ExitButton) SelectExit(menuWindow);
+            switch (buttonSelected)
+            {
+                case AddEffectButton:
+                    InvokeButtonHandler(menuWindow, miAddEffectButton);
+                    break;
+
+                case BuyButton:
+                    InvokeButtonHandler(menuWindow, miBuyButton);
+                    break;
+
+                case NewButton:
+                    InvokeButtonHandler(menuWindow, miNewSpellButton);
+                    break;
+
+                case ExitButton:
+                    SelectExit(menuWindow);
+                    break;
+
+                case RangeAreaButton:
+                    InvokeButtonHandler(menuWindow, miAreaAtRangeButton);
+                    break;
+
+                case CasterAreaButton:
+                    InvokeButtonHandler(menuWindow, miAreaAroundCasterButton);
+                    break;
+
+                case TargetButton:
+                    InvokeButtonHandler(menuWindow, miSingleTargetAtRangeButton);
+                    break;
+
+                case ByTouchButton:
+                    InvokeButtonHandler(menuWindow, miByTouchButton);
+                    break;
+
+                case CasterOnlyButton:
+                    InvokeButtonHandler(menuWindow, miCasterOnlyButton);
+                    break;
+
+                case FireBasedButton:
+                    InvokeButtonHandler(menuWindow, miFireBasedButton);
+                    break;
+
+                case ColdBasedButton:
+                    InvokeButtonHandler(menuWindow, miColdBasedButton);
+                    break;
+
+                case PoisonBasedButton:
+                    InvokeButtonHandler(menuWindow, miPoisonBasedButton);
+                    break;
+
+                case ShockBasedButton:
+                    InvokeButtonHandler(menuWindow, miShockBasedButton);
+                    break;
+
+                case MagicBasedButton:
+                    InvokeButtonHandler(menuWindow, miMagicBasedButton);
+                    break;
+
+                case SpellNameButton:
+                    InvokeButtonHandler(menuWindow, miNameSpellButton);
+                    break;
+
+                case Effect3Button:
+                    if (EffectSlotExists(menuWindow, 2))
+                        InvokeButtonHandler(menuWindow, miEffect3NamePanel);
+                    break;
+
+                case Effect2Button:
+                    if (EffectSlotExists(menuWindow, 1))
+                        InvokeButtonHandler(menuWindow, miEffect2NamePanel);
+                    break;
+
+                case Effect1Button:
+                    if (EffectSlotExists(menuWindow, 0))
+                        InvokeButtonHandler(menuWindow, miEffect1NamePanel);
+                    break;
+
+                case NextIconButton:
+                    InvokeButtonHandler(menuWindow, miNextIconButton);
+                    break;
+
+                case PreviousIconButton:
+                    InvokeButtonHandler(menuWindow, miPreviousIconButton);
+                    break;
+
+                case SelectIconButton:
+                    InvokeButtonHandler(menuWindow, miSelectIconButton);
+                    break;
+            }
         }
 
         private void TryMoveSelector(DaggerfallSpellMakerWindow menuWindow, ControllerManager.StickDir8 dir)
@@ -142,8 +256,14 @@ namespace gigantibyte.DFU.ControllerAssistant
                 case ControllerManager.StickDir8.NW: next = btn.NW; break;
             }
 
-            if (next > -1)
-                buttonSelected = next;
+            if (next < 0)
+                return;
+
+            next = ResolveEffectButtonTarget(menuWindow, previous, dir, next);
+            if (next < 0)
+                return;
+
+            buttonSelected = next;
 
             if (buttonSelected != previous)
                 RefreshSelectorToCurrentButton(menuWindow);
@@ -236,6 +356,11 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             legendVisible = false;
             panelRenderWindow = null;
+
+            effectStateInitialized = false;
+            lastEffect1Exists = false;
+            lastEffect2Exists = false;
+            lastEffect3Exists = false;
         }
 
         // =========================
@@ -243,6 +368,10 @@ namespace gigantibyte.DFU.ControllerAssistant
         // =========================
         private void OnTickOpen(DaggerfallSpellMakerWindow menuWindow, ControllerManager cm)
         {
+            if (HasEffectStateChanged(menuWindow))
+            {
+                HandleEffectStateChanged(menuWindow);
+            }
 
             RefreshLegendAttachment(menuWindow);
             RefreshSelectorAttachment(menuWindow);
@@ -317,6 +446,184 @@ namespace gigantibyte.DFU.ControllerAssistant
             return;
         }
 
+        private void InvokeButtonHandler(DaggerfallSpellMakerWindow menuWindow, MethodInfo mi)
+        {
+            if (menuWindow == null || mi == null)
+                return;
+
+            mi.Invoke(menuWindow, new object[] { null, Vector2.zero });
+        }
+
+        private bool EffectSlotExists(DaggerfallSpellMakerWindow menuWindow, int slot)
+        {
+            if (menuWindow == null || fiEffectEntries == null)
+                return false;
+
+            Array entries = fiEffectEntries.GetValue(menuWindow) as Array;
+            if (entries == null)
+                return false;
+
+            if (slot < 0 || slot >= entries.Length)
+                return false;
+
+            object entry = entries.GetValue(slot);
+            if (entry == null)
+                return false;
+
+            // EffectEntry is a struct/class with a Key member.
+            var entryType = entry.GetType();
+
+            var keyField = entryType.GetField("Key", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (keyField != null)
+            {
+                string key = keyField.GetValue(entry) as string;
+                return !string.IsNullOrEmpty(key);
+            }
+
+            var keyProp = entryType.GetProperty("Key", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (keyProp != null)
+            {
+                string key = keyProp.GetValue(entry, null) as string;
+                return !string.IsNullOrEmpty(key);
+            }
+
+            return false;
+        }
+
+        private bool IsEffectButton(int button)
+        {
+            return button == Effect1Button || button == Effect2Button || button == Effect3Button;
+        }
+
+        private int GetEffectButtonForSlot(int slot)
+        {
+            switch (slot)
+            {
+                case 0: return Effect1Button;
+                case 1: return Effect2Button;
+                case 2: return Effect3Button;
+                default: return -1;
+            }
+        }
+
+        private int ResolveEffectButtonTarget(DaggerfallSpellMakerWindow menuWindow, int currentButton, ControllerManager.StickDir8 dir, int targetButton)
+        {
+            // Only normalize effect targets.
+            if (!IsEffectButton(targetButton))
+                return targetButton;
+
+            // Special case:
+            // Moving downward out of the effect stack should fall through to Spell Name
+            // when the next lower effect does not exist, rather than snapping back upward.
+            if (dir == ControllerManager.StickDir8.S)
+            {
+                if (currentButton == Effect1Button && targetButton == Effect2Button && !EffectSlotExists(menuWindow, 1))
+                    return SpellNameButton;
+
+                if (currentButton == Effect2Button && targetButton == Effect3Button && !EffectSlotExists(menuWindow, 2))
+                    return SpellNameButton;
+            }
+
+            // Requested Effect 3 -> try 3, then 2, then 1
+            if (targetButton == Effect3Button)
+            {
+                if (EffectSlotExists(menuWindow, 2)) return Effect3Button;
+                if (EffectSlotExists(menuWindow, 1)) return Effect2Button;
+                if (EffectSlotExists(menuWindow, 0)) return Effect1Button;
+                return -1;
+            }
+
+            // Requested Effect 2 -> try 2, then 1
+            if (targetButton == Effect2Button)
+            {
+                if (EffectSlotExists(menuWindow, 1)) return Effect2Button;
+                if (EffectSlotExists(menuWindow, 0)) return Effect1Button;
+                return -1;
+            }
+
+            // Requested Effect 1 -> only 1 is valid
+            if (targetButton == Effect1Button)
+            {
+                if (EffectSlotExists(menuWindow, 0)) return Effect1Button;
+                return -1;
+            }
+
+            return -1;
+        }
+
+        private void CaptureEffectState(DaggerfallSpellMakerWindow menuWindow)
+        {
+            lastEffect1Exists = EffectSlotExists(menuWindow, 0);
+            lastEffect2Exists = EffectSlotExists(menuWindow, 1);
+            lastEffect3Exists = EffectSlotExists(menuWindow, 2);
+            effectStateInitialized = true;
+        }
+
+        private bool HasEffectStateChanged(DaggerfallSpellMakerWindow menuWindow)
+        {
+            bool e1 = EffectSlotExists(menuWindow, 0);
+            bool e2 = EffectSlotExists(menuWindow, 1);
+            bool e3 = EffectSlotExists(menuWindow, 2);
+
+            if (!effectStateInitialized)
+            {
+                lastEffect1Exists = e1;
+                lastEffect2Exists = e2;
+                lastEffect3Exists = e3;
+                effectStateInitialized = true;
+                return false;
+            }
+
+            return e1 != lastEffect1Exists ||
+                   e2 != lastEffect2Exists ||
+                   e3 != lastEffect3Exists;
+        }
+
+        private void HandleEffectStateChanged(DaggerfallSpellMakerWindow menuWindow)
+        {
+            EnsureValidCurrentSelection(menuWindow);
+            CaptureEffectState(menuWindow);
+            RefreshSelectorToCurrentButton(menuWindow);
+        }
+
+        private void EnsureValidCurrentSelection(DaggerfallSpellMakerWindow menuWindow)
+        {
+            if (!IsEffectButton(buttonSelected))
+                return;
+
+            int resolved = ResolveCurrentEffectSelection(menuWindow, buttonSelected);
+            if (resolved >= 0)
+                buttonSelected = resolved;
+            else
+                buttonSelected = AddEffectButton;
+        }
+
+        private int ResolveCurrentEffectSelection(DaggerfallSpellMakerWindow menuWindow, int currentButton)
+        {
+            switch (currentButton)
+            {
+                case Effect1Button:
+                    if (EffectSlotExists(menuWindow, 0)) return Effect1Button;
+                    if (EffectSlotExists(menuWindow, 1)) return Effect2Button;
+                    if (EffectSlotExists(menuWindow, 2)) return Effect3Button;
+                    return -1;
+
+                case Effect2Button:
+                    if (EffectSlotExists(menuWindow, 1)) return Effect2Button;
+                    if (EffectSlotExists(menuWindow, 2)) return Effect3Button;
+                    if (EffectSlotExists(menuWindow, 0)) return Effect1Button;
+                    return -1;
+
+                case Effect3Button:
+                    if (EffectSlotExists(menuWindow, 2)) return Effect3Button;
+                    if (EffectSlotExists(menuWindow, 1)) return Effect2Button;
+                    if (EffectSlotExists(menuWindow, 0)) return Effect1Button;
+                    return -1;
+            }
+
+            return currentButton;
+        }
+
         // =========================
         // Lifecycle hooks
         // =========================
@@ -326,8 +633,10 @@ namespace gigantibyte.DFU.ControllerAssistant
                 DumpWindowMembers(menuWindow);
 
             EnsureInitialized(menuWindow);
+            CaptureEffectState(menuWindow);
+            EnsureValidCurrentSelection(menuWindow);
             RefreshSelectorToCurrentButton(menuWindow);
-
+       
             //// Anchor Editor
             //if (editor == null)
             //{
@@ -354,11 +663,33 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             var type = menuWindow.GetType();
 
-            //! REPLACE WITH ACTUAL METHOD/FIELD NAMES NEEDED BY THIS WINDOW
-            // miActionMoveLeft = CacheMethod(type, "ActionMoveLeft");
-            // miActionMoveRight = CacheMethod(type, "ActionMoveRight");
-
             fiPanelRenderWindow = CacheField(type, "parentPanel");
+            fiEffectEntries = CacheField(type, "effectEntries");
+
+            miAddEffectButton = CacheMethod(type, "AddEffectButton_OnMouseClick");
+            miBuyButton = CacheMethod(type, "BuyButton_OnMouseClick");
+            miNewSpellButton = CacheMethod(type, "NewSpellButton_OnMouseClick");
+            miNameSpellButton = CacheMethod(type, "NameSpellButton_OnMouseClick");
+
+            miCasterOnlyButton = CacheMethod(type, "CasterOnlyButton_OnMouseClick");
+            miByTouchButton = CacheMethod(type, "ByTouchButton_OnMouseClick");
+            miSingleTargetAtRangeButton = CacheMethod(type, "SingleTargetAtRangeButton_OnMouseClick");
+            miAreaAroundCasterButton = CacheMethod(type, "AreaAroundCasterButton_OnMouseClick");
+            miAreaAtRangeButton = CacheMethod(type, "AreaAtRangeButton_OnMouseClick");
+
+            miFireBasedButton = CacheMethod(type, "FireBasedButton_OnMouseClick");
+            miColdBasedButton = CacheMethod(type, "ColdBasedButton_OnMouseClick");
+            miPoisonBasedButton = CacheMethod(type, "PoisonBasedButton_OnMouseClick");
+            miShockBasedButton = CacheMethod(type, "ShockBasedButton_OnMouseClick");
+            miMagicBasedButton = CacheMethod(type, "MagicBasedButton_OnMouseClick");
+
+            miNextIconButton = CacheMethod(type, "NextIconButton_OnMouseClick");
+            miPreviousIconButton = CacheMethod(type, "PreviousIconButton_OnMouseClick");
+            miSelectIconButton = CacheMethod(type, "SelectIconButton_OnMouseClick");
+
+            miEffect1NamePanel = CacheMethod(type, "Effect1NamePanel_OnMouseClick");
+            miEffect2NamePanel = CacheMethod(type, "Effect2NamePanel_OnMouseClick");
+            miEffect3NamePanel = CacheMethod(type, "Effect3NamePanel_OnMouseClick");
 
             reflectionCached = true;
         }
