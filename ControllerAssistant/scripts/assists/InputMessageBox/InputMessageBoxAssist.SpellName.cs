@@ -69,6 +69,26 @@ namespace gigantibyte.DFU.ControllerAssistant
                      cm.Action1Released || cm.Action2Pressed || cm.LegendPressed ||
                      dir != ControllerManager.StickDir8.None);
 
+                // --- DPad shortcuts ---
+                if (keyboardOverlay != null)
+                {
+                    if (cm.DPadUpPressed)
+                    {
+                        keyboardOverlay.ToggleShift();
+                    }
+
+                    if (cm.DPadDownPressed)
+                    {
+                        keyboardOverlay.Toggle123();
+                    }
+
+                    if (cm.DPadRightReleased)
+                    {
+                        owner.SubmitInputBox(menuWindow);
+                        return;
+                    }
+                }
+
                 if (!isAssisting)
                     return;
 
@@ -122,6 +142,9 @@ namespace gigantibyte.DFU.ControllerAssistant
                         new List<LegendOverlay.LegendRow>()
                         {
                             new LegendOverlay.LegendRow("Right Stick", "Move Selector"),
+                            new LegendOverlay.LegendRow("D-Pad Up", "Shift"),
+                            new LegendOverlay.LegendRow("D-Pad Down", "123 toggle"),
+                            new LegendOverlay.LegendRow("D-Pad Right", "Submit"),
                             new LegendOverlay.LegendRow("D-Pad Left", "Backspace"),
                             new LegendOverlay.LegendRow(cm.Action1Name, "Activate Key"),
                             new LegendOverlay.LegendRow(cm.Action2Name, "Clear Text"),
