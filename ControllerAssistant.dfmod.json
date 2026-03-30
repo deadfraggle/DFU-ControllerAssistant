@@ -52,6 +52,8 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/EffectListPickerAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/EffectSettingsAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/SpellIconPickerAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMapAssist.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMap/TravelMapAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMap/TravelMapAssist.Overworld.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMap/TravelMapAssist.RegionView.cs"
     ]
 }
