@@ -63,8 +63,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             {
                 if (wasOpen)
                 {
-                    OnClosed(cm);
-                    wasOpen = false;
+                    // A popup over the travel map is not the same as the travel map closing.
+                    if (!IsTravelMapChildWindow(top))
+                    {
+                        OnClosed(cm);
+                        wasOpen = false;
+                    }
                 }
                 return;
             }
@@ -114,10 +118,22 @@ namespace gigantibyte.DFU.ControllerAssistant
             bool overworldMode = selectedRegion == -1;
 
             bool returnedToOverworld = lastSelectedRegionState != -1 && selectedRegion == -1;
+            bool enteredRegionView = lastSelectedRegionState == -1 && selectedRegion != -1;
             lastSelectedRegionState = selectedRegion;
 
-            if (returnedToOverworld && controllerRegion >= 0)
-                HighlightControllerRegion(menuWindow, controllerRegion);
+            if (returnedToOverworld)
+            {
+                ResetRegionViewState();
+
+                if (controllerRegion >= 0)
+                    HighlightControllerRegion(menuWindow, controllerRegion);
+            }
+
+            if (enteredRegionView)
+            {
+                ResetOverworldButtonState();
+                OnOpenedRegionView(menuWindow, cm);
+            }
 
             if (overworldMode)
             {
@@ -125,6 +141,8 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
             else
             {
+                if (!overworldMode && inOverworldButtonMode)
+                    ExitOverworldButtonMode(menuWindow);
                 TickRegionView(menuWindow, cm);
             }
 
@@ -134,6 +152,10 @@ namespace gigantibyte.DFU.ControllerAssistant
                 legendVisible = !legendVisible;
                 if (legend != null)
                     legend.SetEnabled(legendVisible);
+            }
+
+            if (cm.Action2Pressed)
+            {
                 editor.Toggle();
             }
 
@@ -161,18 +183,24 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private void OnOpened(DaggerfallTravelMapWindow menuWindow, ControllerManager cm)
         {
-            
             EnsureInitialized(menuWindow);
 
-            lastSelectedRegionState = fiSelectedRegion != null ? (int)fiSelectedRegion.GetValue(menuWindow) : -1;
+            int selectedRegion = fiSelectedRegion != null ? (int)fiSelectedRegion.GetValue(menuWindow) : -1;
+            lastSelectedRegionState = selectedRegion;
 
-            OnOpenedOverworld(menuWindow, cm);
-            OnOpenedRegionView(menuWindow, cm);
+            if (selectedRegion == -1)
+            {
+                ResetRegionViewState();
+                OnOpenedOverworld(menuWindow, cm);
+            }
+            else
+            {
+                ResetOverworldButtonState();
+                OnOpenedRegionView(menuWindow, cm);
+            }
 
-            // Anchor Editor
             if (editor == null)
             {
-                // Match Inventory's default selector size: 25 x 19 native-ish feel
                 editor = new AnchorEditor(25f, 19f);
             }
         }
@@ -237,7 +265,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("Version", "7"),
+                    new LegendOverlay.LegendRow("Version", "12"),
                     new LegendOverlay.LegendRow("Right Stick", "change region / move buttons"),
                     new LegendOverlay.LegendRow(cm.Action1Name, "open / activate"),
                 };
@@ -295,7 +323,39 @@ namespace gigantibyte.DFU.ControllerAssistant
             return fi;
         }
 
-        
+        private bool IsTravelMapChildWindow(IUserInterfaceWindow top)
+        {
+            object current = top;
+            int guard = 0;
+
+            while (current != null && guard++ < 8)
+            {
+                if (current is DaggerfallTravelMapWindow)
+                    return true;
+
+                System.Type t = current.GetType();
+
+                PropertyInfo piPrevious = t.GetProperty("PreviousWindow", BF);
+                if (piPrevious != null)
+                {
+                    current = piPrevious.GetValue(current, null);
+                    continue;
+                }
+
+                FieldInfo fiPrevious = t.GetField("previousWindow", BF);
+                if (fiPrevious != null)
+                {
+                    current = fiPrevious.GetValue(current);
+                    continue;
+                }
+
+                break;
+            }
+
+            return false;
+        }
+
+
         partial void TickOverworld(DaggerfallTravelMapWindow menuWindow, ControllerManager cm);
         partial void OnOpenedOverworld(DaggerfallTravelMapWindow menuWindow, ControllerManager cm);
 
