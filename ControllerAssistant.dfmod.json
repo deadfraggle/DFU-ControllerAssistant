@@ -49,12 +49,13 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.SpellName.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/UI/OnScreenKeyboardOverlay.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/EffectListPickerAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/EffectSettingsAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/SpellIconPickerAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMap/TravelMapAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMap/TravelMapAssist.Overworld.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMap/TravelMapAssist.RegionView.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.FindLocation.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.FindLocation.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMap/TravelPopUpAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/ListPickerAssist.cs"
     ]
 }

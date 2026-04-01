@@ -109,7 +109,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                     if (cm.DPadRightReleased)
                     {
-                        owner.SubmitInputBox(menuWindow);
+                        SubmitFindInput(owner, menuWindow);
                         return;
                     }
                 }
@@ -148,7 +148,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                             break;
 
                         case OnScreenKeyboardKeyAction.Ok:
-                            owner.SubmitInputBox(menuWindow);
+                            SubmitFindInput(owner, menuWindow);
                             return;
 
                         case OnScreenKeyboardKeyAction.Shift:
@@ -222,6 +222,35 @@ namespace gigantibyte.DFU.ControllerAssistant
                         });
 
                     owner.SetLegendVisible(!owner.GetLegendVisible());
+                }
+            }
+            private void SubmitFindInput(InputMessageBoxAssist owner, DaggerfallInputMessageBox menuWindow)
+            {
+                if (owner == null || menuWindow == null || menuWindow.TextBox == null || owner.fiOnGotUserInput == null)
+                    return;
+
+                object value = owner.fiOnGotUserInput.GetValue(menuWindow);
+                Delegate del = value as Delegate;
+                if (del == null)
+                    return;
+
+                string text = menuWindow.TextBox.Text;
+
+                owner.DestroyLegend();
+
+                // Important: close first, then invoke.
+                // Find-location behaves differently from spell naming when results may open another window.
+                menuWindow.CloseWindow();
+
+                try
+                {
+                    Delegate[] calls = del.GetInvocationList();
+                    for (int i = 0; i < calls.Length; i++)
+                        calls[i].DynamicInvoke(menuWindow, text);
+                }
+                catch (Exception ex)
+                {
+                    Debug.Log("[ControllerAssistant] SubmitFindInput failed: " + ex);
                 }
             }
 

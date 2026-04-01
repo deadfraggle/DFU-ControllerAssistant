@@ -337,7 +337,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 new SelectorButtonInfo
                 {
                     id = RegionShiftUpDownButton,
-                    rect = new Rect(253.2f, 175.6f, 22.3f, 13.3f),
+                    rect = new Rect(253.8f, 175.6f, 22.3f, 13.3f),
                     W = upDownWest,
                     E = RegionExitButton,
                 },

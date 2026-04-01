@@ -548,13 +548,13 @@ namespace gigantibyte.DFU.ControllerAssistant
                 case AlikrDesert:
                     return TargetFromRect(dir,
                         Sentinel,              // N
-                        Antiphyllos,           // NE
+                        Bergama,               // NE
                         Bergama,               // E
-                        HomesButton,           // SE
+                        Dakfron,               // SE
                         DungeonsButton,        // S
                         DungeonsButton,        // SW
-                        ExitButton,            // W
-                        AbibonGora);           // NW
+                        AbibonGora,            // W
+                        Myrkwasa);             // NW
 
                 case DragontailMountains:
                     return TargetFromRect(dir, Totambu, Mournoth, Ephesus, ExitButton, ExitButton, Dakfron, Santaki, Tigonus);
@@ -569,16 +569,16 @@ namespace gigantibyte.DFU.ControllerAssistant
                     return TargetFromRect(dir, Santaki, Santaki, DragontailMountains, HomesButton, HomesButton, DungeonsButton, Bergama, AlikrDesert);
 
                 case WrothgarianMountains:
-                    return TargetFromRect(dir, ExitButton, ExitButton, Northmoor, GlenumbraMoors, OrsiniumArea, Alcaire, Koegria, TownsButton);
+                    return TargetFromRect(dir, -1, -1, -1, -1, OrsiniumArea, Alcaire, Koegria, -1);
 
                 case Daggerfall:
-                    return TargetFromRect(dir, Glenpoint, IlessanHills, Shalgora, Cybiades, Pothago, Betony, Gavaudon, Tulune);
+                    return TargetFromRect(dir, Glenpoint, IlessanHills, Shalgora, Cybiades, Pothago, Betony, -1, Tulune);
 
                 case Glenpoint:
                     return TargetFromRect(dir, Northmoor, IlessanHills, IlessanHills, Daggerfall, Daggerfall, Daggerfall, Tulune, GlenumbraMoors);
 
                 case Betony:
-                    return TargetFromRect(dir, Tulune, Daggerfall, Cybiades, Pothago, AbibonGora, Mournoth, Gavaudon, Tulune);
+                    return TargetFromRect(dir, Tulune, Daggerfall, Cybiades, Pothago, AbibonGora, -1, -1, Tulune);
 
                 case Sentinel:
                     return TargetFromRect(dir, Cybiades, Cybiades, Ayasofya, Antiphyllos, AlikrDesert, Myrkwasa, Myrkwasa, Betony);
@@ -596,7 +596,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                     return TargetFromRect(dir, WrothgarianMountains, WrothgarianMountains, WrothgarianMountains, Wayrest, Wayrest, Menevia, Menevia, WrothgarianMountains);
 
                 case Northmoor:
-                    return TargetFromRect(dir, TemplesButton, TemplesButton, Ykalon, IlessanHills, Glenpoint, GlenumbraMoors, WrothgarianMountains, TemplesButton);
+                    return TargetFromRect(dir, -1, -1, Ykalon, IlessanHills, Glenpoint, GlenumbraMoors, GlenumbraMoors, -1);
 
                 case Menevia:
                     return TargetFromRect(dir, WrothgarianMountains, OrsiniumArea, Wayrest, Wayrest, Satakalaam, Lainlyn, IsleOfBalfiera, Alcaire);
@@ -608,19 +608,19 @@ namespace gigantibyte.DFU.ControllerAssistant
                     return TargetFromRect(dir, WrothgarianMountains, WrothgarianMountains, Alcaire, Alcaire, IsleOfBalfiera, Bhoriane, Kambria, WrothgarianMountains);
 
                 case Bhoriane:
-                    return TargetFromRect(dir, Kambria, Koegria, Koegria, IsleOfBalfiera, DragontailMountains, Tigonus, Dwynnen, Dwynnen);
+                    return TargetFromRect(dir, Kambria, Koegria, Koegria, IsleOfBalfiera, IsleOfBalfiera, Tigonus, Dwynnen, Dwynnen);
 
                 case Kambria:
                     return TargetFromRect(dir, WrothgarianMountains, WrothgarianMountains, Koegria, Koegria, Bhoriane, Dwynnen, Dwynnen, Dwynnen);
 
                 case Phrygias:
-                    return TargetFromRect(dir, TownsButton, TownsButton, WrothgarianMountains, WrothgarianMountains, Dwynnen, Urvaius, Ykalon, TemplesButton);
+                    return TargetFromRect(dir, -1, -1, WrothgarianMountains, WrothgarianMountains, Dwynnen, Urvaius, Ykalon, -1);
 
                 case Urvaius:
                     return TargetFromRect(dir, Phrygias, Phrygias, Dwynnen, Dwynnen, Anticlere, Anticlere, Daenia, Ykalon);
 
                 case Ykalon:
-                    return TargetFromRect(dir, TemplesButton, TemplesButton, Phrygias, Urvaius, Daenia, IlessanHills, Northmoor, TemplesButton);
+                    return TargetFromRect(dir, -1, -1, Phrygias, Urvaius, Daenia, IlessanHills, Northmoor, -1);
 
                 case Daenia:
                     return TargetFromRect(dir, Ykalon, Ykalon, Urvaius, Urvaius, Anticlere, Shalgora, IlessanHills, Ykalon);
@@ -629,13 +629,13 @@ namespace gigantibyte.DFU.ControllerAssistant
                     return TargetFromRect(dir, IlessanHills, Daenia, Anticlere, Cybiades, Sentinel, Daggerfall, Daggerfall, IlessanHills);
 
                 case AbibonGora:
-                    return TargetFromRect(dir, Betony, Kairou, AlikrDesert, DungeonsButton, DungeonsButton, DungeonsButton, DragontailMountains, Betony);
+                    return TargetFromRect(dir, Betony, Kairou, AlikrDesert, DungeonsButton, DungeonsButton, DungeonsButton, -1, Betony);
 
                 case Kairou:
                     return TargetFromRect(dir, Pothago, Pothago, Myrkwasa, AlikrDesert, AlikrDesert, AbibonGora, AbibonGora, Betony);
 
                 case Pothago:
-                    return TargetFromRect(dir, Daggerfall, Anticlere, Myrkwasa, Myrkwasa, Kairou, Kairou, Kairou, Betony);
+                    return TargetFromRect(dir, Daggerfall, Anticlere, Myrkwasa, Myrkwasa, Myrkwasa, Kairou, Kairou, Betony);
 
                 case Myrkwasa:
                     return TargetFromRect(dir, Daggerfall, Sentinel, Sentinel, AlikrDesert, AlikrDesert, Kairou, Pothago, Pothago);
@@ -656,7 +656,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                     return TargetFromRect(dir, Satakalaam, Mournoth, Mournoth, DragontailMountains, Ephesus, DragontailMountains, Kozanset, Lainlyn);
 
                 case Mournoth:
-                    return TargetFromRect(dir, Wayrest, Gavaudon, Pothago, AbibonGora, DragontailMountains, Ephesus, Totambu, Satakalaam);
+                    return TargetFromRect(dir, Wayrest, Gavaudon, -1, -1, DragontailMountains, Ephesus, Totambu, Satakalaam);
 
                 case Ephesus:
                     return TargetFromRect(dir, Totambu, Mournoth, DragontailMountains, DragontailMountains, DragontailMountains, DragontailMountains, Santaki, DragontailMountains);
@@ -665,19 +665,19 @@ namespace gigantibyte.DFU.ControllerAssistant
                     return TargetFromRect(dir, DragontailMountains, Totambu, Ephesus, DragontailMountains, Dakfron, Dakfron, Antiphyllos, Tigonus);
 
                 case Antiphyllos:
-                    return TargetFromRect(dir, Ayasofya, Ayasofya, Santaki, AlikrDesert, AlikrDesert, Bergama, AlikrDesert, Sentinel);
+                    return TargetFromRect(dir, Ayasofya, Ayasofya, Santaki, AlikrDesert, AlikrDesert, Bergama, Bergama, Sentinel);
 
                 case Bergama:
                     return TargetFromRect(dir, Sentinel, Antiphyllos, Dakfron, Dakfron, AlikrDesert, AlikrDesert, AlikrDesert, Sentinel);
 
                 case Gavaudon:
-                    return TargetFromRect(dir, WrothgarianMountains, WrothgarianMountains, Betony, AbibonGora, Mournoth, Mournoth, Wayrest, OrsiniumArea);
+                    return TargetFromRect(dir, WrothgarianMountains, WrothgarianMountains, -1, -1, Mournoth, Mournoth, Wayrest, OrsiniumArea);
 
                 case Tulune:
-                    return TargetFromRect(dir, GlenumbraMoors, GlenumbraMoors, Glenpoint, Daggerfall, Betony, Gavaudon, WrothgarianMountains, WrothgarianMountains);
+                    return TargetFromRect(dir, GlenumbraMoors, GlenumbraMoors, Glenpoint, Daggerfall, Betony, -1, -1, -1);
 
                 case GlenumbraMoors:
-                    return TargetFromRect(dir, TemplesButton, Northmoor, Glenpoint, Glenpoint, Tulune, Tulune, WrothgarianMountains, WrothgarianMountains);
+                    return TargetFromRect(dir, -1, Northmoor, Glenpoint, Glenpoint, Tulune, Tulune, -1, -1);
 
                 case IlessanHills:
                     return TargetFromRect(dir, Ykalon, Ykalon, Daenia, Shalgora, Daggerfall, Glenpoint, Glenpoint, Northmoor);

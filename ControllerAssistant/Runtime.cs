@@ -109,10 +109,11 @@ namespace gigantibyte.DFU.ControllerAssistant
         private static readonly PauseAssist pause = new PauseAssist();
         private static readonly TalkWindowAssist talk = new TalkWindowAssist();
         private static readonly SpellMakerAssist spellmaker = new SpellMakerAssist();
-        private static readonly EffectListPickerAssist effects = new EffectListPickerAssist();
+        private static readonly ListPickerAssist listpicker = new ListPickerAssist();
         private static readonly EffectSettingsAssist effectsettings = new EffectSettingsAssist();
         private static readonly SpellIconPickerAssist spelliconpicker = new SpellIconPickerAssist();
         private static readonly TravelMapAssist travelmap = new TravelMapAssist();
+        private static readonly TravelPopUpAssist travelpopup = new TravelPopUpAssist();
 
         // Specialized modules (do NOT include defaults here)
         private static readonly IMenuAssist[] assists =
@@ -128,11 +129,11 @@ namespace gigantibyte.DFU.ControllerAssistant
             pause,
             talk,
             spellmaker,
-            effects,
+            listpicker,
             effectsettings,
             spelliconpicker,
             travelmap,
-            // add TravelAssist, InventoryAssist, etc. here later
+            travelpopup,
         };
 
         [Invoke(StateManager.StateTypes.Start, 0)]

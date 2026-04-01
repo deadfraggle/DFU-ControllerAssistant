@@ -65,11 +65,19 @@ namespace gigantibyte.DFU.ControllerAssistant
                 bool isAssisting =
                     moveLeft ||
                     moveRight ||
+                    cm.DPadUpPressed ||
+                    cm.DPadDownPressed ||
                     cm.Action1Released ||
                     cm.LegendPressed;
 
                 if (!isAssisting)
                     return;
+
+                if (cm.DPadUpPressed)
+                    owner.ClickSemanticButton(menuWindow, DaggerfallMessageBox.MessageBoxButtons.Edit);
+
+                if (cm.DPadDownPressed)
+                    owner.ClickSemanticButton(menuWindow, DaggerfallMessageBox.MessageBoxButtons.Delete);
 
                 if (moveLeft || moveRight)
                 {
@@ -89,6 +97,8 @@ namespace gigantibyte.DFU.ControllerAssistant
                         "Alter Spell",
                         new List<LegendOverlay.LegendRow>()
                         {
+                            new LegendOverlay.LegendRow("D-Pad Up", "Edit"),
+                            new LegendOverlay.LegendRow("D-Pad Down", "Delete"),
                             new LegendOverlay.LegendRow("Right Stick Left/Right", "Move Selector"),
                             new LegendOverlay.LegendRow(cm.Action1Name, "Select Option"),
                         });

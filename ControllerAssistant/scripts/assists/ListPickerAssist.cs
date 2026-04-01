@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace gigantibyte.DFU.ControllerAssistant
 {
-    public class EffectListPickerAssist : IMenuAssist
+    public class ListPickerAssist : IMenuAssist
     {
         private const bool debugMODE = true;
         private bool reflectionCached = false;

@@ -69,6 +69,17 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             Rebuild(panelRect, borderThickness, borderColor);
         }
+        public void BuildFromPanelRect(Rect panelRect, float borderThickness, Color borderColor)
+        {
+            if (parentPanel == null)
+                return;
+
+            lastPanelRect = panelRect;
+            lastBorderThickness = borderThickness;
+            lastBorderColor = borderColor;
+
+            Rebuild(panelRect, borderThickness, borderColor);
+        }
 
         public void MoveToNativeRect(Rect nativeRect)
         {
