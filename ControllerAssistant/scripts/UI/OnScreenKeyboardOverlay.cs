@@ -1,3 +1,4 @@
+using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Game.UserInterface;
 using UnityEngine;
@@ -8,11 +9,16 @@ namespace gigantibyte.DFU.ControllerAssistant
     public enum OnScreenKeyboardKeyAction
     {
         InsertText,
+        ReplaceText,
         Shift,
         Toggle123,
         Space,
         Backspace,
         Ok,
+        NextQuest,
+        PrevQuest,
+        NextFavorite,
+        PrevFavorite,
     }
 
     public enum OnScreenKeyboardForm
@@ -42,6 +48,16 @@ namespace gigantibyte.DFU.ControllerAssistant
             public OnScreenKeyboardKeyAction Action;
             public string Text;
         }
+        private class CustomKeyDefinition
+        {
+            public string Label;
+            public Rect NativeRect;
+            public int Row;
+            public OnScreenKeyboardKeyAction Action;
+            public string Text;
+        }
+
+        private readonly List<CustomKeyDefinition> customKeys = new List<CustomKeyDefinition>();
 
         private readonly Panel parentPanel;
 
@@ -433,6 +449,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             x += BackWidth + keySpacingX;
 
             BuildKey("[OK]", new Rect(x, y, OkWidth, KeyHeight), 3, OnScreenKeyboardKeyAction.Ok, null);
+
+            for (int i = 0; i < customKeys.Count; i++)
+            {
+                CustomKeyDefinition key = customKeys[i];
+                BuildKey(key.Label, key.NativeRect, key.Row, key.Action, key.Text);
+            }
         }
 
         private void BuildAlphaRow(string[] labels, int rowIndex)
@@ -518,6 +540,22 @@ namespace gigantibyte.DFU.ControllerAssistant
                 nativeRect.width * scale,
                 nativeRect.height * scale
             );
+        }
+
+        public void ClearCustomKeys()
+        {
+            customKeys.Clear();
+        }
+
+        public void AddCustomKey(string text, Rect nativeRect, int row, OnScreenKeyboardKeyAction action, string value)
+        {
+            CustomKeyDefinition key = new CustomKeyDefinition();
+            key.Label = text;
+            key.NativeRect = nativeRect;
+            key.Row = row;
+            key.Action = action;
+            key.Text = value;
+            customKeys.Add(key);
         }
     }
 }

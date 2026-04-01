@@ -94,14 +94,15 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (cm.BackPressed && legend != null)
                 DestroyLegend();
         }
-        
+
 
         private IInputMessageBoxAssistHandler ResolveHandler(DaggerfallInputMessageBox menuWindow)
         {
             IInputMessageBoxAssistHandler[] handlers = new IInputMessageBoxAssistHandler[]
             {
-                new InventoryGoldHandler(),
-                new SpellNameHandler(),
+        new InventoryGoldHandler(),
+        new FindLocationHandler(),
+        new SpellNameHandler(),
                 // new WaitHandler(),
             };
 

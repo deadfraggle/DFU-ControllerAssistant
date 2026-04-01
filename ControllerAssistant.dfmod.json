@@ -54,6 +54,7 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/SpellIconPickerAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMap/TravelMapAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMap/TravelMapAssist.Overworld.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMap/TravelMapAssist.RegionView.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMap/TravelMapAssist.RegionView.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.FindLocation.cs"
     ]
 }
