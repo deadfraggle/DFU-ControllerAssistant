@@ -149,6 +149,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 new AlterSpellHandler(),
                 new StatusProbeHandler(),
                 new YesNoHandler(),
+                new GenericCloseHandler(),
             };
 
             for (int i = 0; i < handlers.Length; i++)
@@ -302,7 +303,34 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             return true;
         }
+        internal bool HasAnySemanticButtons(DaggerfallMessageBox menuWindow)
+        {
+            List<DaggerfallMessageBox.MessageBoxButtons> buttons;
+            if (!TryGetSemanticButtons(menuWindow, out buttons))
+                return false;
 
+            return buttons.Count > 0;
+        }
+
+        internal bool IsButtonlessMessageBox(DaggerfallMessageBox menuWindow)
+        {
+            return !HasAnySemanticButtons(menuWindow);
+        }
+
+        internal void ActivateMessageBox(DaggerfallMessageBox menuWindow)
+        {
+            if (menuWindow == null)
+                return;
+
+            DestroyLegend();
+
+            // Only use this path for message boxes with no explicit buttons.
+            // For buttoned popups, handlers should continue using semantic button activation.
+            if (HasAnySemanticButtons(menuWindow))
+                return;
+
+            menuWindow.CloseWindow();
+        }
         internal void SelectButton(DaggerfallMessageBox menuWindow, DaggerfallMessageBox.MessageBoxButtons button)
         {
             if (menuWindow == null)

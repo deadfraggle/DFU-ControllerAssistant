@@ -434,7 +434,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 (cm.DPadLeftPressed || cm.DPadRightPressed || cm.DPadUpPressed || cm.DPadDownPressed ||
                     cm.RStickUpPressed || cm.RStickDownPressed || cm.RStickLeftPressed || cm.RStickRightPressed ||
                     cm.RStickUpHeldSlow || cm.RStickDownHeldSlow || cm.RStickLeftHeldSlow || cm.RStickRightHeldSlow ||
-                    cm.Action1Pressed || cm.Action2Pressed || cm.LegendPressed);
+                    cm.Action1Released || cm.Action2Released || cm.LegendPressed);
 
             if (isAssisting)
             {

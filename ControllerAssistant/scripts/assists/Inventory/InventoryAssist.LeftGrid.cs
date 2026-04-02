@@ -20,13 +20,13 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             RefreshSelectorToCurrentGridCell();
 
-            if (cm.Action1Pressed)
+            if (cm.Action1Released)
             {
                 InvokeSelectedVisibleLocalItemLeftClick(menuWindow);
                 return;
             }
 
-            if (cm.Action2Pressed)
+            if (cm.Action2Released)
             {
                 InvokeSelectedVisibleLocalItemRightClick(menuWindow);
                 return;

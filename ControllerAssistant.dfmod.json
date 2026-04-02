@@ -16,7 +16,6 @@
         "Assets/Game/Mods/ControllerAssistant.dfmod.json",
         "Assets/Game/Mods/ControllerAssistant/scripts/UI/ControllerAssistantFavoritesWindow.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/core/FavoritesStore.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/SpellbookAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/ExtAutomapAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/TransportAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/CAFavoritesWindowAssist.cs",
@@ -56,6 +55,10 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMap/TravelMapAssist.RegionView.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.FindLocation.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMap/TravelPopUpAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/ListPickerAssist.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/ListPickerAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Spellbook/SpellbookAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Spellbook/SpellbookAssist.Casting.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Spellbook/SpellbookAssist.Buying.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBox/MessageBoxAssist.GenericClose.cs"
     ]
 }

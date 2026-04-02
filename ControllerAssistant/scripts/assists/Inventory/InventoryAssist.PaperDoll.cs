@@ -15,13 +15,13 @@ namespace gigantibyte.DFU.ControllerAssistant
             EnsurePaperDollTargetList(menuWindow);
             EnsureClothingExpandLabel(menuWindow);
 
-            if (cm.Action1Pressed)
+            if (cm.Action1Released)
             {
                 InvokeSelectedPaperDollLeftAction(menuWindow);
                 return;
             }
 
-            if (cm.Action2Pressed)
+            if (cm.Action2Released)
             {
                 InvokeSelectedPaperDollRightAction(menuWindow);
                 return;

@@ -14,13 +14,13 @@ namespace gigantibyte.DFU.ControllerAssistant
             EnsureClothingTargetList(menuWindow);
             EnsureGearExpandLabel(menuWindow);
 
-            if (cm.Action1Pressed)
+            if (cm.Action1Released)
             {
                 InvokeSelectedClothingLeftAction(menuWindow);
                 return;
             }
 
-            if (cm.Action2Pressed)
+            if (cm.Action2Released)
             {
                 InvokeSelectedClothingRightAction(menuWindow);
                 return;
@@ -32,15 +32,6 @@ namespace gigantibyte.DFU.ControllerAssistant
                 return;
             }
 
-            //if (cm.RStickLeftPressed || cm.RStickLeftHeldSlow)
-            //{
-            //    if (clothingSelectedIndex > 0)
-            //    {
-            //        clothingSelectedIndex--;
-            //        EnsureClothingTargetList(menuWindow);
-            //    }
-            //    return;
-            //}
             if (cm.RStickLeftPressed || cm.RStickLeftHeldSlow)
             {
                 DestroyClothingTargetList();

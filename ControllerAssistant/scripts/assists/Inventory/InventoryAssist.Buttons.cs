@@ -18,7 +18,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             RefreshSelectorToCurrentRegion(menuWindow);
 
-            if (cm.Action1Pressed)
+            if (cm.Action1Released)
             {
                 InvokeSelectedButton(menuWindow);
                 return;

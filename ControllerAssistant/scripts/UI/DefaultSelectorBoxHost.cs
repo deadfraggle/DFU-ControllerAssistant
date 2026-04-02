@@ -72,6 +72,26 @@ namespace gigantibyte.DFU.ControllerAssistant
                 selectorBox.MoveToNativeRect(nativeRect);
             }
         }
+        public void ShowAtNativeRect(Panel currentPanel, Rect nativeRect, float borderThickness, Color borderColor)
+        {
+            if (currentPanel == null)
+                return;
+
+            RefreshAttachment(currentPanel);
+
+            if (selectorBox == null)
+                selectorBox = new DefaultSelectorBoxOverlay(currentPanel);
+
+            if (!hasShownOnce || !selectorBox.IsBuilt)
+            {
+                selectorBox.BuildFromNativeRect(nativeRect, borderThickness, borderColor);
+                hasShownOnce = true;
+            }
+            else
+            {
+                selectorBox.BuildFromNativeRect(nativeRect, borderThickness, borderColor);
+            }
+        }
 
         public void ShowAtPanelRect(Panel currentPanel, Rect panelRect, Color borderColor)
         {
