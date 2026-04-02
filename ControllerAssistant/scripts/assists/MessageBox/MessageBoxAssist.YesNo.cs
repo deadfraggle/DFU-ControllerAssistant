@@ -5,6 +5,36 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
+/*
+ * Yes/No MessageBox Assist
+ * ------------------------------------------------------------
+ * Problem:
+ * DaggerfallMessageBox places Yes/No buttons dynamically depending
+ * on the amount of prompt text. This causes their Y position to vary,
+ * making hard-coded selector rectangles unreliable.
+ *
+ * Additionally, the rendered button rectangles do not perfectly match
+ * the classic selector geometry used elsewhere in DFU UI, especially
+ * in width and horizontal spacing.
+ *
+ * Solution:
+ * - Extract live button positions at runtime via reflection.
+ * - Convert button screen-space rectangles into native 320x200 space.
+ * - Derive the vertical (Y) position directly from the live buttons.
+ * - Compute a shared midpoint between Yes and No buttons.
+ * - Reconstruct the classic DFU selector layout using:
+ *     - Fixed selector size (32.7 x 16.9)
+ *     - Fixed horizontal offset from midpoint (31.95)
+ *
+ * Result:
+ * - Selector always aligns correctly regardless of prompt size.
+ * - No need for hard-coded layouts or per-window special cases.
+ * - Works across all Yes/No message boxes, including mod-added ones.
+ *
+ * This pattern can be reused for other dynamically positioned UI
+ * elements that maintain a consistent layout relationship.
+ */
+
 namespace gigantibyte.DFU.ControllerAssistant
 {
     public partial class MessageBoxAssist
@@ -15,26 +45,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             private const int NoButton = 1;
 
             private const BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-            private enum YesNoLayout
-            {
-                Generic,
-                SpellbookSort,
-                TravelMapConfirm,
-                MissingModsWarning,
-            }
-
-            // Old spellbook-aligned rects
-            private static readonly Rect GenericYesRect = new Rect(111.7f, 97.1f, 32.7f, 16.9f);
-            private static readonly Rect GenericNoRect = new Rect(175.6f, 97.1f, 32.7f, 16.9f);
-
-            // Travel map specific rects
-            private static readonly Rect TravelMapYesRect = new Rect(111.7f, 100.7f, 32.7f, 16.9f);
-            private static readonly Rect TravelMapNoRect = new Rect(175.6f, 100.7f, 32.7f, 16.9f);
-
-            //// Missing mod specific rects
-            //private static readonly Rect MissingModsYesRect = new Rect(111.7f, 118.1f, 32.7f, 16.9f);
-            //private static readonly Rect MissingModsNoRect = new Rect(175.6f, 118.1f, 32.7f, 16.9f);
 
             private int selectedButton = NoButton;
             private DefaultSelectorBoxHost selectorHost;
@@ -50,13 +60,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             public void OnOpen(MessageBoxAssist owner, DaggerfallMessageBox menuWindow, ControllerManager cm)
             {
                 selectedButton = NoButton;
-
-                if (ShouldHideSelector(menuWindow))
-                {
-                    DestroySelectorBox();
-                    return;
-                }
-
                 RefreshSelectorToCurrentButton(owner, menuWindow);
             }
 
@@ -64,12 +67,8 @@ namespace gigantibyte.DFU.ControllerAssistant
             {
                 RefreshSelectorAttachment(owner, menuWindow);
 
-                bool hideSelector = ShouldHideSelector(menuWindow);
-                if (hideSelector)
-                    DestroySelectorBox();
-
-                bool moveLeft = !hideSelector && (cm.RStickLeftPressed || cm.RStickLeftHeldSlow);
-                bool moveRight = !hideSelector && (cm.RStickRightPressed || cm.RStickRightHeldSlow);
+                bool moveLeft = (cm.RStickLeftPressed || cm.RStickLeftHeldSlow);
+                bool moveRight = (cm.RStickRightPressed || cm.RStickRightHeldSlow);
 
                 bool isAssisting =
                     moveLeft ||
@@ -123,10 +122,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             {
                 DestroySelectorBox();
             }
-            private bool ShouldHideSelector(DaggerfallMessageBox menuWindow)
-            {
-                return ResolveLayout(menuWindow) == YesNoLayout.MissingModsWarning;
-            }
 
             private void TryMoveSelector(MessageBoxAssist owner, DaggerfallMessageBox menuWindow)
             {
@@ -149,11 +144,6 @@ namespace gigantibyte.DFU.ControllerAssistant
                 MessageBoxAssist owner,
                 DaggerfallMessageBox menuWindow)
             {
-                if (ShouldHideSelector(menuWindow))
-                {
-                    DestroySelectorBox();
-                    return;
-                }
 
                 Panel currentPanel = owner.GetMessageBoxRenderPanel(menuWindow);
                 if (currentPanel == null)
@@ -161,7 +151,8 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 Rect yesRect;
                 Rect noRect;
-                ResolveButtonRects(owner, menuWindow, out yesRect, out noRect);
+                if (!TryGetLiveButtonRects(owner, menuWindow, out yesRect, out noRect))
+                    return; // fail silently instead of falling back
 
                 if (selectorHost == null)
                     selectorHost = new DefaultSelectorBoxHost();
@@ -172,6 +163,186 @@ namespace gigantibyte.DFU.ControllerAssistant
                     new Color(0.1f, 1f, 1f, 1f));
             }
 
+            private bool TryGetLiveButtonRects(
+                MessageBoxAssist owner,
+                DaggerfallMessageBox menuWindow,
+                out Rect yesRect,
+                out Rect noRect)
+            {
+                yesRect = Rect.zero;
+                noRect = Rect.zero;
+
+                if (menuWindow == null)
+                    return false;
+
+                Type type = menuWindow.GetType();
+                FieldInfo fiButtons = type.GetField("buttons", BF);
+                if (fiButtons == null)
+                    return false;
+
+                System.Collections.IList list = fiButtons.GetValue(menuWindow) as System.Collections.IList;
+                if (list == null)
+                    return false;
+
+                Button yesButton = null;
+                Button noButton = null;
+
+                for (int i = 0; i < list.Count; i++)
+                {
+                    Button uiButton = list[i] as Button;
+                    if (uiButton == null || !uiButton.Enabled)
+                        continue;
+
+                    if (!(uiButton.Tag is DaggerfallMessageBox.MessageBoxButtons))
+                        continue;
+
+                    DaggerfallMessageBox.MessageBoxButtons semantic =
+                        (DaggerfallMessageBox.MessageBoxButtons)uiButton.Tag;
+
+                    if (semantic == DaggerfallMessageBox.MessageBoxButtons.Yes)
+                        yesButton = uiButton;
+                    else if (semantic == DaggerfallMessageBox.MessageBoxButtons.No)
+                        noButton = uiButton;
+                }
+
+                if (yesButton == null || noButton == null)
+                    return false;
+
+                Panel renderPanel = owner.GetMessageBoxRenderPanel(menuWindow);
+                if (renderPanel == null)
+                    return false;
+
+                Rect yesVisual = GetButtonVisualRectInNativeSpace(renderPanel, yesButton);
+                Rect noVisual = GetButtonVisualRectInNativeSpace(renderPanel, noButton);
+
+                GetClassicYesNoRectsFromLiveButtons(yesVisual, noVisual, out yesRect, out noRect);
+
+                return true;
+            }
+            private void GetClassicYesNoRectsFromLiveButtons(
+                Rect yesButtonRectNative,
+                Rect noButtonRectNative,
+                out Rect yesRect,
+                out Rect noRect)
+            {
+                // Guard: ensure we have valid button data
+                if (yesButtonRectNative.width <= 0 || noButtonRectNative.width <= 0)
+                {
+                    yesRect = Rect.zero;
+                    noRect = Rect.zero;
+                    return;
+                }
+
+                const float selectorW = 32.7f;
+                const float selectorH = 16.9f;
+                const float centerOffset = 31.95f;
+
+                float yesCenterX = yesButtonRectNative.x + yesButtonRectNative.width * 0.5f;
+                float noCenterX = noButtonRectNative.x + noButtonRectNative.width * 0.5f;
+                float pairMidX = (yesCenterX + noCenterX) * 0.5f;
+
+                float yesCenterY = yesButtonRectNative.y + yesButtonRectNative.height * 0.5f;
+                float noCenterY = noButtonRectNative.y + noButtonRectNative.height * 0.5f;
+
+                yesRect = new Rect(
+                    pairMidX - centerOffset - selectorW * 0.5f,
+                    yesCenterY - selectorH * 0.5f,
+                    selectorW,
+                    selectorH);
+
+                noRect = new Rect(
+                    pairMidX + centerOffset - selectorW * 0.5f,
+                    noCenterY - selectorH * 0.5f,
+                    selectorW,
+                    selectorH);
+            }
+
+            private Rect GetButtonVisualRectInNativeSpace(Panel renderPanel, Button button)
+            {
+                if (renderPanel == null || button == null)
+                    return Rect.zero;
+
+                Rect visualScreenRect = GetOpaqueTextureBoundsInScreenSpace(button);
+                return ScreenRectToNativeRect(renderPanel, visualScreenRect);
+            }
+
+            private Rect ScreenRectToNativeRect(Panel renderPanel, Rect screenRect)
+            {
+                Rect panelRect = renderPanel.Rectangle;
+                if (panelRect.width <= 0 || panelRect.height <= 0)
+                    return Rect.zero;
+
+                float localX = screenRect.x - panelRect.x;
+                float localY = screenRect.y - panelRect.y;
+
+                float nativeX = (localX / panelRect.width) * 320f;
+                float nativeY = (localY / panelRect.height) * 200f;
+                float nativeW = (screenRect.width / panelRect.width) * 320f;
+                float nativeH = (screenRect.height / panelRect.height) * 200f;
+
+                return new Rect(nativeX, nativeY, nativeW, nativeH);
+            }
+            private Rect GetOpaqueTextureBoundsInScreenSpace(Button button)
+            {
+                if (button == null)
+                    return Rect.zero;
+
+                Rect buttonScreenRect = button.Rectangle;
+                Texture2D tex = button.BackgroundTexture;
+
+                if (tex == null)
+                    return buttonScreenRect;
+
+                Color32[] pixels;
+                try
+                {
+                    pixels = tex.GetPixels32();
+                }
+                catch
+                {
+                    // Some textures may not be readable depending on import path.
+                    return buttonScreenRect;
+                }
+
+                int texW = tex.width;
+                int texH = tex.height;
+
+                int minX = texW;
+                int minY = texH;
+                int maxX = -1;
+                int maxY = -1;
+
+                const byte alphaThreshold = 8;
+
+                for (int y = 0; y < texH; y++)
+                {
+                    int row = y * texW;
+                    for (int x = 0; x < texW; x++)
+                    {
+                        if (pixels[row + x].a > alphaThreshold)
+                        {
+                            if (x < minX) minX = x;
+                            if (y < minY) minY = y;
+                            if (x > maxX) maxX = x;
+                            if (y > maxY) maxY = y;
+                        }
+                    }
+                }
+
+                if (maxX < minX || maxY < minY)
+                    return buttonScreenRect;
+
+                float sx = buttonScreenRect.width / texW;
+                float sy = buttonScreenRect.height / texH;
+
+                return new Rect(
+                    buttonScreenRect.x + minX * sx,
+                    buttonScreenRect.y + minY * sy,
+                    (maxX - minX + 1) * sx,
+                    (maxY - minY + 1) * sy);
+            }
+
+            
             private void RefreshSelectorAttachment(
                 MessageBoxAssist owner,
                 DaggerfallMessageBox menuWindow)
@@ -186,279 +357,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 selectorHost.RefreshAttachment(currentPanel);
             }
 
-            private void ResolveButtonRects(MessageBoxAssist owner, DaggerfallMessageBox menuWindow, out Rect yesRect, out Rect noRect)
-            {
-                YesNoLayout layout = ResolveLayout(menuWindow);
-
-                switch (layout)
-                {
-                    case YesNoLayout.TravelMapConfirm:
-                        yesRect = TravelMapYesRect;
-                        noRect = TravelMapNoRect;
-                        break;
-
-                    case YesNoLayout.SpellbookSort:
-                        yesRect = GenericYesRect;
-                        noRect = GenericNoRect;
-                        break;
-
-                    //case YesNoLayout.MissingModsWarning:
-                    //    yesRect = MissingModsYesRect;
-                    //    noRect = MissingModsNoRect;
-                    //    break;
-
-                    default:
-                        yesRect = GenericYesRect;
-                        noRect = GenericNoRect;
-                        break;
-                }
-            }
-
-
-            private Rect GetAbsoluteRect(Panel rootPanel, BaseScreenComponent component)
-            {
-                float x = component.Position.x;
-                float y = component.Position.y;
-
-                BaseScreenComponent parent = component.Parent;
-                while (parent != null && parent != rootPanel)
-                {
-                    x += parent.Position.x;
-                    y += parent.Position.y;
-                    parent = parent.Parent;
-                }
-
-                return new Rect(x, y, component.Size.x, component.Size.y);
-            }
-
-            private void CollectContentBottomRecursive(Panel rootPanel, BaseScreenComponent component, ref float maxY)
-            {
-                if (component == null || !component.Enabled)
-                    return;
-
-                // Ignore buttons (we don't want to include Yes/No themselves)
-                if (component is Button)
-                    return;
-
-                Rect r = GetAbsoluteRect(rootPanel, component);
-
-                float bottom = r.y + r.height;
-
-                if (bottom > maxY)
-                    maxY = bottom;
-
-                Panel panel = component as Panel;
-                if (panel == null || panel.Components == null)
-                    return;
-
-                for (int i = 0; i < panel.Components.Count; i++)
-                    CollectContentBottomRecursive(rootPanel, panel.Components[i], ref maxY);
-            }
-
-
-            private YesNoLayout ResolveLayout(DaggerfallMessageBox menuWindow)
-            {
-                IUserInterfaceWindow previous = GetPreviousWindow(menuWindow);
-                if (previous != null)
-                {
-                    Type previousType = previous.GetType();
-                    string typeName = previousType.Name;
-
-                    if (typeName == "DaggerfallTravelMapWindow")
-                        return YesNoLayout.TravelMapConfirm;
-
-                    if (typeName == "DaggerfallSpellBookWindow")
-                        return YesNoLayout.SpellbookSort;
-
-                    if (typeName == "DaggerfallUnitySaveGameWindow")
-                        return YesNoLayout.MissingModsWarning;
-                }
-
-                string promptText = GetPromptText(menuWindow);
-                if (!string.IsNullOrEmpty(promptText))
-                {
-                    string text = promptText.ToLowerInvariant();
-
-                    Debug.Log("===== promptText =====");
-                    Debug.Log(text);
-
-                    if (text.Contains("do you wish to travel to"))
-                        return YesNoLayout.TravelMapConfirm;
-
-                    if (text.Contains("do you want to sort spells"))
-                        return YesNoLayout.SpellbookSort;
-
-                    if (text.Contains("currently used mods do not match") ||
-                        text.Contains("mod is either not loaded or has been altered") ||
-                        text.Contains("errors may occur during gameplay"))
-                        return YesNoLayout.MissingModsWarning;
-                }
-
-                return YesNoLayout.Generic;
-            }
-
-            private IUserInterfaceWindow GetPreviousWindow(DaggerfallMessageBox menuWindow)
-            {
-                if (menuWindow == null)
-                    return null;
-
-                Type type = menuWindow.GetType();
-
-                PropertyInfo pi = type.GetProperty("PreviousWindow", BF);
-                if (pi != null)
-                {
-                    object value = pi.GetValue(menuWindow, null);
-                    IUserInterfaceWindow previous = value as IUserInterfaceWindow;
-                    if (previous != null)
-                        return previous;
-                }
-
-                FieldInfo fi = type.GetField("previousWindow", BF);
-                if (fi != null)
-                {
-                    object value = fi.GetValue(menuWindow);
-                    IUserInterfaceWindow previous = value as IUserInterfaceWindow;
-                    if (previous != null)
-                        return previous;
-                }
-
-                return null;
-            }
-
-            private string GetPromptText(DaggerfallMessageBox menuWindow)
-            {
-                if (menuWindow == null)
-                    return string.Empty;
-
-                try
-                {
-                    Type type = menuWindow.GetType();
-
-                    // Try common string-ish fields first
-                    FieldInfo[] fields = type.GetFields(BF);
-                    for (int i = 0; i < fields.Length; i++)
-                    {
-                        FieldInfo fi = fields[i];
-                        if (fi.FieldType == typeof(string))
-                        {
-                            string value = fi.GetValue(menuWindow) as string;
-                            if (!string.IsNullOrEmpty(value))
-                                return value;
-                        }
-                    }
-
-                    // Try TextLabel collections / fields containing text
-                    foreach (FieldInfo fi in fields)
-                    {
-                        object fieldValue = fi.GetValue(menuWindow);
-                        if (fieldValue == null)
-                            continue;
-
-                        string extracted = ExtractText(fieldValue);
-                        if (!string.IsNullOrEmpty(extracted))
-                            return extracted;
-                    }
-
-                    PropertyInfo[] props = type.GetProperties(BF);
-                    for (int i = 0; i < props.Length; i++)
-                    {
-                        PropertyInfo pi = props[i];
-                        if (!pi.CanRead)
-                            continue;
-
-                        object propValue = null;
-                        try
-                        {
-                            propValue = pi.GetValue(menuWindow, null);
-                        }
-                        catch
-                        {
-                            continue;
-                        }
-
-                        if (propValue == null)
-                            continue;
-
-                        if (pi.PropertyType == typeof(string))
-                        {
-                            string value = propValue as string;
-                            if (!string.IsNullOrEmpty(value))
-                                return value;
-                        }
-
-                        string extracted = ExtractText(propValue);
-                        if (!string.IsNullOrEmpty(extracted))
-                            return extracted;
-                    }
-                }
-                catch
-                {
-                }
-
-                return string.Empty;
-            }
-
-            private string ExtractText(object obj)
-            {
-                if (obj == null)
-                    return string.Empty;
-
-                string s = obj as string;
-                if (!string.IsNullOrEmpty(s))
-                    return s;
-
-                Type type = obj.GetType();
-
-                // TextLabel.Text or similar
-                PropertyInfo piText = type.GetProperty("Text", BF);
-                if (piText != null && piText.CanRead)
-                {
-                    try
-                    {
-                        object value = piText.GetValue(obj, null);
-                        string text = value as string;
-                        if (!string.IsNullOrEmpty(text))
-                            return text;
-                    }
-                    catch
-                    {
-                    }
-                }
-
-                FieldInfo fiText = type.GetField("Text", BF);
-                if (fiText != null)
-                {
-                    object value = fiText.GetValue(obj);
-                    string text = value as string;
-                    if (!string.IsNullOrEmpty(text))
-                        return text;
-                }
-
-                IEnumerable<object> enumerable = obj as IEnumerable<object>;
-                if (enumerable != null)
-                {
-                    foreach (object item in enumerable)
-                    {
-                        string text = ExtractText(item);
-                        if (!string.IsNullOrEmpty(text))
-                            return text;
-                    }
-                }
-
-                System.Collections.IEnumerable weakEnumerable = obj as System.Collections.IEnumerable;
-                if (weakEnumerable != null)
-                {
-                    foreach (object item in weakEnumerable)
-                    {
-                        string text = ExtractText(item);
-                        if (!string.IsNullOrEmpty(text))
-                            return text;
-                    }
-                }
-
-                return string.Empty;
-            }
-
+            
             private void DestroySelectorBox()
             {
                 if (selectorHost != null)
