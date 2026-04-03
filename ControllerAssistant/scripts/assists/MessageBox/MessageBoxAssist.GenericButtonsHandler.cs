@@ -249,11 +249,27 @@ namespace gigantibyte.DFU.ControllerAssistant
                     if (nativeRect.width <= 0 || nativeRect.height <= 0)
                         continue;
 
+                    // Generic fallback polish:
+                    // - keep the selector centered on the live button
+                    // - widen it a bit so it better matches DFU-style button selectors
+                    // - enforce a minimum width so obscure popups do not get tiny boxes
+                    float centerX = nativeRect.x + nativeRect.width * 0.5f;
+                    float centerY = nativeRect.y + nativeRect.height * 0.5f;
+
+                    float width = Mathf.Max(nativeRect.width + 6f, 28f);
+                    float height = nativeRect.height;
+
+                    nativeRect = new Rect(
+                        centerX - width * 0.5f,
+                        centerY - height * 0.5f,
+                        width,
+                        height);
+
                     LiveButtonEntry entry = new LiveButtonEntry();
                     entry.button = uiButton;
                     entry.nativeRect = nativeRect;
-                    entry.centerX = nativeRect.x + nativeRect.width * 0.5f;
-                    entry.centerY = nativeRect.y + nativeRect.height * 0.5f;
+                    entry.centerX = centerX;
+                    entry.centerY = centerY;
 
                     buttons.Add(entry);
                 }
@@ -273,11 +289,63 @@ namespace gigantibyte.DFU.ControllerAssistant
                 });
 
                 BuildHorizontalNeighbors();
+                NormalizeRowButtonRects();
 
                 if (selectedIndex >= buttons.Count)
                     selectedIndex = buttons.Count - 1;
                 if (selectedIndex < 0)
                     selectedIndex = 0;
+            }
+            private void NormalizeRowButtonRects()
+            {
+                if (buttons.Count < 2)
+                    return;
+
+                const float rowTolerance = 6f;
+
+                for (int i = 0; i < buttons.Count; i++)
+                {
+                    List<int> row = new List<int>();
+                    row.Add(i);
+
+                    for (int j = i + 1; j < buttons.Count; j++)
+                    {
+                        if (Mathf.Abs(buttons[j].centerY - buttons[i].centerY) <= rowTolerance)
+                            row.Add(j);
+                    }
+
+                    if (row.Count < 2)
+                        continue;
+
+                    float maxWidth = 0f;
+                    float avgCenterY = 0f;
+                    float maxHeight = 0f;
+
+                    for (int r = 0; r < row.Count; r++)
+                    {
+                        LiveButtonEntry e = buttons[row[r]];
+                        if (e.nativeRect.width > maxWidth)
+                            maxWidth = e.nativeRect.width;
+                        if (e.nativeRect.height > maxHeight)
+                            maxHeight = e.nativeRect.height;
+                        avgCenterY += e.centerY;
+                    }
+
+                    avgCenterY /= row.Count;
+                    maxWidth = Mathf.Max(maxWidth, 28f);
+
+                    for (int r = 0; r < row.Count; r++)
+                    {
+                        LiveButtonEntry e = buttons[row[r]];
+                        e.nativeRect = new Rect(
+                            e.centerX - maxWidth * 0.5f,
+                            avgCenterY - maxHeight * 0.5f,
+                            maxWidth,
+                            maxHeight);
+                    }
+
+                    i = row[row.Count - 1];
+                }
             }
 
             private void BuildHorizontalNeighbors()
@@ -365,8 +433,10 @@ namespace gigantibyte.DFU.ControllerAssistant
                 if (renderPanel == null || button == null)
                     return Rect.zero;
 
-                Rect visualScreenRect = GetOpaqueTextureBoundsInScreenSpace(button);
-                return ScreenRectToNativeRect(renderPanel, visualScreenRect);
+                // For generic fallback, use the full live button rectangle rather than
+                // trimming to opaque texture pixels. This keeps the selector centered on
+                // the actual clickable footprint and avoids inward bias on paired buttons.
+                return ScreenRectToNativeRect(renderPanel, button.Rectangle);
             }
 
             private Rect ScreenRectToNativeRect(Panel renderPanel, Rect screenRect)
