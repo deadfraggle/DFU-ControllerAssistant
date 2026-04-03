@@ -59,6 +59,8 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/Spellbook/SpellbookAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/Spellbook/SpellbookAssist.Casting.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/Spellbook/SpellbookAssist.Buying.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBox/MessageBoxAssist.GenericClose.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBox/MessageBoxAssist.GenericClose.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/PauseQuickButtonOverlay.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBox/MessageBoxAssist.GenericButtonsHandler.cs"
     ]
 }

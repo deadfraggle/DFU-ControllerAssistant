@@ -149,6 +149,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 new AlterSpellHandler(),
                 new StatusProbeHandler(),
                 new YesNoHandler(),
+                new GenericButtonsHandler(),
                 new GenericCloseHandler(),
             };
 

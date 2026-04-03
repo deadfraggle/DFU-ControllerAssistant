@@ -1,4 +1,6 @@
+using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game;
+using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallWorkshop.Game.UserInterface;
 using DaggerfallWorkshop.Game.UserInterfaceWindows;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
@@ -8,44 +10,208 @@ using UnityEngine;
 
 namespace gigantibyte.DFU.ControllerAssistant
 {
-    public class PauseAssist : IMenuAssist //! IMPORTANT: Register this module in Runtime so it is included in the assist list
+    public class PauseAssist : IMenuAssist
     {
         private const bool debugMODE = false;
-        private bool reflectionCached = false;  // prevents re-caching Reflection members
+        private bool reflectionCached = false;
         private bool wasOpen = false;
 
         // Legend
-        private FieldInfo fiPanelRenderWindow;
         private Panel panelRenderWindow;
         private LegendOverlay legend;
         private bool legendVisible = false;
 
-        // Used in EnsureInitialized()
-        // Cache for reflection so we don’t re-query every press
-        //! EXAMPLES: declare only what the target window actually needs
-        // private MethodInfo miActionMoveLeft;
-        // private MethodInfo miActionMoveRight;
-        // private MethodInfo miActionMoveForward;
-        // private MethodInfo miActionMoveBackward;
-        // private MethodInfo miActionMoveUpstairs;
-        // private MethodInfo miActionMoveDownstairs;
-        // private MethodInfo miActionResetView;
-        // private MethodInfo miActionRotateLeft;
-        // private MethodInfo miActionRotateRight;
-        // private MethodInfo miActionCenterMapOnPlayer;
+        private MethodInfo miSaveButtonOnMouseClick;
+        private MethodInfo miLoadButtonOnMouseClick;
+        private MethodInfo miExitButtonOnMouseClick;
+        private MethodInfo miContinueButtonOnMouseClick;
+        private MethodInfo miControlsButtonOnMouseClick;
+        private MethodInfo miFullScreenButtonOnMouseClick;
+        private MethodInfo miHeadBobbingButtonOnMouseClick;
+        private MethodInfo miSoundBarOnMouseClick;
+        private MethodInfo miMusicBarOnMouseClick;
+        private MethodInfo miDetailButtonOnMouseClick;
 
-        private FieldInfo fiOptionsPanel;
-        private bool pausePanelMovedThisOpen = false;
+        private PauseQuickButtonOverlay quickButtonOverlay;
 
-        // Diagnostic tuning
-        private const float pausePanelYOffset = -50f;   // negative = move up
+        private const float PauseBarMaxLength = 109.1f;
+        private const float PauseBarClickY = 2.75f;
+        private const float PauseVolumeStep = 0.10f;
 
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
 
-        private FieldInfo fiWindowBinding;
-        private bool closeDeferred = false;
-        //private AnchorEditor editor;
+        // Button & selector setup
 
+        private DefaultSelectorBoxHost selectorHost;
+
+        const int SaveGameButton = 0;
+        const int LoadGameButton = 1;
+        const int ExitButton = 2;
+        const int SoundLevel = 3;
+        const int MusicLevel = 4;
+        const int DetailLevel = 5;
+        const int FullScreenButton = 6;
+        const int HeadBobbingButton = 7;
+        const int ControlsButton = 8;
+        const int ContinueButton = 9;
+        const int LocalMapButton = 10;
+        const int StatusButton = 11;
+        const int TransportButton = 12;
+        const int CharacterButton = 13;
+        const int TravelMapButton = 14;
+        const int SpellbookButton = 15;
+        const int LogbookButton = 16;
+        const int NotebookButton = 17;
+        const int RestButton = 18;
+        const int InventoryButton = 19;
+        const int QuicksaveButton = 20;
+        const int QuickLoadButton = 21;
+
+        const int IncreaseSound = 1000;
+        const int DecreaseSound = 1001;
+        const int IncreaseMusic = 1002;
+        const int DecreaseMusic = 1003;
+        const int IncreaseDetail = 1004;
+        const int DecreaseDetail = 1005;
+
+        public SelectorButtonInfo[] menuButton = new SelectorButtonInfo[]
+        {
+            new SelectorButtonInfo { rect = new Rect(88.9f, 43.5f, 45.6f, 16.7f), N = RestButton, E = LoadGameButton, S = SoundLevel, W = ExitButton }, // SaveGameButton
+            new SelectorButtonInfo { rect = new Rect(136.8f, 43.5f, 46.7f, 16.7f), N = QuicksaveButton, E = ExitButton, S = SoundLevel, W = SaveGameButton }, // LoadGameButton
+            new SelectorButtonInfo { rect = new Rect(185.8f, 43.5f, 45.8f, 16.7f), N = QuickLoadButton, E = SaveGameButton, S = SoundLevel, W = LoadGameButton }, // ExitButton
+            new SelectorButtonInfo { rect = new Rect(88.2f, 61.0f, 143.9f, 8.5f), N = LoadGameButton, E = IncreaseSound, S = MusicLevel, W = DecreaseSound }, // SoundLevel
+            new SelectorButtonInfo { rect = new Rect(88.2f, 68.7f, 143.9f, 8.5f), N = SoundLevel, E = IncreaseMusic, S = DetailLevel, W = DecreaseMusic }, // MusicLevel
+            new SelectorButtonInfo { rect = new Rect(88.2f, 76.8f, 143.9f, 8.5f), N = MusicLevel, E = IncreaseDetail, S = FullScreenButton, W = DecreaseDetail }, // DetailLevel
+            new SelectorButtonInfo { rect = new Rect(89.6f, 86.6f, 70.8f, 9.9f), N = DetailLevel, E = HeadBobbingButton, S = ControlsButton, W = HeadBobbingButton }, // FullScreenButton
+            new SelectorButtonInfo { rect = new Rect(159.7f, 86.6f, 71.8f, 9.9f), N = DetailLevel, E = FullScreenButton, S = ContinueButton, W = FullScreenButton }, // HeadBobbingButton
+            new SelectorButtonInfo { rect = new Rect(89.0f, 99.9f, 71.3f, 17.9f), N = FullScreenButton, E = ContinueButton, S = LocalMapButton, W = ContinueButton }, // ControlsButton
+            new SelectorButtonInfo { rect = new Rect(160.0f, 99.9f, 71.3f, 17.9f), N = HeadBobbingButton, E = ControlsButton, S = TransportButton, W = ControlsButton }, // ContinueButton
+
+            new SelectorButtonInfo { rect = new Rect(85.9f, 130.0f, 34.4f, 6.8f), N = ControlsButton,  E = StatusButton,    S = TravelMapButton, W = CharacterButton }, // LocalMapButton
+            new SelectorButtonInfo { rect = new Rect(124.2f, 130.0f, 34.4f, 6.8f), N = ControlsButton,  E = TransportButton, S = SpellbookButton, W = LocalMapButton }, // StatusButton
+            new SelectorButtonInfo { rect = new Rect(162.5f, 130.0f, 34.4f, 6.8f), N = ContinueButton,  E = CharacterButton, S = LogbookButton,   W = StatusButton }, // TransportButton
+            new SelectorButtonInfo { rect = new Rect(200.8f, 130.0f, 34.4f, 6.8f), N = ContinueButton,  E = LocalMapButton,  S = NotebookButton,  W = TransportButton }, // CharacterButton
+
+            new SelectorButtonInfo { rect = new Rect(85.9f, 142.2f, 34.4f, 6.8f), N = LocalMapButton,   E = SpellbookButton, S = RestButton,      W = NotebookButton }, // TravelMapButton
+            new SelectorButtonInfo { rect = new Rect(124.2f, 142.2f, 34.4f, 6.8f), N = StatusButton,    E = LogbookButton,   S = InventoryButton, W = TravelMapButton }, // SpellbookButton
+            new SelectorButtonInfo { rect = new Rect(162.5f, 142.2f, 34.4f, 6.8f), N = TransportButton, E = NotebookButton,  S = QuicksaveButton, W = SpellbookButton }, // LogbookButton
+            new SelectorButtonInfo { rect = new Rect(200.8f, 142.2f, 34.4f, 6.8f), N = CharacterButton, E = TravelMapButton, S = QuickLoadButton, W = LogbookButton }, // NotebookButton
+
+            new SelectorButtonInfo { rect = new Rect(85.9f, 154.4f, 34.4f, 6.8f), N = TravelMapButton,  E = InventoryButton, S = SaveGameButton,   W = QuickLoadButton }, // RestButton
+            new SelectorButtonInfo { rect = new Rect(124.2f, 154.4f, 34.4f, 6.8f), N = SpellbookButton, E = QuicksaveButton, S = LoadGameButton,   W = RestButton }, // InventoryButton
+            new SelectorButtonInfo { rect = new Rect(162.5f, 154.4f, 34.4f, 6.8f), N = LogbookButton,   E = QuickLoadButton, S = ExitButton,       W = InventoryButton }, // QuicksaveButton
+            new SelectorButtonInfo { rect = new Rect(200.8f, 154.4f, 34.4f, 6.8f), N = NotebookButton,  E = RestButton,      S = ExitButton,       W = QuicksaveButton }, // QuickLoadButton
+        };
+
+
+        private AnchorEditor editor;
+
+        public int buttonSelected = SaveGameButton;
+
+        private void ActivateSelectedButton(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            switch (buttonSelected)
+            {
+                case SaveGameButton: InvokeWindowClick(miSaveButtonOnMouseClick, menuWindow); break;
+                case LoadGameButton: InvokeWindowClick(miLoadButtonOnMouseClick, menuWindow); break;
+                case ExitButton: InvokeWindowClick(miExitButtonOnMouseClick, menuWindow); break;
+                case FullScreenButton: InvokeWindowClick(miFullScreenButtonOnMouseClick, menuWindow); break;
+                case HeadBobbingButton: InvokeWindowClick(miHeadBobbingButtonOnMouseClick, menuWindow); break;
+                case ControlsButton: InvokeWindowClick(miControlsButtonOnMouseClick, menuWindow); break;
+                case ContinueButton: InvokeWindowClick(miContinueButtonOnMouseClick, menuWindow); break;
+
+                case LocalMapButton: SelectLocalMap(menuWindow); break;
+                case StatusButton: SelectStatus(menuWindow); break;
+                case TransportButton: SelectTransport(menuWindow); break;
+                case CharacterButton: SelectCharacter(menuWindow); break;
+                case TravelMapButton: SelectTravelMap(menuWindow); break;
+                case SpellbookButton: SelectSpellbook(menuWindow); break;
+                case LogbookButton: SelectLogbook(menuWindow); break;
+                case NotebookButton: SelectNotebook(menuWindow); break;
+                case RestButton: SelectRest(menuWindow); break;
+                case InventoryButton: SelectInventory(menuWindow); break;
+                case QuicksaveButton: SelectQuickSave(menuWindow); break;
+                case QuickLoadButton: SelectQuickLoad(menuWindow); break;
+            }
+        }
+
+        private void TryMoveSelector(DaggerfallPauseOptionsWindow menuWindow, ControllerManager.StickDir8 dir)
+        {
+            if (dir == ControllerManager.StickDir8.None)
+                return;
+
+            int previous = buttonSelected;
+            var btn = menuButton[buttonSelected];
+
+            int next = -1;
+
+            switch (dir)
+            {
+                case ControllerManager.StickDir8.N: next = btn.N; break;
+                case ControllerManager.StickDir8.E: next = btn.E; break;
+                case ControllerManager.StickDir8.S: next = btn.S; break;
+                case ControllerManager.StickDir8.W: next = btn.W; break;
+            }
+
+            if (next > -1)
+                buttonSelected = next;
+
+            if (buttonSelected != previous)
+                RefreshSelectorToCurrentButton(menuWindow);
+        }
+
+
+        private Panel GetCurrentRenderPanel(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            if (menuWindow == null)
+                return null;
+
+            return menuWindow.ParentPanel;
+        }
+
+
+        private void RefreshSelectorToCurrentButton(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            Panel currentPanel = GetCurrentRenderPanel(menuWindow);
+            if (currentPanel == null)
+                return;
+
+            panelRenderWindow = currentPanel;
+
+            if (selectorHost == null)
+                selectorHost = new DefaultSelectorBoxHost();
+
+            selectorHost.ShowAtNativeRect(
+                currentPanel,
+                menuButton[buttonSelected].rect,
+                new Color(0.1f, 1f, 1f, 1f)
+            );
+        }
+
+        private void RefreshSelectorAttachment(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            Panel currentPanel = GetCurrentRenderPanel(menuWindow);
+            if (currentPanel == null)
+                return;
+
+            panelRenderWindow = currentPanel;
+
+            if (selectorHost == null)
+                selectorHost = new DefaultSelectorBoxHost();
+
+            selectorHost.RefreshAttachment(currentPanel);
+        }
+
+        private void DestroySelectorBox()
+        {
+            if (selectorHost != null)
+                selectorHost.Destroy();
+        }
+
+
+        // =========================
+        // IMenuAssist
+        // =========================
         public bool Claims(IUserInterfaceWindow top)
         {
             return top is DaggerfallPauseOptionsWindow;
@@ -74,51 +240,110 @@ namespace gigantibyte.DFU.ControllerAssistant
             OnTickOpen(menuWindow, cm);
         }
 
+        public void ResetState()
+        {
+            wasOpen = false;
+
+            DestroyLegend();
+            DestroySelectorBox();
+            DestroyQuickButtonOverlay();
+
+            legendVisible = false;
+            panelRenderWindow = null;
+        }
+
         // =========================
         // Core tick / main behavior
         // =========================
         private void OnTickOpen(DaggerfallPauseOptionsWindow menuWindow, ControllerManager cm)
         {
-            //! REPLACE Inventory WITH THE CORRECT VANILLA BINDING FOR THIS WINDOW
-            // KeyCode windowBinding = InputManager.Instance.GetBinding(InputManager.Actions.Inventory);
-
             RefreshLegendAttachment(menuWindow);
-
-            //if (panelRenderWindow == null && fiPanelRenderWindow != null)
-            //    panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
-
-            //if (panelRenderWindow != null)
-            //    editor.Tick(panelRenderWindow);
+            RefreshSelectorAttachment(menuWindow);
+            EnsureQuickButtonOverlay(menuWindow);
 
             if (legend != null && legend.IsBuilt)
                 legend.PositionBottomRight();
 
-            if (fiWindowBinding != null)
-                fiWindowBinding.SetValue(menuWindow, KeyCode.None);
+            if (panelRenderWindow == null)
+                panelRenderWindow = GetCurrentRenderPanel(menuWindow);
 
-            //! ADJUST THIS TO FIT THE CURRENT WINDOW
-            bool isAssisting = (cm.Legend || cm.Action1);
-            //     (cm.DPadH != 0 || cm.DPadV != 0 || cm.RStickV != 0 || cm.RStickH != 0 ||
-            //      cm.Action1 || cm.Action2 || cm.Legend);
+            if (panelRenderWindow != null)
+                editor.Tick(panelRenderWindow);
+
+            bool moveLeft = cm.RStickLeftPressed || cm.RStickLeftHeldSlow;
+            bool moveRight = cm.RStickRightPressed || cm.RStickRightHeldSlow;
+
+            // Slider handling first
+            if (buttonSelected == SoundLevel)
+            {
+                if (moveLeft) { AdjustSoundLevel(menuWindow, false); return; }
+                if (moveRight) { AdjustSoundLevel(menuWindow, true); return; }
+            }
+            else if (buttonSelected == MusicLevel)
+            {
+                if (moveLeft) { AdjustMusicLevel(menuWindow, false); return; }
+                if (moveRight) { AdjustMusicLevel(menuWindow, true); return; }
+            }
+            else if (buttonSelected == DetailLevel)
+            {
+                if (moveLeft) { AdjustDetailLevel(menuWindow, false); return; }
+                if (moveRight) { AdjustDetailLevel(menuWindow, true); return; }
+            }
+
+            ControllerManager.StickDir8 dir =
+                cm.RStickDir8Pressed != ControllerManager.StickDir8.None
+                ? cm.RStickDir8Pressed
+                : cm.RStickDir8HeldSlow;
+
+            if (dir != ControllerManager.StickDir8.None)
+            {
+                TryMoveSelector(menuWindow, dir);
+                return;
+            }
+
+            // Quick actions (bypass selector, use same methods as buttons)
+            if (cm.DPadRightReleased)
+            {
+                InvokeWindowClick(miExitButtonOnMouseClick, menuWindow);
+                return;
+            }
+
+            if (cm.DPadDownReleased)
+            {
+                SelectInventory(menuWindow);
+                return;
+            }
+
+            if (cm.DPadLeftReleased)
+            {
+                SelectTravelMap(menuWindow);
+                return;
+            }
+
+            if (cm.DPadUpReleased)
+            {
+                SelectLocalMap(menuWindow);
+                return;
+            }
+
+            if (cm.Action2Released)
+            {
+                SelectQuickSave(menuWindow);
+                return;
+            }
+
+            bool isAssisting = (cm.Action1Released || cm.LegendPressed);
 
             if (isAssisting)
             {
-                //     if (cm.DPadH == 1) ActionLeft(menuWindow);
-                //     if (cm.DPadH == -1) ActionRight(menuWindow);
-
-                //     if (cm.DPadV == 1) ActionDown(menuWindow);
-                //     if (cm.DPadV == -1) ActionUp(menuWindow);
-
-                //     if (cm.RStickV == 1) ActionStickDown(menuWindow);
-                //     if (cm.RStickV == -1) ActionStickUp(menuWindow);
-
-                //if (cm.Action1Pressed)
-                //    editor.Toggle();
+                if (cm.Action1Released)
+                    ActivateSelectedButton(menuWindow);
 
                 if (cm.LegendPressed)
                 {
                     EnsureLegendUI(menuWindow, cm);
                     legendVisible = !legendVisible;
+
                     if (legend != null)
                         legend.SetEnabled(legendVisible);
                 }
@@ -126,96 +351,304 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (cm.BackPressed)
             {
-                if (legend != null)
-                {
-                    legend.Destroy();
-                    legend = null;
-                }
-
-                //menuWindow.CloseWindow();
+                DestroyLegend();
                 return;
             }
-
-            //! UNCOMMENT AFTER windowBinding / isAssisting ARE SET
-            // if (!isAssisting && InputManager.Instance.GetKeyDown(windowBinding))
-            // {
-            //     closeDeferred = true;
-            // }
-
-            // if (closeDeferred && InputManager.Instance.GetKeyUp(windowBinding))
-            // {
-            //     closeDeferred = false;
-
-            //     if (legend != null)
-            //     {
-            //         legend.Destroy();
-            //         legend = null;
-            //     }
-
-            //     menuWindow.CloseWindow();
-            //     return;
-            // }
         }
 
         // =========================
         // Assist action helpers
         // =========================
 
-        //! EXAMPLE ACTIONS
-        // private void ActionLeft(REPLACE_WITH_WINDOW_TYPE menuWindow)
-        // {
-        //     miActionMoveLeft?.Invoke(menuWindow, null);
-        // }
+        private void SelectContinue(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            DestroyLegend();
+            menuWindow.CloseWindow();
+            return;
+        }
 
-        // private void ActionRight(REPLACE_WITH_WINDOW_TYPE menuWindow)
-        // {
-        //     miActionMoveRight?.Invoke(menuWindow, null);
-        // }
+        private Rect[] GetQuickButtonNativeRects()
+        {
+            return new Rect[]
+            {
+        new Rect(85.9f, 130.0f, 34.4f, 6.8f),   // Local Map
+        new Rect(124.2f, 130.0f, 34.4f, 6.8f),  // Status
+        new Rect(162.5f, 130.0f, 34.4f, 6.8f),  // Transport
+        new Rect(200.8f, 130.0f, 34.4f, 6.8f),  // Character
+
+        new Rect(85.9f, 142.2f, 34.4f, 6.8f),   // Travel Map
+        new Rect(124.2f, 142.2f, 34.4f, 6.8f),  // Spellbook
+        new Rect(162.5f, 142.2f, 34.4f, 6.8f),  // Logbook
+        new Rect(200.8f, 142.2f, 34.4f, 6.8f),  // Notebook
+
+        new Rect(85.9f, 154.4f, 34.4f, 6.8f),   // Rest
+        new Rect(124.2f, 154.4f, 34.4f, 6.8f),  // Inventory
+        new Rect(162.5f, 154.4f, 34.4f, 6.8f),  // QuickSave
+        new Rect(200.8f, 154.4f, 34.4f, 6.8f),  // QuickLoad
+            };
+        }
+
+        private string[] GetQuickButtonTexts()
+        {
+            return new string[]
+            {
+        "Local Map",
+        "Status",
+        "Transport",
+        "Character",
+        "Travel Map",
+        "Spellbook",
+        "Logbook",
+        "Notebook",
+        "Rest",
+        "Inventory",
+        "QuickSave",
+        "QuickLoad",
+            };
+        }
+
+        private void ApplyQuickButtonRects()
+        {
+            Rect[] rects = GetQuickButtonNativeRects();
+
+            menuButton[LocalMapButton].rect = rects[0];
+            menuButton[StatusButton].rect = rects[1];
+            menuButton[TransportButton].rect = rects[2];
+            menuButton[CharacterButton].rect = rects[3];
+            menuButton[TravelMapButton].rect = rects[4];
+            menuButton[SpellbookButton].rect = rects[5];
+            menuButton[LogbookButton].rect = rects[6];
+            menuButton[NotebookButton].rect = rects[7];
+            menuButton[RestButton].rect = rects[8];
+            menuButton[InventoryButton].rect = rects[9];
+            menuButton[QuicksaveButton].rect = rects[10];
+            menuButton[QuickLoadButton].rect = rects[11];
+        }
+
+        private void EnsureQuickButtonOverlay(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            Panel panel = GetCurrentRenderPanel(menuWindow);
+            if (panel == null)
+                return;
+
+            if (quickButtonOverlay == null || !quickButtonOverlay.IsAttached())
+            {
+                quickButtonOverlay = new PauseQuickButtonOverlay(
+                    panel,
+                    GetQuickButtonNativeRects(),
+                    GetQuickButtonTexts());
+                quickButtonOverlay.Build();
+            }
+        }
+
+        private void DestroyQuickButtonOverlay()
+        {
+            if (quickButtonOverlay != null)
+            {
+                quickButtonOverlay.Destroy();
+                quickButtonOverlay = null;
+            }
+        }
+
+        private void InvokeWindowClick(MethodInfo mi, DaggerfallPauseOptionsWindow menuWindow)
+        {
+            if (mi == null || menuWindow == null)
+                return;
+
+            mi.Invoke(menuWindow, new object[] { null, Vector2.zero });
+        }
+
+        private void InvokeBarClick(MethodInfo mi, DaggerfallPauseOptionsWindow menuWindow, float x)
+        {
+            if (mi == null || menuWindow == null)
+                return;
+
+            x = Mathf.Clamp(x, 0f, PauseBarMaxLength);
+
+            // DetailButton_OnMouseClick() needs sender.Size.x.
+            // Sound/Music ignore sender, so this is safe for all three.
+            Panel dummySender = new Panel();
+            dummySender.Size = new Vector2(PauseBarMaxLength, 5.5f);
+
+            mi.Invoke(menuWindow, new object[] { dummySender, new Vector2(x, PauseBarClickY) });
+        }
+
+        private void AdjustSoundLevel(DaggerfallPauseOptionsWindow menuWindow, bool increase)
+        {
+            float value = DaggerfallUnity.Settings.SoundVolume + (increase ? PauseVolumeStep : -PauseVolumeStep);
+            value = Mathf.Clamp01((float)System.Math.Round(value, 2));
+            InvokeBarClick(miSoundBarOnMouseClick, menuWindow, value * PauseBarMaxLength);
+        }
+
+        private void AdjustMusicLevel(DaggerfallPauseOptionsWindow menuWindow, bool increase)
+        {
+            float value = DaggerfallUnity.Settings.MusicVolume + (increase ? PauseVolumeStep : -PauseVolumeStep);
+            value = Mathf.Clamp01((float)System.Math.Round(value, 2));
+            InvokeBarClick(miMusicBarOnMouseClick, menuWindow, value * PauseBarMaxLength);
+        }
+
+        private void AdjustDetailLevel(DaggerfallPauseOptionsWindow menuWindow, bool increase)
+        {
+            int max = QualitySettings.names.Length - 1;
+            int current = QualitySettings.GetQualityLevel();
+            int next = Mathf.Clamp(current + (increase ? 1 : -1), 0, max);
+
+            // Click at the center of the target quality bucket
+            float bucketWidth = PauseBarMaxLength / (max + 1f);
+            float clickX = (next + 0.5f) * bucketWidth;
+
+            InvokeBarClick(miDetailButtonOnMouseClick, menuWindow, clickX);
+        }
+
+        private void SelectLocalMap(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            ClosePauseThenPostMessage(menuWindow, DaggerfallUIMessages.dfuiOpenAutomap);
+        }
+
+        private void SelectStatus(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            ClosePauseThenPostMessage(menuWindow, DaggerfallUIMessages.dfuiStatusInfo);
+        }
+
+        private void SelectTransport(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            ClosePauseThenPostMessage(menuWindow, DaggerfallUIMessages.dfuiOpenTransportWindow);
+        }
+
+        private void SelectCharacter(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            ClosePauseThenPostMessage(menuWindow, DaggerfallUIMessages.dfuiOpenCharacterSheetWindow);
+        }
+
+        private void SelectTravelMap(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            ClosePauseThenPostMessage(menuWindow, DaggerfallUIMessages.dfuiOpenTravelMapWindow);
+        }
+
+        private void SelectSpellbook(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            ClosePauseThenPostMessage(menuWindow, DaggerfallUIMessages.dfuiOpenSpellBookWindow);
+        }
+
+        private void SelectLogbook(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            ClosePauseThenPostMessage(menuWindow, DaggerfallUIMessages.dfuiOpenQuestJournalWindow);
+        }
+
+        private void SelectNotebook(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            ClosePauseThenPostMessage(menuWindow, DaggerfallUIMessages.dfuiOpenNotebookWindow);
+        }
+
+        private void SelectRest(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            ClosePauseThenPostMessage(menuWindow, DaggerfallUIMessages.dfuiOpenRestWindow);
+        }
+
+        private void SelectInventory(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            ClosePauseThenPostMessage(menuWindow, DaggerfallUIMessages.dfuiOpenInventoryWindow);
+        }
+
+        private void SelectQuickSave(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            ClosePauseThenQuickSave(menuWindow);
+        }
+
+        private void SelectQuickLoad(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            ClosePauseThenQuickLoad(menuWindow);
+        }
+
+        private void ClosePauseWindow(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            DestroyLegend();
+
+            if (menuWindow != null)
+                menuWindow.CloseWindow();
+        }
+
+        private void ClosePauseThenPostMessage(DaggerfallPauseOptionsWindow menuWindow, string uiMessage)
+        {
+            if (string.IsNullOrEmpty(uiMessage))
+                return;
+
+            ClosePauseWindow(menuWindow);
+            DaggerfallUI.PostMessage(uiMessage);
+        }
+
+        private void ClosePauseThenQuickSave(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            if (GameManager.Instance == null || GameManager.Instance.SaveLoadManager == null)
+                return;
+
+            if (GameManager.Instance.SaveLoadManager.IsSavingPrevented)
+            {
+                DaggerfallUI.MessageBox(TextManager.Instance.GetLocalizedText("cannotSaveNow"));
+                return;
+            }
+
+            ClosePauseWindow(menuWindow);
+            SaveLoadManager.Instance.QuickSave();
+        }
+
+        private void ClosePauseThenQuickLoad(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            if (GameManager.Instance == null || GameManager.Instance.SaveLoadManager == null)
+                return;
+
+            if (GameManager.Instance.PlayerEntity == null)
+                return;
+
+            string playerName = GameManager.Instance.PlayerEntity.Name;
+
+            if (string.IsNullOrEmpty(playerName))
+                return;
+
+            // Always close pause first
+            ClosePauseWindow(menuWindow);
+
+            if (!SaveLoadManager.Instance.HasQuickSave(playerName))
+            {
+                DaggerfallUI.AddHUDText("No quicksave found.");
+                return;
+            }
+
+            GameManager.Instance.SaveLoadManager.PromptQuickLoadGame(playerName, () =>
+            {
+                SaveLoadManager.Instance.QuickLoad();
+            });
+        }
 
         // =========================
         // Lifecycle hooks
         // =========================
         private void OnOpened(DaggerfallPauseOptionsWindow menuWindow, ControllerManager cm)
         {
-            if (debugMODE) DumpWindowMembers(menuWindow);
-            EnsureInitialized(menuWindow);
-            TryMovePausePanelUp(menuWindow);
+            if (debugMODE)
+                DumpWindowMembers(menuWindow);
 
-            //if (editor == null)
-            //{
-            //    // Match Inventory's default selector size: 25 x 19 native-ish feel
-            //    editor = new AnchorEditor(25f, 19f);
-            //}
+            EnsureInitialized(menuWindow);
+            ApplyQuickButtonRects();
+            EnsureQuickButtonOverlay(menuWindow);
+            RefreshSelectorToCurrentButton(menuWindow);
+
+            if (editor == null)
+                editor = new AnchorEditor(25f, 19f);
         }
 
         private void OnClosed(ControllerManager cm)
         {
             ResetState();
-            if (debugMODE) DaggerfallUI.AddHUDText("DaggerfallPauseOptionsWindow closed");
-        }
 
-        public void ResetState()
-        {
-            wasOpen = false;
-
-            closeDeferred = false;
-
-            if (legend != null)
-            {
-                legend.Destroy();
-                legend = null;
-            }
-
-            legendVisible = false;
-            panelRenderWindow = null;
-            //pausePanelMovedThisOpen = false;
+            if (debugMODE)
+                DaggerfallUI.AddHUDText("DaggerfallPauseOptionsWindow closed");
         }
 
         // =========================
         // Per-window/per-open setup
         // =========================
 
-        // cache reflection handles once (expensive + stable)
         private void EnsureInitialized(DaggerfallPauseOptionsWindow menuWindow)
         {
             if (reflectionCached) return;
@@ -223,58 +656,35 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             var type = menuWindow.GetType();
 
-            //! REPLACE WITH TARGET WINDOW’S CLOSE-BINDING FIELD NAME
-            // fiWindowBinding = CacheField(type, "toggleClosedBinding");
-
-            //! REPLACE WITH ACTUAL METHOD/FIELD NAMES NEEDED BY THIS WINDOW
-            // miActionMoveLeft = CacheMethod(type, "ActionMoveLeft");
-            // miActionMoveRight = CacheMethod(type, "ActionMoveRight");
-
-            //! REPLACE WITH TARGET WINDOW’S RENDER PANEL FIELD NAME - DON'T PICK mainPanel, IT'S ALMOST ALWAYS parentPanel
-            fiPanelRenderWindow = CacheField(type, "parentPanel");
-            fiOptionsPanel = CacheField(type, "optionsPanel");
+            miSaveButtonOnMouseClick = CacheMethod(type, "SaveButton_OnMouseClick");
+            miLoadButtonOnMouseClick = CacheMethod(type, "LoadButton_OnMouseClick");
+            miExitButtonOnMouseClick = CacheMethod(type, "ExitButton_OnMouseClick");
+            miContinueButtonOnMouseClick = CacheMethod(type, "ContinueButton_OnMouseClick");
+            miControlsButtonOnMouseClick = CacheMethod(type, "ControlsButton_OnMouseClick");
+            miFullScreenButtonOnMouseClick = CacheMethod(type, "FullScreenButton_OnMouseClick");
+            miHeadBobbingButtonOnMouseClick = CacheMethod(type, "HeadBobbingButton_OnMouseClick");
+            miSoundBarOnMouseClick = CacheMethod(type, "SoundBar_OnMouseClick");
+            miMusicBarOnMouseClick = CacheMethod(type, "MusicBar_OnMouseClick");
+            miDetailButtonOnMouseClick = CacheMethod(type, "DetailButton_OnMouseClick");
 
             reflectionCached = true;
-        }
-        private void TryMovePausePanelUp(DaggerfallPauseOptionsWindow menuWindow)
-        {
-            if (pausePanelMovedThisOpen)
-                return;
-
-            if (menuWindow == null || fiOptionsPanel == null)
-                return;
-
-            Panel optionsPanel = fiOptionsPanel.GetValue(menuWindow) as Panel;
-            if (optionsPanel == null)
-                return;
-
-            Vector2 pos = optionsPanel.Position;
-            //optionsPanel.Position = new Vector2(pos.x, pos.y + pausePanelYOffset);
-            optionsPanel.Position = new Vector2(pos.x, 0f);
-
-            pausePanelMovedThisOpen = true;
-
-            if (debugMODE)
-                Debug.Log("[ControllerAssistant] Pause optionsPanel moved from " + pos + " to " + optionsPanel.Position);
         }
 
         // =========================
         // Optional UI helpers
         // =========================
+
         private void EnsureLegendUI(DaggerfallPauseOptionsWindow menuWindow, ControllerManager cm)
         {
             if (menuWindow == null) return;
 
-            if (panelRenderWindow == null && fiPanelRenderWindow != null)
-                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
-
+            panelRenderWindow = GetCurrentRenderPanel(menuWindow);
             if (panelRenderWindow == null) return;
 
             if (legend == null)
             {
                 legend = new LegendOverlay(panelRenderWindow);
 
-                //! TUNING MAY REQUIRE ADJUSTMENT FOR CURRENT WINDOW
                 legend.HeaderScale = 6.0f;
                 legend.RowScale = 5.0f;
                 legend.PadL = 18f;
@@ -287,20 +697,14 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    //new LegendOverlay.LegendRow("D-Pad", "Action"),
-                    //new LegendOverlay.LegendRow("Right Stick", "Action"),
-                    //new LegendOverlay.LegendRow(cm.Action1Name, "Action1"),
-                    //new LegendOverlay.LegendRow(cm.Action2Name, "Action2"),
-                    new LegendOverlay.LegendRow("NUMPAD8", "move up"),
-                    new LegendOverlay.LegendRow("NUMPAD2", "move down"),
-                    new LegendOverlay.LegendRow("NUMPAD4", "move left"),
-                    new LegendOverlay.LegendRow("NUMPAD6", "move right"),
-                    new LegendOverlay.LegendRow("NUMPAD7", "width -"),
-                    new LegendOverlay.LegendRow("NUMPAD9", "width +"),
-                    new LegendOverlay.LegendRow("NUMPAD1", "height -"),
-                    new LegendOverlay.LegendRow("NUMPAD3", "height +"),
-                    new LegendOverlay.LegendRow("NUMPAD5", "dump X/Y/W/H"),
-                    new LegendOverlay.LegendRow("NUMPAD0", "re-center"),
+                    new LegendOverlay.LegendRow("D-Pad Right", "Exit"),
+                    new LegendOverlay.LegendRow("D-Pad Down", "Inventory"),
+                    new LegendOverlay.LegendRow("D-Pad Left", "Travel Map"),
+                    new LegendOverlay.LegendRow("D-Pad Up", "Local Map"),
+                    new LegendOverlay.LegendRow("Right Stick", "move selector"),
+                    new LegendOverlay.LegendRow("RStick L/R on sliders", "adjust level"),
+                    new LegendOverlay.LegendRow(cm.Action1Name, "activate selection"),
+                    new LegendOverlay.LegendRow(cm.Action2Name, "Quicksave"),
                 };
 
                 legend.Build("Legend", rows);
@@ -309,26 +713,35 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private void RefreshLegendAttachment(DaggerfallPauseOptionsWindow menuWindow)
         {
-            if (menuWindow == null || fiPanelRenderWindow == null)
+            if (menuWindow == null)
                 return;
 
-            Panel current = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+            Panel current = GetCurrentRenderPanel(menuWindow);
             if (current == null)
                 return;
 
-            // If DFU swapped the panel instance, our old legend is invalid
             if (panelRenderWindow != current)
             {
+                DestroyLegend();
+                DestroyQuickButtonOverlay();
                 panelRenderWindow = current;
                 legendVisible = false;
-                legend = null;
                 return;
             }
 
-            // If DFU cleared components, our legend may be detached
             if (legend != null && !legend.IsAttached())
             {
                 legendVisible = false;
+                legend = null;
+            }
+        }
+
+
+        private void DestroyLegend()
+        {
+            if (legend != null)
+            {
+                legend.Destroy();
                 legend = null;
             }
         }
@@ -364,6 +777,5 @@ namespace gigantibyte.DFU.ControllerAssistant
             foreach (var f in type.GetFields(BF))
                 Debug.Log(f.Name);
         }
-
     }
 }
