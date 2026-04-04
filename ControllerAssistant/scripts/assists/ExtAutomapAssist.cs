@@ -98,17 +98,17 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (isAssisting)
             {
-                if (cm.DPadH == 1) PanMapLeft(menuWindow);
-                if (cm.DPadH == -1) PanMapRight(menuWindow);
+                if (cm.RStickH == 1) PanMapLeft(menuWindow);
+                if (cm.RStickH == -1) PanMapRight(menuWindow);
 
-                if (cm.DPadV == 1) PanMapDown(menuWindow);
-                if (cm.DPadV == -1) PanMapUp(menuWindow);
+                if (cm.RStickV == 1) PanMapDown(menuWindow);
+                if (cm.RStickV == -1) PanMapUp(menuWindow);
 
-                if (cm.RStickV == 1) ZoomMapOut(menuWindow);
-                if (cm.RStickV == -1) ZoomMapIn(menuWindow);
+                if (cm.DPadV == 1) ZoomMapOut(menuWindow);
+                if (cm.DPadV == -1) ZoomMapIn(menuWindow);
 
-                if (cm.RStickH == 1) RotateMapClockwise(menuWindow);
-                if (cm.RStickH == -1) RotateMapCounterClockwise(menuWindow);
+                if (cm.DPadH == 1) RotateMapClockwise(menuWindow);
+                if (cm.DPadH == -1) RotateMapCounterClockwise(menuWindow);
 
                 if (cm.Action1Pressed) ResetMapView(menuWindow);
                 if (cm.Action2Pressed) CenterMapOnPlayer(menuWindow);
@@ -223,7 +223,8 @@ namespace gigantibyte.DFU.ControllerAssistant
             miActionResetView = CacheMethod(type, "ActionResetView");
             miActionCenterMapOnPlayer = CacheMethod(type, "ActionFocusPlayerPosition");
 
-            fiPanelRenderWindow = CacheField(type, "panelRenderAutomap");
+            //fiPanelRenderWindow = CacheField(type, "panelRenderAutomap");
+            fiPanelRenderWindow = CacheField(type, "parentPanel");
 
             reflectionCached = true;
         }
@@ -253,9 +254,9 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("D-Pad", "Pan"),
-                    new LegendOverlay.LegendRow("Right Stick Up/Down", "Zoom"),
-                    new LegendOverlay.LegendRow("Right Stick Left/Right", "Rotate"),
+                    new LegendOverlay.LegendRow("Right Stick", "Pan"),
+                    new LegendOverlay.LegendRow("D-Pad Up/Down", "Zoom"),
+                    new LegendOverlay.LegendRow("D-Pad Left/Right", "Rotate"),
                     new LegendOverlay.LegendRow(cm.Action1Name, "Reset"),
                     new LegendOverlay.LegendRow(cm.Action2Name, "Center"),
                 };

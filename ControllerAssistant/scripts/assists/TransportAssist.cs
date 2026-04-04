@@ -32,12 +32,15 @@ namespace gigantibyte.DFU.ControllerAssistant
         // Button & selector setup
 
         private DefaultSelectorBoxHost selectorHost;
+        private TransportQuickButtonOverlay quickButtonOverlay;
 
         const int FootButton = 0;
         const int HorseButton = 1;
         const int CartButton = 2;
         const int ShipButton = 3;
         const int ExitButton = 4;
+        const int AddFavoriteButton = 5;
+        const int ViewFavoritesButton = 6;
 
 
         public class ButtonInfoArray
@@ -49,11 +52,13 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         public ButtonInfoArray[] menuButton = new ButtonInfoArray[]
         {
-            new ButtonInfoArray { rect = new Rect(99.4f, 74.3f, 121.4f, 8.5f), N = ExitButton, S = HorseButton }, // FootButton
-            new ButtonInfoArray { rect = new Rect(99.4f, 83.2f, 121.4f, 8.5f), N = FootButton, S = CartButton }, // HorseButton
-            new ButtonInfoArray { rect = new Rect(99.4f, 92.3f, 121.4f, 8.5f), N = HorseButton, S = ShipButton }, // CartButton
-            new ButtonInfoArray { rect = new Rect(99.4f, 101.2f, 121.4f, 8.5f), N = CartButton, S = ExitButton }, // ShipButton
-            new ButtonInfoArray { rect = new Rect(142.2f, 114.7f, 37.5f, 9.3f), N = ShipButton, S = FootButton }, // ExitButton
+            new ButtonInfoArray { rect = new Rect(99.4f, 74.3f, 121.4f, 8.5f), N = ViewFavoritesButton, S = HorseButton },    // FootButton
+            new ButtonInfoArray { rect = new Rect(99.4f, 83.2f, 121.4f, 8.5f), N = FootButton, S = CartButton },              // HorseButton
+            new ButtonInfoArray { rect = new Rect(99.4f, 92.3f, 121.4f, 8.5f), N = HorseButton, S = ShipButton },             // CartButton
+            new ButtonInfoArray { rect = new Rect(99.4f, 101.2f, 121.4f, 8.5f), N = CartButton, S = ExitButton },             // ShipButton
+            new ButtonInfoArray { rect = new Rect(142.2f, 114.7f, 37.5f, 9.3f), N = ShipButton, S = AddFavoriteButton },      // ExitButton
+            new ButtonInfoArray { rect = new Rect(125.0f, 137.1f, 70.0f, 9.3f), N = ExitButton, S = ViewFavoritesButton },   // AddFavoriteButton
+            new ButtonInfoArray { rect = new Rect(139.0f, 148.3f, 42.0f, 9.3f), N = AddFavoriteButton, S = FootButton },     // ViewFavoritesButton
         };
 
         public int buttonSelected = FootButton;
@@ -65,6 +70,8 @@ namespace gigantibyte.DFU.ControllerAssistant
             else if (buttonSelected == CartButton) SelectCart(menuWindow);
             else if (buttonSelected == ShipButton) SelectShip(menuWindow);
             else if (buttonSelected == ExitButton) SelectExit(menuWindow);
+            else if (buttonSelected == AddFavoriteButton) AddCurrentLocationToFavorites(menuWindow);
+            else if (buttonSelected == ViewFavoritesButton) OpenFavoritesWindow(menuWindow);
         }
 
         private bool IsButtonEnabled(int buttonIndex)
@@ -73,6 +80,8 @@ namespace gigantibyte.DFU.ControllerAssistant
             {
                 case FootButton:
                 case ExitButton:
+                case AddFavoriteButton:
+                case ViewFavoritesButton:
                     return true;
 
                 case HorseButton:
@@ -229,7 +238,11 @@ namespace gigantibyte.DFU.ControllerAssistant
             KeyCode windowBinding = InputManager.Instance.GetBinding(InputManager.Actions.Transport);
 
             RefreshLegendAttachment(menuWindow);
+            EnsureQuickButtonOverlay(menuWindow);
+            if (quickButtonOverlay != null && quickButtonOverlay.IsBuilt)
+                quickButtonOverlay.SetLayout();
             RefreshSelectorAttachment(menuWindow);
+            RefreshSelectorToCurrentButton(menuWindow);
 
             if (legend != null && legend.IsBuilt)
                 legend.PositionBottomLeft();
@@ -279,38 +292,8 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 if (cm.DPadDownReleased)
                 {
-                    AddFavoriteResult result = FavoritesStore.AddCurrentLocation();
-
-                    switch (result)
-                    {
-                        case AddFavoriteResult.Added:
-                            DestroyLegend();
-                            if (menuWindow != null)
-                                menuWindow.CloseWindow();
-                            DaggerfallUI.AddHUDText("Location added to favorites");
-                            return;
-
-                        case AddFavoriteResult.Duplicate:
-                            DestroyLegend();
-                            if (menuWindow != null)
-                                menuWindow.CloseWindow();
-                            DaggerfallUI.AddHUDText("Location is already in favorites");
-                            return;
-
-                        case AddFavoriteResult.AtLimit:
-                            DestroyLegend();
-                            if (menuWindow != null)
-                                menuWindow.CloseWindow();
-                            DaggerfallUI.AddHUDText("Favorites list is full");
-                            return;
-
-                        default:
-                            DestroyLegend();
-                            if (menuWindow != null)
-                                menuWindow.CloseWindow();
-                            DaggerfallUI.AddHUDText("No current location to add");
-                            return;
-                    }
+                    AddCurrentLocationToFavorites(menuWindow);
+                    return;
                 }
 
             }
@@ -346,7 +329,8 @@ namespace gigantibyte.DFU.ControllerAssistant
                 DumpWindowMembers(menuWindow);
 
             EnsureInitialized(menuWindow);
-            
+
+            EnsureQuickButtonOverlay(menuWindow);
             RefreshSelectorToCurrentButton(menuWindow);
 
             //if (editor == null)
@@ -370,6 +354,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             DestroyLegend();
             DestroySelectorBox();
+            DestroyQuickButtonOverlay();
 
             legendVisible = false;
             panelRenderWindow = null;
@@ -434,7 +419,35 @@ namespace gigantibyte.DFU.ControllerAssistant
             menuWindow.CloseWindow();
             return;
         }
-    private void OpenFavoritesWindow(DaggerfallTransportWindow menuWindow)
+        private void AddCurrentLocationToFavorites(DaggerfallTransportWindow menuWindow)
+        {
+            AddFavoriteResult result = FavoritesStore.AddCurrentLocation();
+
+            DestroyLegend();
+
+            if (menuWindow != null)
+                menuWindow.CloseWindow();
+
+            switch (result)
+            {
+                case AddFavoriteResult.Added:
+                    DaggerfallUI.AddHUDText("Location added to favorites");
+                    return;
+
+                case AddFavoriteResult.Duplicate:
+                    DaggerfallUI.AddHUDText("Location is already in favorites");
+                    return;
+
+                case AddFavoriteResult.AtLimit:
+                    DaggerfallUI.AddHUDText("Favorites list is full");
+                    return;
+
+                default:
+                    DaggerfallUI.AddHUDText("No current location to add");
+                    return;
+            }
+        }
+        private void OpenFavoritesWindow(DaggerfallTransportWindow menuWindow)
         {
             if (menuWindow == null)
                 return;
@@ -444,6 +457,48 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             ControllerAssistantFavoritesWindow favoritesWindow = new ControllerAssistantFavoritesWindow(DaggerfallUI.UIManager);
             DaggerfallUI.UIManager.PushWindow(favoritesWindow);
+        }
+        private Rect[] GetQuickButtonNativeRects()
+        {
+            return new Rect[]
+            {
+                new Rect(125.0f, 137.1f, 70.0f, 9.3f),
+                new Rect(139.0f, 148.3f, 42.0f, 9.3f),
+            };
+        }
+
+        private string[] GetQuickButtonTexts()
+        {
+            return new string[]
+            {
+                "Add this location to Favorites",
+                "View Favorites",
+            };
+        }
+
+        private void EnsureQuickButtonOverlay(DaggerfallTransportWindow menuWindow)
+        {
+            Panel panel = GetCurrentRenderPanel(menuWindow);
+            if (panel == null)
+                return;
+
+            if (quickButtonOverlay == null || !quickButtonOverlay.IsAttached())
+            {
+                quickButtonOverlay = new TransportQuickButtonOverlay(
+                    panel,
+                    GetQuickButtonNativeRects(),
+                    GetQuickButtonTexts());
+                quickButtonOverlay.Build();
+            }
+        }
+
+        private void DestroyQuickButtonOverlay()
+        {
+            if (quickButtonOverlay != null)
+            {
+                quickButtonOverlay.Destroy();
+                quickButtonOverlay = null;
+            }
         }
 
         private void EnsureLegendUI(DaggerfallTransportWindow menuWindow, ControllerManager cm)
@@ -473,6 +528,8 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>();
 
+                rows.Add(new LegendOverlay.LegendRow("Version", "3"));
+                rows.Add(new LegendOverlay.LegendRow("Right Stick", "Move Selector"));
                 rows.Add(new LegendOverlay.LegendRow(cm.Action1Name, "Activate"));
                 rows.Add(new LegendOverlay.LegendRow("DPad Up", "View Favorites"));
                 rows.Add(new LegendOverlay.LegendRow("DPad Down", "Add current location to Favorites"));
@@ -494,6 +551,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (panelRenderWindow != current)
             {
                 DestroyLegend();
+                DestroyQuickButtonOverlay();
                 panelRenderWindow = current;
                 legendVisible = false;
                 return;

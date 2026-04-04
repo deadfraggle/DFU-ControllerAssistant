@@ -12,6 +12,8 @@ namespace gigantibyte.DFU.ControllerAssistant
     {
         private sealed class GenericButtonsHandler : IMessageBoxAssistHandler
         {
+            private const bool DEBUG_GENERIC = true;
+
             private const BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
             private sealed class LiveButtonEntry
@@ -53,8 +55,12 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             public void OnOpen(MessageBoxAssist owner, DaggerfallMessageBox menuWindow, ControllerManager cm)
             {
-                selectedIndex = 0;
                 RebuildLiveButtons(owner, menuWindow);
+
+                // Default to the second button when available.
+                // Fall back to the first if there is only one.
+                selectedIndex = (buttons.Count >= 2) ? 1 : 0;
+
                 RefreshSelectorToCurrentButton(owner, menuWindow);
             }
 
@@ -101,6 +107,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                         });
 
                     owner.SetLegendVisible(!owner.GetLegendVisible());
+                    //owner.ToggleAnchorEditor();
                 }
             }
 
@@ -200,6 +207,12 @@ namespace gigantibyte.DFU.ControllerAssistant
                 if (currentPanel == null)
                     return;
 
+                //Panel buttonParent = buttons[selectedIndex].button.Parent as Panel;
+                //selectorHost.ShowAtNativeRect(
+                //    buttonParent ?? currentPanel, // Fallback to main panel if parent is null
+                //    buttons[selectedIndex].nativeRect,
+                //    new Color(0.1f, 1f, 1f, 1f));
+
                 if (selectorHost == null)
                     selectorHost = new DefaultSelectorBoxHost();
 
@@ -244,17 +257,28 @@ namespace gigantibyte.DFU.ControllerAssistant
                 for (int i = 0; i < liveButtons.Count; i++)
                 {
                     Button uiButton = liveButtons[i];
+                    Rect screenRect = uiButton.Rectangle;
                     Rect nativeRect = GetButtonVisualRectInNativeSpace(renderPanel, uiButton);
+
+                    if (DEBUG_GENERIC)
+                    {
+                        Debug.LogFormat("[GenericButtons] RAW screenRect: x={0:F2} y={1:F2} w={2:F2} h={3:F2}",
+                            screenRect.x, screenRect.y, screenRect.width, screenRect.height);
+
+                        Debug.LogFormat("[GenericButtons] Native BEFORE adjust: x={0:F2} y={1:F2} w={2:F2} h={3:F2}",
+                            nativeRect.x, nativeRect.y, nativeRect.width, nativeRect.height);
+                    }
 
                     if (nativeRect.width <= 0 || nativeRect.height <= 0)
                         continue;
 
-                    // Generic fallback polish:
-                    // - keep the selector centered on the live button
-                    // - widen it a bit so it better matches DFU-style button selectors
-                    // - enforce a minimum width so obscure popups do not get tiny boxes
                     float centerX = nativeRect.x + nativeRect.width * 0.5f;
                     float centerY = nativeRect.y + nativeRect.height * 0.5f;
+
+                    if (DEBUG_GENERIC)
+                    {
+                        Debug.LogFormat("[GenericButtons] Center: ({0:F2}, {1:F2})", centerX, centerY);
+                    }
 
                     float width = Mathf.Max(nativeRect.width + 6f, 28f);
                     float height = nativeRect.height;
@@ -264,6 +288,12 @@ namespace gigantibyte.DFU.ControllerAssistant
                         centerY - height * 0.5f,
                         width,
                         height);
+
+                    if (DEBUG_GENERIC)
+                    {
+                        Debug.LogFormat("[GenericButtons] AFTER adjust: x={0:F2} y={1:F2} w={2:F2} h={3:F2}",
+                            nativeRect.x, nativeRect.y, nativeRect.width, nativeRect.height);
+                    }
 
                     LiveButtonEntry entry = new LiveButtonEntry();
                     entry.button = uiButton;
@@ -317,22 +347,92 @@ namespace gigantibyte.DFU.ControllerAssistant
                     if (row.Count < 2)
                         continue;
 
-                    float maxWidth = 0f;
                     float avgCenterY = 0f;
+                    float pairMidX = 0f;
                     float maxHeight = 0f;
+                    float maxWidth = 0f;
 
                     for (int r = 0; r < row.Count; r++)
                     {
                         LiveButtonEntry e = buttons[row[r]];
-                        if (e.nativeRect.width > maxWidth)
-                            maxWidth = e.nativeRect.width;
+                        avgCenterY += e.centerY;
+                        pairMidX += e.centerX;
+
                         if (e.nativeRect.height > maxHeight)
                             maxHeight = e.nativeRect.height;
-                        avgCenterY += e.centerY;
+
+                        if (e.nativeRect.width > maxWidth)
+                            maxWidth = e.nativeRect.width;
                     }
 
                     avgCenterY /= row.Count;
+                    pairMidX /= row.Count;
+
+                    // Special handling for exactly two buttons on one row:
+                    // reconstruct a more DFU-like selector pair from the midpoint.
+                    if (row.Count == 2)
+                    {
+                        // Sort left/right explicitly
+                        int leftIndex = row[0];
+                        int rightIndex = row[1];
+                        if (buttons[leftIndex].centerX > buttons[rightIndex].centerX)
+                        {
+                            int tmp = leftIndex;
+                            leftIndex = rightIndex;
+                            rightIndex = tmp;
+                        }
+
+                        // Canonical-ish fallback size/spacing for paired popup buttons.
+                        // Tuned to be close to your anchor measurements:
+                        // Delete  ~ x=111.7 w=32.9
+                        // Cancel  ~ x=175.7 w=32.9
+                        const float selectorW = 32.9f;
+                        const float selectorH = 16.0f;
+                        const float centerOffset = 32.0f;
+
+                        LiveButtonEntry left = buttons[leftIndex];
+                        LiveButtonEntry right = buttons[rightIndex];
+
+                        left.nativeRect = new Rect(
+                            pairMidX - centerOffset - selectorW * 0.5f,
+                            avgCenterY - selectorH * 0.5f,
+                            selectorW,
+                            selectorH);
+
+                        right.nativeRect = new Rect(
+                            pairMidX + centerOffset - selectorW * 0.5f,
+                            avgCenterY - selectorH * 0.5f,
+                            selectorW,
+                            selectorH);
+
+                        if (DEBUG_GENERIC)
+                        {
+                            Debug.LogFormat(
+                                "[GenericButtons] Two-button reconstruct: pairMidX={0:F2} avgY={1:F2} offset={2:F2} w={3:F2} h={4:F2}",
+                                pairMidX, avgCenterY, centerOffset, selectorW, selectorH);
+
+                            Debug.LogFormat(
+                                "[GenericButtons] FINAL rect LEFT : x={0:F2} y={1:F2} w={2:F2} h={3:F2}",
+                                left.nativeRect.x, left.nativeRect.y, left.nativeRect.width, left.nativeRect.height);
+
+                            Debug.LogFormat(
+                                "[GenericButtons] FINAL rect RIGHT: x={0:F2} y={1:F2} w={2:F2} h={3:F2}",
+                                right.nativeRect.x, right.nativeRect.y, right.nativeRect.width, right.nativeRect.height);
+                        }
+
+                        i = row[row.Count - 1];
+                        continue;
+                    }
+
+                    // Generic normalization for 3+ button rows
                     maxWidth = Mathf.Max(maxWidth, 28f);
+
+                    if (DEBUG_GENERIC)
+                    {
+                        Debug.LogFormat(
+                            "[GenericButtons] Row normalize: count={0} maxWidth={1:F2} maxHeight={2:F2} avgY={3:F2}",
+                            row.Count, maxWidth, maxHeight, avgCenterY);
+                    }
 
                     for (int r = 0; r < row.Count; r++)
                     {
@@ -342,6 +442,16 @@ namespace gigantibyte.DFU.ControllerAssistant
                             avgCenterY - maxHeight * 0.5f,
                             maxWidth,
                             maxHeight);
+
+                        if (DEBUG_GENERIC)
+                        {
+                            Debug.LogFormat(
+                                "[GenericButtons] FINAL rect: x={0:F2} y={1:F2} w={2:F2} h={3:F2}",
+                                e.nativeRect.x,
+                                e.nativeRect.y,
+                                e.nativeRect.width,
+                                e.nativeRect.height);
+                        }
                     }
 
                     i = row[row.Count - 1];

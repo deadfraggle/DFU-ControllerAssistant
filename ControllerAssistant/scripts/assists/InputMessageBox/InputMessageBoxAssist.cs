@@ -100,10 +100,10 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             IInputMessageBoxAssistHandler[] handlers = new IInputMessageBoxAssistHandler[]
             {
-        new InventoryGoldHandler(),
-        new FindLocationHandler(),
-        new SpellNameHandler(),
-                // new WaitHandler(),
+                new InventoryGoldHandler(),
+                new FindLocationHandler(),
+                new SpellNameHandler(),
+                new DefaultKeyboardHandler(),   // fallback must stay last
             };
 
             for (int i = 0; i < handlers.Length; i++)
