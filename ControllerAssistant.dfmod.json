@@ -63,6 +63,10 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/PauseQuickButtonOverlay.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBox/MessageBoxAssist.GenericButtonsHandler.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.DefaultKeyboardHandler.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TransportQuickButtonOverlay.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TransportQuickButtonOverlay.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/UI/buttonatlas.png",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/RestAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/UI/OnScreenNumberpadOverlay.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.RestNumberpadHandler.cs"
     ]
 }

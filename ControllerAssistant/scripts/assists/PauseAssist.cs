@@ -33,6 +33,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         private MethodInfo miDetailButtonOnMouseClick;
 
         private PauseQuickButtonOverlay quickButtonOverlay;
+        private Texture2D quickButtonsAtlas;
 
         private const float PauseBarMaxLength = 109.1f;
         private const float PauseBarClickY = 2.75f;
@@ -371,41 +372,42 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             return new Rect[]
             {
-        new Rect(85.9f, 130.0f, 34.4f, 6.8f),   // Local Map
-        new Rect(124.2f, 130.0f, 34.4f, 6.8f),  // Status
-        new Rect(162.5f, 130.0f, 34.4f, 6.8f),  // Transport
-        new Rect(200.8f, 130.0f, 34.4f, 6.8f),  // Character
+                new Rect(84f, 128f, 35f, 10f),   // Local Map
+                new Rect(123f, 128f, 35f, 10f),  // Status
+                new Rect(162f, 128f, 35f, 10f),  // Transport
+                new Rect(201f, 128f, 35f, 10f),  // Character
 
-        new Rect(85.9f, 142.2f, 34.4f, 6.8f),   // Travel Map
-        new Rect(124.2f, 142.2f, 34.4f, 6.8f),  // Spellbook
-        new Rect(162.5f, 142.2f, 34.4f, 6.8f),  // Logbook
-        new Rect(200.8f, 142.2f, 34.4f, 6.8f),  // Notebook
+                new Rect(84f, 142f, 35f, 10f),   // Travel Map
+                new Rect(123f, 142f, 35f, 10f),  // Spellbook
+                new Rect(162f, 142f, 35f, 10f),  // Logbook
+                new Rect(201f, 142f, 35f, 10f),  // Notebook
 
-        new Rect(85.9f, 154.4f, 34.4f, 6.8f),   // Rest
-        new Rect(124.2f, 154.4f, 34.4f, 6.8f),  // Inventory
-        new Rect(162.5f, 154.4f, 34.4f, 6.8f),  // QuickSave
-        new Rect(200.8f, 154.4f, 34.4f, 6.8f),  // QuickLoad
+                new Rect(84f, 156f, 35f, 10f),   // Rest
+                new Rect(123f, 156f, 35f, 10f),  // Inventory
+                new Rect(162f, 156f, 35f, 10f),  // QuickSave
+                new Rect(201f, 156f, 35f, 10f),  // QuickLoad
             };
         }
-
-        private string[] GetQuickButtonTexts()
+        private Texture2D LoadQuickButtonsAtlas()
         {
-            return new string[]
+            if (quickButtonsAtlas != null)
+                return quickButtonsAtlas;
+
+            Mod mod = ModManager.Instance.GetMod("ControllerAssistant");
+            if (mod == null)
+                return null;
+
+            Texture2D tex = mod.GetAsset<Texture2D>("buttonatlas");
+            if (tex != null)
             {
-        "Local Map",
-        "Status",
-        "Transport",
-        "Character",
-        "Travel Map",
-        "Spellbook",
-        "Logbook",
-        "Notebook",
-        "Rest",
-        "Inventory",
-        "QuickSave",
-        "QuickLoad",
-            };
+                tex.wrapMode = TextureWrapMode.Clamp;
+                tex.filterMode = FilterMode.Point; // or Bilinear
+            }
+
+            quickButtonsAtlas = tex;
+            return quickButtonsAtlas;
         }
+
 
         private void ApplyQuickButtonRects()
         {
@@ -431,13 +433,33 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (panel == null)
                 return;
 
+            Texture2D atlas = LoadQuickButtonsAtlas();
+            if (atlas == null)
+                return;
+
             if (quickButtonOverlay == null || !quickButtonOverlay.IsAttached())
             {
                 quickButtonOverlay = new PauseQuickButtonOverlay(
                     panel,
                     GetQuickButtonNativeRects(),
-                    GetQuickButtonTexts());
+                    atlas,
+                    delegate { buttonSelected = LocalMapButton; SelectLocalMap(menuWindow); },
+                    delegate { buttonSelected = StatusButton; SelectStatus(menuWindow); },
+                    delegate { buttonSelected = TransportButton; SelectTransport(menuWindow); },
+                    delegate { buttonSelected = CharacterButton; SelectCharacter(menuWindow); },
+                    delegate { buttonSelected = TravelMapButton; SelectTravelMap(menuWindow); },
+                    delegate { buttonSelected = SpellbookButton; SelectSpellbook(menuWindow); },
+                    delegate { buttonSelected = LogbookButton; SelectLogbook(menuWindow); },
+                    delegate { buttonSelected = NotebookButton; SelectNotebook(menuWindow); },
+                    delegate { buttonSelected = RestButton; SelectRest(menuWindow); },
+                    delegate { buttonSelected = InventoryButton; SelectInventory(menuWindow); },
+                    delegate { buttonSelected = QuicksaveButton; SelectQuickSave(menuWindow); },
+                    delegate { buttonSelected = QuickLoadButton; SelectQuickLoad(menuWindow); });
                 quickButtonOverlay.Build();
+            }
+            else
+            {
+                quickButtonOverlay.SetLayout();
             }
         }
 
@@ -697,6 +719,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
+                    new LegendOverlay.LegendRow("Version", "2"),
                     new LegendOverlay.LegendRow("D-Pad Right", "Exit"),
                     new LegendOverlay.LegendRow("D-Pad Down", "Inventory"),
                     new LegendOverlay.LegendRow("D-Pad Left", "Travel Map"),

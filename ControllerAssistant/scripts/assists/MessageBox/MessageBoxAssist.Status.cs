@@ -1,6 +1,7 @@
 using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Game.UserInterface;
 using DaggerfallWorkshop.Game.UserInterfaceWindows;
+using DaggerfallWorkshop.Game.Utility.ModSupport;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -17,6 +18,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             private bool loggedOpen = false;
             private MessageBoxStatusLabelOverlay labelOverlay;
+            private Texture2D quickButtonsAtlas;
 
             private DefaultSelectorBoxHost selectorHost;
 
@@ -59,11 +61,21 @@ namespace gigantibyte.DFU.ControllerAssistant
                 Panel panel = owner.GetMessageBoxRenderPanel(menuWindow);
                 if (panel != null)
                 {
-                    labelOverlay = new MessageBoxStatusLabelOverlay(panel);
-                    labelOverlay.Build();
+                    Texture2D atlas = LoadQuickButtonsAtlas();
+                    if (atlas != null)
+                    {
+                        labelOverlay = new MessageBoxStatusLabelOverlay(
+                            panel,
+                            atlas,
+                            delegate { owner.statusButtonSelected = TalkButton; ActivateSelectedButton(owner, menuWindow); },
+                            delegate { owner.statusButtonSelected = InfoButton; ActivateSelectedButton(owner, menuWindow); },
+                            delegate { owner.statusButtonSelected = GrabButton; ActivateSelectedButton(owner, menuWindow); },
+                            delegate { owner.statusButtonSelected = StealButton; ActivateSelectedButton(owner, menuWindow); });
+                        labelOverlay.Build();
+                    }
                 }
 
-                
+
                 BuildButtonMap();
                 RefreshSelectorToCurrentButton(owner, menuWindow);
             }
@@ -117,8 +129,18 @@ namespace gigantibyte.DFU.ControllerAssistant
                     Panel panel = owner.GetMessageBoxRenderPanel(menuWindow);
                     if (panel != null)
                     {
-                        labelOverlay = new MessageBoxStatusLabelOverlay(panel);
-                        labelOverlay.Build();
+                        Texture2D atlas = LoadQuickButtonsAtlas();
+                        if (atlas != null)
+                        {
+                            labelOverlay = new MessageBoxStatusLabelOverlay(
+                                panel,
+                                atlas,
+                                delegate { owner.statusButtonSelected = TalkButton; ActivateSelectedButton(owner, menuWindow); },
+                                delegate { owner.statusButtonSelected = InfoButton; ActivateSelectedButton(owner, menuWindow); },
+                                delegate { owner.statusButtonSelected = GrabButton; ActivateSelectedButton(owner, menuWindow); },
+                                delegate { owner.statusButtonSelected = StealButton; ActivateSelectedButton(owner, menuWindow); });
+                            labelOverlay.Build();
+                        }
                     }
                 }
             }
@@ -133,6 +155,25 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 DestroySelectorBox();
             }
+            private Texture2D LoadQuickButtonsAtlas()
+            {
+                if (quickButtonsAtlas != null)
+                    return quickButtonsAtlas;
+
+                Mod mod = ModManager.Instance.GetMod("ControllerAssistant");
+                if (mod == null)
+                    return null;
+
+                Texture2D tex = mod.GetAsset<Texture2D>("buttonatlas");
+                if (tex != null)
+                {
+                    tex.wrapMode = TextureWrapMode.Clamp;
+                    tex.filterMode = FilterMode.Point;
+                }
+
+                quickButtonsAtlas = tex;
+                return quickButtonsAtlas;
+            }
 
             private void BuildButtonMap()
             {
@@ -140,28 +181,28 @@ namespace gigantibyte.DFU.ControllerAssistant
                 {
                     new SelectorButtonInfo
                     {
-                        rect = new Rect(95.2f, 161.2f, 14.7f, 6.2f),
+                        rect = new Rect(85.1f, 159.3f, 35.0f, 10.0f),
                         W = StealButton,
                         E = InfoButton,
                     }, // Talk
 
                     new SelectorButtonInfo
                     {
-                        rect = new Rect(133.4f, 161.2f, 14.7f, 6.2f),
+                        rect = new Rect(123.3f, 159.3f, 35.0f, 10.0f),
                         W = TalkButton,
                         E = GrabButton,
                     }, // Info
 
                     new SelectorButtonInfo
                     {
-                        rect = new Rect(171.7f, 161.2f, 14.7f, 6.2f),
+                        rect = new Rect(161.6f, 159.3f, 35.0f, 10.0f),
                         W = InfoButton,
                         E = StealButton,
                     }, // Grab
 
                     new SelectorButtonInfo
                     {
-                        rect = new Rect(209.9f, 161.2f, 14.7f, 6.2f),
+                        rect = new Rect(199.8f, 159.3f, 35.0f, 10.0f),
                         W = GrabButton,
                         E = TalkButton,
                     }, // Steal

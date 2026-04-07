@@ -114,6 +114,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         private static readonly SpellIconPickerAssist spelliconpicker = new SpellIconPickerAssist();
         private static readonly TravelMapAssist travelmap = new TravelMapAssist();
         private static readonly TravelPopUpAssist travelpopup = new TravelPopUpAssist();
+        private static readonly RestAssist rest = new RestAssist();
 
         // Specialized modules (do NOT include defaults here)
         private static readonly IMenuAssist[] assists =
@@ -134,6 +135,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             spelliconpicker,
             travelmap,
             travelpopup,
+            rest,
         };
 
         [Invoke(StateManager.StateTypes.Start, 0)]

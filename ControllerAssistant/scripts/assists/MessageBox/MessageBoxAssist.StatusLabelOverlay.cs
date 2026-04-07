@@ -1,5 +1,6 @@
 using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Game.UserInterface;
+using System;
 using UnityEngine;
 
 namespace gigantibyte.DFU.ControllerAssistant
@@ -10,11 +11,16 @@ namespace gigantibyte.DFU.ControllerAssistant
         private const float NativeHeight = 200f;
 
         private readonly Panel parentPanel;
+        private readonly Texture2D atlas;
+
+        private readonly Action onTalkClick;
+        private readonly Action onInfoClick;
+        private readonly Action onGrabClick;
+        private readonly Action onStealClick;
 
         private Panel root;
 
         private Panel headerRoot;
-        private Button headerButton;
 
         private Panel talkRoot;
         private Button talkButton;
@@ -28,16 +34,27 @@ namespace gigantibyte.DFU.ControllerAssistant
         private Panel stealRoot;
         private Button stealButton;
 
-        private TextLabel manualLabel; // You may want to store these in a list or array if needed
+        private Texture2D[] cachedSlices;
 
         public bool IsBuilt
         {
             get { return root != null; }
         }
 
-        public MessageBoxStatusLabelOverlay(Panel parentPanel)
+        public MessageBoxStatusLabelOverlay(
+            Panel parentPanel,
+            Texture2D atlas,
+            Action onTalkClick,
+            Action onInfoClick,
+            Action onGrabClick,
+            Action onStealClick)
         {
             this.parentPanel = parentPanel;
+            this.atlas = atlas;
+            this.onTalkClick = onTalkClick;
+            this.onInfoClick = onInfoClick;
+            this.onGrabClick = onGrabClick;
+            this.onStealClick = onStealClick;
         }
 
         public bool IsAttached()
@@ -57,7 +74,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             root = null;
 
             headerRoot = null;
-            headerButton = null;
 
             talkRoot = null;
             talkButton = null;
@@ -74,7 +90,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         public void Build()
         {
-            if (parentPanel == null)
+            if (parentPanel == null || atlas == null)
                 return;
 
             Destroy();
@@ -83,11 +99,24 @@ namespace gigantibyte.DFU.ControllerAssistant
             root.BackgroundColor = Color.clear;
             root.Enabled = true;
 
-            BuildBox(ref headerRoot, ref headerButton, "Interaction Mode");
-            BuildBox(ref talkRoot, ref talkButton, "Talk");
-            BuildBox(ref infoRoot, ref infoButton, "Info");
-            BuildBox(ref grabRoot, ref grabButton, "Grab");
-            BuildBox(ref stealRoot, ref stealButton, "Steal");
+            if (cachedSlices == null || cachedSlices.Length != 5)
+                cachedSlices = new Texture2D[5];
+
+            headerRoot = BuildHeaderBox(0);
+
+            talkRoot = BuildClickableBox(1, out talkButton);
+            infoRoot = BuildClickableBox(2, out infoButton);
+            grabRoot = BuildClickableBox(3, out grabButton);
+            stealRoot = BuildClickableBox(4, out stealButton);
+
+            if (talkButton != null)
+                talkButton.OnMouseClick += TalkButton_OnMouseClick;
+            if (infoButton != null)
+                infoButton.OnMouseClick += InfoButton_OnMouseClick;
+            if (grabButton != null)
+                grabButton.OnMouseClick += GrabButton_OnMouseClick;
+            if (stealButton != null)
+                stealButton.OnMouseClick += StealButton_OnMouseClick;
 
             SetLayout();
         }
@@ -100,48 +129,142 @@ namespace gigantibyte.DFU.ControllerAssistant
             root.Position = Vector2.zero;
             root.Size = parentPanel.Size;
 
-            Rect headerRect = NativeToPanelRect(new Rect(124.9f, 148.8f, 70.0f, 6.2f));
-            Rect talkRect = NativeToPanelRect(new Rect(95.2f, 161.2f, 14.7f, 6.2f));
-            Rect infoRect = NativeToPanelRect(new Rect(133.4f, 161.2f, 14.7f, 6.2f));
-            Rect grabRect = NativeToPanelRect(new Rect(171.7f, 161.2f, 14.7f, 6.2f));
-            Rect stealRect = NativeToPanelRect(new Rect(209.9f, 161.2f, 14.7f, 6.2f));
+            Rect headerRect = NativeToPanelRect(new Rect(124.9f, 146.9f, 70.0f, 10.0f));
+            Rect talkRect = NativeToPanelRect(new Rect(85.1f, 159.3f, 35.0f, 10.0f));
+            Rect infoRect = NativeToPanelRect(new Rect(123.3f, 159.3f, 35.0f, 10.0f));
+            Rect grabRect = NativeToPanelRect(new Rect(161.6f, 159.3f, 35.0f, 10.0f));
+            Rect stealRect = NativeToPanelRect(new Rect(199.8f, 159.3f, 35.0f, 10.0f));
 
-            float uiScale = parentPanel.Size.x / NativeWidth;
-
-            // Gentler than the current linear 1.0x curve.
-            // Keeps low-res close to what you liked, but pulls high-res down a bit.
-            float t = Mathf.InverseLerp(2.0f, 12.0f, uiScale);
-            float buttonTextScale = Mathf.Lerp(2.0f, 8.2f, t);
-            float headerTextScale = buttonTextScale * 1.18f;
-
-            ApplyBoxRect(headerRoot, headerButton, headerRect, headerTextScale);
-            ApplyBoxRect(talkRoot, talkButton, talkRect, buttonTextScale);
-            ApplyBoxRect(infoRoot, infoButton, infoRect, buttonTextScale);
-            ApplyBoxRect(grabRoot, grabButton, grabRect, buttonTextScale);
-            ApplyBoxRect(stealRoot, stealButton, stealRect, buttonTextScale);
+            ApplyPanelRect(headerRoot, headerRect);
+            ApplyButtonRect(talkRoot, talkButton, talkRect);
+            ApplyButtonRect(infoRoot, infoButton, infoRect);
+            ApplyButtonRect(grabRoot, grabButton, grabRect);
+            ApplyButtonRect(stealRoot, stealButton, stealRect);
         }
 
-        private void BuildBox(ref Panel panel, ref Button button, string text)
+        private Panel BuildHeaderBox(int index)
         {
-            panel = DaggerfallUI.AddPanel(new Rect(0, 0, 64, 16), root);
-            panel.BackgroundColor = Color.black;
+            Panel panel = DaggerfallUI.AddPanel(new Rect(0, 0, 64, 16), root);
+            panel.BackgroundColor = Color.clear;
             panel.Enabled = true;
 
-            // Create a button that fills the panel but has NO text of its own
+            Texture2D sliced = GetButtonSlice(index);
+            if (sliced != null)
+                panel.BackgroundTexture = sliced;
+
+            return panel;
+        }
+
+        private Panel BuildClickableBox(int index, out Button button)
+        {
+            Panel panel = DaggerfallUI.AddPanel(new Rect(0, 0, 64, 16), root);
+            panel.BackgroundColor = Color.clear;
+            panel.Enabled = true;
+
+            Texture2D sliced = GetButtonSlice(index);
+            if (sliced != null)
+                panel.BackgroundTexture = sliced;
+
             button = DaggerfallUI.AddButton(new Rect(0, 0, 64, 16), panel);
             button.BackgroundColor = Color.clear;
 
-            // Add the label directly to the PANEL, not the button
-            TextLabel label = DaggerfallUI.AddTextLabel(DaggerfallUI.DefaultFont, Vector2.zero, text, panel);
-            label.HorizontalAlignment = HorizontalAlignment.Center;
-            label.TextColor = Color.white;
-            label.ShadowColor = Color.clear;
-
-            // Store reference to label on the button's user data or handle it in ApplyBoxRect
-            button.Tag = label;
+            return panel;
         }
 
-        private void ApplyBoxRect(Panel panel, Button button, Rect rect, float textScale)
+        private void TalkButton_OnMouseClick(BaseScreenComponent sender, Vector2 position)
+        {
+            if (onTalkClick != null)
+                onTalkClick();
+        }
+
+        private void InfoButton_OnMouseClick(BaseScreenComponent sender, Vector2 position)
+        {
+            if (onInfoClick != null)
+                onInfoClick();
+        }
+
+        private void GrabButton_OnMouseClick(BaseScreenComponent sender, Vector2 position)
+        {
+            if (onGrabClick != null)
+                onGrabClick();
+        }
+
+        private void StealButton_OnMouseClick(BaseScreenComponent sender, Vector2 position)
+        {
+            if (onStealClick != null)
+                onStealClick();
+        }
+
+        private Texture2D GetButtonSlice(int index)
+        {
+            if (cachedSlices != null &&
+                index >= 0 &&
+                index < cachedSlices.Length &&
+                cachedSlices[index] != null)
+            {
+                return cachedSlices[index];
+            }
+
+            Texture2D slice = null;
+
+            switch (index)
+            {
+                case 0: slice = SlicePixelsTopLeft(32, 608, 560, 80); break;  // Interaction Mode
+                case 1: slice = SlicePixelsTopLeft(32, 704, 280, 80); break;  // Talk
+                case 2: slice = SlicePixelsTopLeft(32, 800, 280, 80); break;  // Info
+                case 3: slice = SlicePixelsTopLeft(336, 704, 280, 80); break; // Grab
+                case 4: slice = SlicePixelsTopLeft(336, 800, 280, 80); break; // Steal
+            }
+
+            if (slice != null)
+            {
+                slice.filterMode = FilterMode.Point;
+                slice.wrapMode = TextureWrapMode.Clamp;
+
+                if (cachedSlices != null &&
+                    index >= 0 &&
+                    index < cachedSlices.Length)
+                {
+                    cachedSlices[index] = slice;
+                }
+            }
+
+            return slice;
+        }
+
+        private Texture2D SlicePixelsTopLeft(int xLeft, int yTop, int w, int h)
+        {
+            if (atlas == null)
+                return null;
+
+            int yBottom = atlas.height - yTop - h;
+            return SlicePixelsBottomLeft(xLeft, yBottom, w, h);
+        }
+
+        private Texture2D SlicePixelsBottomLeft(int x, int y, int w, int h)
+        {
+            if (atlas == null)
+                return null;
+
+            if (x < 0 || y < 0 || x + w > atlas.width || y + h > atlas.height)
+                return null;
+
+            Texture2D tex = new Texture2D(w, h, TextureFormat.ARGB32, false);
+            tex.SetPixels(atlas.GetPixels(x, y, w, h));
+            tex.Apply(false, true);
+            return tex;
+        }
+
+        private void ApplyPanelRect(Panel panel, Rect rect)
+        {
+            if (panel == null)
+                return;
+
+            panel.Position = new Vector2(rect.x, rect.y);
+            panel.Size = new Vector2(rect.width, rect.height);
+        }
+
+        private void ApplyButtonRect(Panel panel, Button button, Rect rect)
         {
             if (panel == null || button == null)
                 return;
@@ -151,27 +274,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             button.Position = Vector2.zero;
             button.Size = new Vector2(rect.width, rect.height);
-
-            TextLabel label = (TextLabel)button.Tag;
-            if (label == null) return;
-
-            label.TextScale = textScale;
-
-            // In DFU, some label alignments treat Position.y as the baseline.
-            // We calculate the center of the box, then adjust for the scaled font height.
-            // The default font height is roughly 7 units.
-            float scaledFontHeight = 7f * textScale;
-
-            // We want the text to sit roughly at the bottom of the middle 'gap'.
-            // If the text is 7 units tall and the box is 10 units, we need a 1.5 unit margin.
-            float yOffset = (rect.height - scaledFontHeight) / 2f;
-
-            // If it's still too high, increase the first number (e.g., to 1.5f or 2.0f)
-            // to push it further down into the black box.
-            label.Position = new Vector2(0, yOffset + (0.6f * textScale));
-
-            // Ensure it stays centered horizontally
-            label.HorizontalAlignment = HorizontalAlignment.Center;
         }
 
         private Rect NativeToPanelRect(Rect nativeRect)

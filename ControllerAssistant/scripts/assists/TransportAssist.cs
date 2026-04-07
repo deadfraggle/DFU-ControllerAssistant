@@ -33,6 +33,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private DefaultSelectorBoxHost selectorHost;
         private TransportQuickButtonOverlay quickButtonOverlay;
+        private Texture2D quickButtonsAtlas;
 
         const int FootButton = 0;
         const int HorseButton = 1;
@@ -57,8 +58,8 @@ namespace gigantibyte.DFU.ControllerAssistant
             new ButtonInfoArray { rect = new Rect(99.4f, 92.3f, 121.4f, 8.5f), N = HorseButton, S = ShipButton },             // CartButton
             new ButtonInfoArray { rect = new Rect(99.4f, 101.2f, 121.4f, 8.5f), N = CartButton, S = ExitButton },             // ShipButton
             new ButtonInfoArray { rect = new Rect(142.2f, 114.7f, 37.5f, 9.3f), N = ShipButton, S = AddFavoriteButton },      // ExitButton
-            new ButtonInfoArray { rect = new Rect(125.0f, 137.1f, 70.0f, 9.3f), N = ExitButton, S = ViewFavoritesButton },   // AddFavoriteButton
-            new ButtonInfoArray { rect = new Rect(139.0f, 148.3f, 42.0f, 9.3f), N = AddFavoriteButton, S = FootButton },     // ViewFavoritesButton
+            new ButtonInfoArray { rect = new Rect(125.0f, 136.8f, 70.0f, 10.0f), N = ExitButton, S = ViewFavoritesButton },   // AddFavoriteButton
+            new ButtonInfoArray { rect = new Rect(125.0f, 148.0f, 70.0f, 10.0f), N = AddFavoriteButton, S = FootButton },     // ViewFavoritesButton
         };
 
         public int buttonSelected = FootButton;
@@ -462,18 +463,28 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             return new Rect[]
             {
-                new Rect(125.0f, 137.1f, 70.0f, 9.3f),
-                new Rect(139.0f, 148.3f, 42.0f, 9.3f),
+                new Rect(125.0f, 136.8f, 70.0f, 10.0f), // Add Location to Favorites
+                new Rect(125.0f, 148.0f, 70.0f, 10.0f), // View Favorite Locations
             };
         }
-
-        private string[] GetQuickButtonTexts()
+        private Texture2D LoadQuickButtonsAtlas()
         {
-            return new string[]
+            if (quickButtonsAtlas != null)
+                return quickButtonsAtlas;
+
+            Mod mod = ModManager.Instance.GetMod("ControllerAssistant");
+            if (mod == null)
+                return null;
+
+            Texture2D tex = mod.GetAsset<Texture2D>("buttonatlas");
+            if (tex != null)
             {
-                "Add this location to Favorites",
-                "View Favorites",
-            };
+                tex.wrapMode = TextureWrapMode.Clamp;
+                tex.filterMode = FilterMode.Point;
+            }
+
+            quickButtonsAtlas = tex;
+            return quickButtonsAtlas;
         }
 
         private void EnsureQuickButtonOverlay(DaggerfallTransportWindow menuWindow)
@@ -482,12 +493,18 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (panel == null)
                 return;
 
+            Texture2D atlas = LoadQuickButtonsAtlas();
+            if (atlas == null)
+                return;
+
             if (quickButtonOverlay == null || !quickButtonOverlay.IsAttached())
             {
                 quickButtonOverlay = new TransportQuickButtonOverlay(
                     panel,
                     GetQuickButtonNativeRects(),
-                    GetQuickButtonTexts());
+                    atlas,
+                    delegate { buttonSelected = AddFavoriteButton; AddCurrentLocationToFavorites(menuWindow); },
+                    delegate { buttonSelected = ViewFavoritesButton; OpenFavoritesWindow(menuWindow); });
                 quickButtonOverlay.Build();
             }
         }

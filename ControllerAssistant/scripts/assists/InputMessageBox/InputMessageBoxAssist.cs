@@ -38,10 +38,12 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         //private bool isInventoryGoldPopup = false;
 
-       private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
+        private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
 
-        //private FieldInfo fiWindowBinding;
         private FieldInfo fiOnGotUserInput;
+        private MethodInfo miReturnPlayerInputEvent;
+
+        private AnchorEditor editor;
 
         public bool Claims(IUserInterfaceWindow top)
         {
@@ -91,6 +93,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (activeHandler != null)
                 activeHandler.Tick(this, menuWindow, cm);
 
+            // Anchor Editor
+            if (panelRenderWindow == null && fiPanelRenderWindow != null)
+                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+            if (panelRenderWindow != null)
+                editor.Tick(panelRenderWindow);
+
             if (cm.BackPressed && legend != null)
                 DestroyLegend();
         }
@@ -103,6 +111,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 new InventoryGoldHandler(),
                 new FindLocationHandler(),
                 new SpellNameHandler(),
+                new RestNumberpadHandler(),
                 new DefaultKeyboardHandler(),   // fallback must stay last
             };
 
@@ -131,6 +140,51 @@ namespace gigantibyte.DFU.ControllerAssistant
             for (int i = 0; i < calls.Length; i++)
             {
                 if (calls[i].Method.Name == "EnterName_OnGotUserInput")
+                    return true;
+            }
+
+            return false;
+        }
+        private bool IsRestHoursPopup(DaggerfallInputMessageBox menuWindow)
+        {
+            if (menuWindow == null || fiOnGotUserInput == null)
+                return false;
+
+            object value = fiOnGotUserInput.GetValue(menuWindow);
+            if (value == null)
+                return false;
+
+            Delegate del = value as Delegate;
+            if (del == null)
+                return false;
+
+            Delegate[] calls = del.GetInvocationList();
+            for (int i = 0; i < calls.Length; i++)
+            {
+                if (calls[i].Method.Name == "TimedRestPrompt_OnGotUserInput")
+                    return true;
+            }
+
+            return false;
+        }
+
+        private bool IsLoiterHoursPopup(DaggerfallInputMessageBox menuWindow)
+        {
+            if (menuWindow == null || fiOnGotUserInput == null)
+                return false;
+
+            object value = fiOnGotUserInput.GetValue(menuWindow);
+            if (value == null)
+                return false;
+
+            Delegate del = value as Delegate;
+            if (del == null)
+                return false;
+
+            Delegate[] calls = del.GetInvocationList();
+            for (int i = 0; i < calls.Length; i++)
+            {
+                if (calls[i].Method.Name == "LoiterPrompt_OnGotUserInput")
                     return true;
             }
 
@@ -250,21 +304,14 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             EndGoldHold();
 
-            if (menuWindow == null || menuWindow.TextBox == null || fiOnGotUserInput == null)
-                return;
-
-            object value = fiOnGotUserInput.GetValue(menuWindow);
-            System.Delegate del = value as System.Delegate;
-            if (del == null)
+            if (menuWindow == null || menuWindow.TextBox == null || miReturnPlayerInputEvent == null)
                 return;
 
             string text = menuWindow.TextBox.Text;
 
             try
             {
-                System.Delegate[] calls = del.GetInvocationList();
-                for (int i = 0; i < calls.Length; i++)
-                    calls[i].DynamicInvoke(menuWindow, text);
+                miReturnPlayerInputEvent.Invoke(menuWindow, new object[] { menuWindow, text });
             }
             catch (Exception ex)
             {
@@ -277,8 +324,6 @@ namespace gigantibyte.DFU.ControllerAssistant
                 legend.Destroy();
                 legend = null;
             }
-
-            menuWindow.CloseWindow();
         }
         private void IncreaseIncrement(DaggerfallInputMessageBox menuWindow, ControllerManager cm)
         {
@@ -379,6 +424,13 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (activeHandler != null)
                 activeHandler.OnOpen(this, menuWindow, cm);
+
+            // Anchor Editor
+            if (editor == null)
+            {
+                // Match Inventory's default selector size: 25 x 19 native-ish feel
+                editor = new AnchorEditor(25f, 19f);
+            }
         }
         private void OnClosed(ControllerManager cm)
         {
@@ -419,6 +471,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             fiPanelRenderWindow = CacheField(type, "parentPanel");
             fiOnGotUserInput = CacheField(type, "OnGotUserInput");
+            miReturnPlayerInputEvent = CacheMethod(type, "ReturnPlayerInputEvent");
 
             reflectionCached = true;
         }
@@ -533,6 +586,11 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
 
             return false;
+        }
+        internal void ToggleAnchorEditor()
+        {
+            if (editor != null)
+                editor.Toggle();
         }
         private MethodInfo CacheMethod(System.Type type, string name)
         {
