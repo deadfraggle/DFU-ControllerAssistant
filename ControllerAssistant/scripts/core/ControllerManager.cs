@@ -38,6 +38,8 @@ namespace gigantibyte.DFU.ControllerAssistant
         public bool LegendPressed { get; private set; }
         public bool Action1Released { get; private set; }
         public bool Action2Released { get; private set; }
+        public bool Action2Tapped { get; private set; }
+        public bool Action2Held { get; private set; }
 
         // one-shot right-stick direction presses
         public bool RStickUpPressed { get; private set; }
@@ -92,6 +94,11 @@ namespace gigantibyte.DFU.ControllerAssistant
         private bool prevAction1Held = false;
         private bool prevAction2Held = false;
         private bool prevLegendHeld = false;
+
+        private float action2HoldTimer = 0f;
+        private bool action2HoldTriggered = false;
+        private float action2TapMaxDuration = 0.25f;
+        private float action2HeldThreshold = 0.30f;
 
         // latch/re-arm state for right stick & D-Pad
         private bool rStickReady = true;
@@ -196,6 +203,8 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             Action1Released = false;
             Action2Released = false;
+            Action2Tapped = false;
+            Action2Held = false;
 
             if (DPadUpPressed) dPadUpReady = false;
             else if (DPadRightPressed) dPadRightReady = false;
@@ -425,13 +434,39 @@ namespace gigantibyte.DFU.ControllerAssistant
             prevAction1Held = action1Held;
 
             // Action2
-            bool action2Held = action2Key != KeyCode.None && Input.GetKey(action2Key);
+            bool action2HeldNow = action2Key != KeyCode.None && Input.GetKey(action2Key);
 
-            Action2Pressed = action2Held && !prevAction2Held;
-            Action2Released = !action2Held && prevAction2Held;
+            Action2Pressed = action2HeldNow && !prevAction2Held;
+            Action2Released = !action2HeldNow && prevAction2Held;
 
-            Action2 = action2Held;
-            prevAction2Held = action2Held;
+            if (Action2Pressed)
+            {
+                action2HoldTimer = 0f;
+                action2HoldTriggered = false;
+            }
+
+            if (action2HeldNow)
+            {
+                action2HoldTimer += Time.unscaledDeltaTime;
+
+                if (!action2HoldTriggered && action2HoldTimer >= action2HeldThreshold)
+                    action2HoldTriggered = true;
+
+                if (action2HoldTriggered)
+                    Action2Held = true;
+            }
+
+            if (Action2Released)
+            {
+                if (!action2HoldTriggered && action2HoldTimer <= action2TapMaxDuration)
+                    Action2Tapped = true;
+
+                action2HoldTimer = 0f;
+                action2HoldTriggered = false;
+            }
+
+            Action2 = action2HeldNow;
+            prevAction2Held = action2HeldNow;
 
             // Legend
             bool legendHeld = legendKey != KeyCode.None && Input.GetKey(legendKey);

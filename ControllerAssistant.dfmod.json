@@ -67,6 +67,8 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/UI/buttonatlas.png",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/RestAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/UI/OnScreenNumberpadOverlay.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.RestNumberpadHandler.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.RestNumberpadHandler.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InteriorAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/CharacterSheetAssist.cs"
     ]
 }

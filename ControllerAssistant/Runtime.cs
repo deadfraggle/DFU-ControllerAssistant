@@ -100,7 +100,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         private static readonly SpellbookAssist spellbook = new SpellbookAssist();
         private static readonly ExtAutomapAssist ExtAutomap = new ExtAutomapAssist();
         private static readonly DefaultMenuAssist defaults = new DefaultMenuAssist();
-        //private static readonly InteriorAssist IntAutomap = new InteriorAssist();
+        private static readonly InteriorAssist IntAutomap = new InteriorAssist();
         private static readonly InventoryAssist inventory = new InventoryAssist();
         private static readonly InputMessageBoxAssist inputbox = new InputMessageBoxAssist();
         private static readonly MessageBoxAssist messagebox = new MessageBoxAssist();
@@ -115,13 +115,14 @@ namespace gigantibyte.DFU.ControllerAssistant
         private static readonly TravelMapAssist travelmap = new TravelMapAssist();
         private static readonly TravelPopUpAssist travelpopup = new TravelPopUpAssist();
         private static readonly RestAssist rest = new RestAssist();
+        private static readonly CharacterSheetAssist character = new CharacterSheetAssist();
 
         // Specialized modules (do NOT include defaults here)
         private static readonly IMenuAssist[] assists =
         {
             spellbook,
             ExtAutomap,
-            //IntAutomap,
+            IntAutomap,
             inventory,
             inputbox,
             messagebox,
@@ -136,6 +137,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             travelmap,
             travelpopup,
             rest,
+            character,
         };
 
         [Invoke(StateManager.StateTypes.Start, 0)]
