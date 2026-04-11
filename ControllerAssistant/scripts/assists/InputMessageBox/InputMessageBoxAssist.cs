@@ -110,7 +110,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             {
                 new InventoryGoldHandler(),
                 new FindLocationHandler(),
-                new SpellNameHandler(),
                 new RestNumberpadHandler(),
                 new DefaultKeyboardHandler(),   // fallback must stay last
             };
@@ -123,28 +122,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             return null;
         }
-        private bool IsSpellNamePopup(DaggerfallInputMessageBox menuWindow)
-        {
-            if (menuWindow == null || fiOnGotUserInput == null)
-                return false;
-
-            object value = fiOnGotUserInput.GetValue(menuWindow);
-            if (value == null)
-                return false;
-
-            Delegate del = value as Delegate;
-            if (del == null)
-                return false;
-
-            Delegate[] calls = del.GetInvocationList();
-            for (int i = 0; i < calls.Length; i++)
-            {
-                if (calls[i].Method.Name == "EnterName_OnGotUserInput")
-                    return true;
-            }
-
-            return false;
-        }
+        
         private bool IsRestHoursPopup(DaggerfallInputMessageBox menuWindow)
         {
             if (menuWindow == null || fiOnGotUserInput == null)

@@ -83,26 +83,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 if (cm.Action1Released && numberpadOverlay != null)
                 {
-                    OnScreenNumberpadActivation activation = numberpadOverlay.ActivateSelectedKey();
-
-                    switch (activation.Action)
-                    {
-                        case OnScreenNumberpadKeyAction.InsertText:
-                            InsertDigit(menuWindow, activation.Text);
-                            break;
-
-                        case OnScreenNumberpadKeyAction.Backspace:
-                            BackspaceText(menuWindow);
-                            break;
-
-                        case OnScreenNumberpadKeyAction.InsertMax:
-                            menuWindow.TextBox.Text = "99";
-                            break;
-
-                        case OnScreenNumberpadKeyAction.Ok:
-                            owner.SubmitInputBox(menuWindow);
-                            return;
-                    }
+                    ActivateNumberpadKey(owner, menuWindow, numberpadOverlay.ActivateSelectedKey());
                 }
 
                 if (cm.LegendPressed)
@@ -142,6 +123,10 @@ namespace gigantibyte.DFU.ControllerAssistant
                 numberpadOverlay.SetLayout(new Vector2(126f, 121f), 3.0f, 2.0f);
                 numberpadOverlay.SetDefaultSelectedLabel("1");
                 numberpadOverlay.SetMaxValue(99);
+                numberpadOverlay.SetOnKeyClicked(delegate (OnScreenNumberpadActivation activation)
+                {
+                    ActivateNumberpadKey(owner, menuWindow, activation);
+                });
                 numberpadOverlay.Build();
             }
 
@@ -198,6 +183,30 @@ namespace gigantibyte.DFU.ControllerAssistant
                         text = "0";
 
                     menuWindow.TextBox.Text = text;
+                }
+            }
+            private void ActivateNumberpadKey(InputMessageBoxAssist owner, DaggerfallInputMessageBox menuWindow, OnScreenNumberpadActivation activation)
+            {
+                if (menuWindow == null || menuWindow.TextBox == null || numberpadOverlay == null)
+                    return;
+
+                switch (activation.Action)
+                {
+                    case OnScreenNumberpadKeyAction.InsertText:
+                        InsertDigit(menuWindow, activation.Text);
+                        break;
+
+                    case OnScreenNumberpadKeyAction.Backspace:
+                        BackspaceText(menuWindow);
+                        break;
+
+                    case OnScreenNumberpadKeyAction.InsertMax:
+                        menuWindow.TextBox.Text = "99";
+                        break;
+
+                    case OnScreenNumberpadKeyAction.Ok:
+                        owner.SubmitInputBox(menuWindow);
+                        return;
                 }
             }
         }

@@ -479,7 +479,11 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                     int sampleRegion = data[srcOffset] - 128;
                     if (sampleRegion == region)
-                        identifyPixelBuffer[dstOffset] = identifyFlashColor;
+                    {
+                        Color32 c = identifyFlashColor;
+                        c.a = 64; // 75% transparency
+                        identifyPixelBuffer[dstOffset] = c;
+                    }
                 }
             }
 

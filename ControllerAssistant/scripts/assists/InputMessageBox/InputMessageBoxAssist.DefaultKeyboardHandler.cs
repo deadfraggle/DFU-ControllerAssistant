@@ -24,6 +24,10 @@ namespace gigantibyte.DFU.ControllerAssistant
                 {
                     keyboardOverlay = new OnScreenKeyboardOverlay(panel);
                     keyboardOverlay.SetLayout(new UnityEngine.Vector2(90f, 145f), 1.8f, 2.0f);
+                    keyboardOverlay.SetOnKeyClicked(delegate (OnScreenKeyboardActivation activation)
+                    {
+                        ActivateKeyboardKey(owner, menuWindow, activation);
+                    });
                     keyboardOverlay.Build();
                 }
             }
@@ -101,46 +105,14 @@ namespace gigantibyte.DFU.ControllerAssistant
                 // Action1 = Activate selected key
                 if (cm.Action1Released && keyboardOverlay != null)
                 {
-                    OnScreenKeyboardActivation activation = keyboardOverlay.ActivateSelectedKey();
-
-                    switch (activation.Action)
-                    {
-                        case OnScreenKeyboardKeyAction.InsertText:
-                            if (!string.IsNullOrEmpty(activation.Text))
-                                menuWindow.TextBox.Text += activation.Text;
-                            break;
-
-                        case OnScreenKeyboardKeyAction.ReplaceText:
-                            menuWindow.TextBox.Text = activation.Text ?? string.Empty;
-                            break;
-
-                        case OnScreenKeyboardKeyAction.Space:
-                            menuWindow.TextBox.Text += " ";
-                            break;
-
-                        case OnScreenKeyboardKeyAction.Backspace:
-                            BackspaceText(menuWindow);
-                            break;
-
-                        case OnScreenKeyboardKeyAction.Ok:
-                            owner.SubmitInputBox(menuWindow);
-                            return;
-
-                        case OnScreenKeyboardKeyAction.Shift:
-                            keyboardOverlay.ToggleShift();
-                            break;
-
-                        case OnScreenKeyboardKeyAction.Toggle123:
-                            keyboardOverlay.Toggle123();
-                            break;
-                    }
+                    ActivateKeyboardKey(owner, menuWindow, keyboardOverlay.ActivateSelectedKey());
                 }
 
                 if (cm.LegendPressed)
                 {
                     owner.EnsureLegendUI(
                         menuWindow,
-                        "Input",
+                        "Input version 11",
                         new List<LegendOverlay.LegendRow>()
                         {
                             new LegendOverlay.LegendRow("Right Stick", "Move Selector"),
@@ -175,6 +147,10 @@ namespace gigantibyte.DFU.ControllerAssistant
                 {
                     keyboardOverlay = new OnScreenKeyboardOverlay(currentPanel);
                     keyboardOverlay.SetLayout(new UnityEngine.Vector2(90f, 145f), 1.8f, 2.0f);
+                    keyboardOverlay.SetOnKeyClicked(delegate (OnScreenKeyboardActivation activation)
+                    {
+                        ActivateKeyboardKey(owner, menuWindow, activation);
+                    });
                     keyboardOverlay.Build();
                     return;
                 }
@@ -183,6 +159,10 @@ namespace gigantibyte.DFU.ControllerAssistant
                 {
                     keyboardOverlay = new OnScreenKeyboardOverlay(currentPanel);
                     keyboardOverlay.SetLayout(new UnityEngine.Vector2(90f, 145f), 1.8f, 2.0f);
+                    keyboardOverlay.SetOnKeyClicked(delegate (OnScreenKeyboardActivation activation)
+                    {
+                        ActivateKeyboardKey(owner, menuWindow, activation);
+                    });
                     keyboardOverlay.Build();
                     return;
                 }
@@ -205,6 +185,43 @@ namespace gigantibyte.DFU.ControllerAssistant
                 else
                 {
                     menuWindow.TextBox.Text = text.Substring(0, text.Length - 1);
+                }
+            }
+            private void ActivateKeyboardKey(InputMessageBoxAssist owner, DaggerfallInputMessageBox menuWindow, OnScreenKeyboardActivation activation)
+            {
+                if (menuWindow == null || menuWindow.TextBox == null || keyboardOverlay == null)
+                    return;
+
+                switch (activation.Action)
+                {
+                    case OnScreenKeyboardKeyAction.InsertText:
+                        if (!string.IsNullOrEmpty(activation.Text))
+                            menuWindow.TextBox.Text += activation.Text;
+                        break;
+
+                    case OnScreenKeyboardKeyAction.ReplaceText:
+                        menuWindow.TextBox.Text = activation.Text ?? string.Empty;
+                        break;
+
+                    case OnScreenKeyboardKeyAction.Space:
+                        menuWindow.TextBox.Text += " ";
+                        break;
+
+                    case OnScreenKeyboardKeyAction.Backspace:
+                        BackspaceText(menuWindow);
+                        break;
+
+                    case OnScreenKeyboardKeyAction.Ok:
+                        owner.SubmitInputBox(menuWindow);
+                        return;
+
+                    case OnScreenKeyboardKeyAction.Shift:
+                        keyboardOverlay.ToggleShift();
+                        break;
+
+                    case OnScreenKeyboardKeyAction.Toggle123:
+                        keyboardOverlay.Toggle123();
+                        break;
                 }
             }
         }

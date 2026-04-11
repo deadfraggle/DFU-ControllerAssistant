@@ -45,7 +45,6 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/MessageBox/MessageBoxAssist.AlterSpell.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.Handlers.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.InventoryGold.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.SpellName.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/UI/OnScreenKeyboardOverlay.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/EffectSettingsAssist.cs",
@@ -69,6 +68,7 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/UI/OnScreenNumberpadOverlay.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.RestNumberpadHandler.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/InteriorAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/CharacterSheetAssist.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/CharacterSheetAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/UI/keyboardatlas.png"
     ]
 }

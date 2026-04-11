@@ -49,7 +49,12 @@ namespace gigantibyte.DFU.ControllerAssistant
                 if (panel != null)
                 {
                     keyboardOverlay = new OnScreenKeyboardOverlay(panel);
+                    keyboardOverlay.SetVisualVariant(OnScreenKeyboardVisualVariant.Find);
                     keyboardOverlay.SetLayout(new Vector2(FindKeyboardAnchorX, FindKeyboardAnchorY), 1.8f, 2.0f);
+                    keyboardOverlay.SetOnKeyClicked(delegate (OnScreenKeyboardActivation activation)
+                    {
+                        ActivateKeyboardKey(owner, menuWindow, activation);
+                    });
                     RebuildKeyboard(owner, menuWindow, true);
                 }
             }
@@ -125,84 +130,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 if (cm.Action1Released && keyboardOverlay != null)
                 {
-                    OnScreenKeyboardActivation activation = keyboardOverlay.ActivateSelectedKey();
-
-                    switch (activation.Action)
-                    {
-                        case OnScreenKeyboardKeyAction.InsertText:
-                            if (!string.IsNullOrEmpty(activation.Text))
-                                menuWindow.TextBox.Text += activation.Text;
-                            break;
-
-                        case OnScreenKeyboardKeyAction.ReplaceText:
-                            if (!string.IsNullOrEmpty(activation.Text))
-                                menuWindow.TextBox.Text = activation.Text;
-                            break;
-
-                        case OnScreenKeyboardKeyAction.Space:
-                            menuWindow.TextBox.Text += " ";
-                            break;
-
-                        case OnScreenKeyboardKeyAction.Backspace:
-                            BackspaceText(menuWindow);
-                            break;
-
-                        case OnScreenKeyboardKeyAction.Ok:
-                            SubmitFindInput(owner, menuWindow);
-                            return;
-
-                        case OnScreenKeyboardKeyAction.Shift:
-                            keyboardOverlay.ToggleShift();
-                            break;
-
-                        case OnScreenKeyboardKeyAction.Toggle123:
-                            keyboardOverlay.Toggle123();
-                            break;
-
-                        case OnScreenKeyboardKeyAction.NextQuest:
-                            if (questLocations.Count > 0)
-                            {
-                                questIndex++;
-                                if (questIndex >= questLocations.Count)
-                                    questIndex = 0;
-
-                                RebuildKeyboard(owner, menuWindow, true);
-                            }
-                            break;
-
-                        case OnScreenKeyboardKeyAction.PrevQuest:
-                            if (questLocations.Count > 0)
-                            {
-                                questIndex--;
-                                if (questIndex < 0)
-                                    questIndex = questLocations.Count - 1;
-
-                                RebuildKeyboard(owner, menuWindow, true);
-                            }
-                            break;
-
-                        case OnScreenKeyboardKeyAction.NextFavorite:
-                            if (favoriteLocations.Count > 0)
-                            {
-                                favoriteIndex++;
-                                if (favoriteIndex >= favoriteLocations.Count)
-                                    favoriteIndex = 0;
-
-                                RebuildKeyboard(owner, menuWindow, true);
-                            }
-                            break;
-
-                        case OnScreenKeyboardKeyAction.PrevFavorite:
-                            if (favoriteLocations.Count > 0)
-                            {
-                                favoriteIndex--;
-                                if (favoriteIndex < 0)
-                                    favoriteIndex = favoriteLocations.Count - 1;
-
-                                RebuildKeyboard(owner, menuWindow, true);
-                            }
-                            break;
-                    }
+                    ActivateKeyboardKey(owner, menuWindow, keyboardOverlay.ActivateSelectedKey());
                 }
 
                 if (cm.LegendPressed)
@@ -282,7 +210,12 @@ namespace gigantibyte.DFU.ControllerAssistant
                 if (keyboardOverlay == null)
                 {
                     keyboardOverlay = new OnScreenKeyboardOverlay(currentPanel);
+                    keyboardOverlay.SetVisualVariant(OnScreenKeyboardVisualVariant.Find);
                     keyboardOverlay.SetLayout(new Vector2(FindKeyboardAnchorX, FindKeyboardAnchorY), 1.8f, 2.0f);
+                    keyboardOverlay.SetOnKeyClicked(delegate (OnScreenKeyboardActivation activation)
+                    {
+                        ActivateKeyboardKey(owner, menuWindow, activation);
+                    });
                     RebuildKeyboard(owner, menuWindow, true);
                     return;
                 }
@@ -290,7 +223,12 @@ namespace gigantibyte.DFU.ControllerAssistant
                 if (!keyboardOverlay.IsAttached())
                 {
                     keyboardOverlay = new OnScreenKeyboardOverlay(currentPanel);
+                    keyboardOverlay.SetVisualVariant(OnScreenKeyboardVisualVariant.Find);
                     keyboardOverlay.SetLayout(new Vector2(FindKeyboardAnchorX, FindKeyboardAnchorY), 1.8f, 2.0f);
+                    keyboardOverlay.SetOnKeyClicked(delegate (OnScreenKeyboardActivation activation)
+                    {
+                        ActivateKeyboardKey(owner, menuWindow, activation);
+                    });
                     RebuildKeyboard(owner, menuWindow, true);
                     return;
                 }
@@ -511,6 +449,89 @@ namespace gigantibyte.DFU.ControllerAssistant
                     menuWindow.TextBox.Text = text.Substring(0, text.Length - 1);
                 }
             }
+
+            private void ActivateKeyboardKey(InputMessageBoxAssist owner, DaggerfallInputMessageBox menuWindow, OnScreenKeyboardActivation activation)
+            {
+                if (menuWindow == null || menuWindow.TextBox == null || keyboardOverlay == null)
+                    return;
+
+                switch (activation.Action)
+                {
+                    case OnScreenKeyboardKeyAction.InsertText:
+                        if (!string.IsNullOrEmpty(activation.Text))
+                            menuWindow.TextBox.Text += activation.Text;
+                        break;
+
+                    case OnScreenKeyboardKeyAction.ReplaceText:
+                        if (!string.IsNullOrEmpty(activation.Text))
+                            menuWindow.TextBox.Text = activation.Text;
+                        break;
+
+                    case OnScreenKeyboardKeyAction.Space:
+                        menuWindow.TextBox.Text += " ";
+                        break;
+
+                    case OnScreenKeyboardKeyAction.Backspace:
+                        BackspaceText(menuWindow);
+                        break;
+
+                    case OnScreenKeyboardKeyAction.Ok:
+                        SubmitFindInput(owner, menuWindow);
+                        return;
+
+                    case OnScreenKeyboardKeyAction.Shift:
+                        keyboardOverlay.ToggleShift();
+                        break;
+
+                    case OnScreenKeyboardKeyAction.Toggle123:
+                        keyboardOverlay.Toggle123();
+                        break;
+
+                    case OnScreenKeyboardKeyAction.NextQuest:
+                        if (questLocations.Count > 0)
+                        {
+                            questIndex++;
+                            if (questIndex >= questLocations.Count)
+                                questIndex = 0;
+
+                            RebuildKeyboard(owner, menuWindow, true);
+                        }
+                        break;
+
+                    case OnScreenKeyboardKeyAction.PrevQuest:
+                        if (questLocations.Count > 0)
+                        {
+                            questIndex--;
+                            if (questIndex < 0)
+                                questIndex = questLocations.Count - 1;
+
+                            RebuildKeyboard(owner, menuWindow, true);
+                        }
+                        break;
+
+                    case OnScreenKeyboardKeyAction.NextFavorite:
+                        if (favoriteLocations.Count > 0)
+                        {
+                            favoriteIndex++;
+                            if (favoriteIndex >= favoriteLocations.Count)
+                                favoriteIndex = 0;
+
+                            RebuildKeyboard(owner, menuWindow, true);
+                        }
+                        break;
+
+                    case OnScreenKeyboardKeyAction.PrevFavorite:
+                        if (favoriteLocations.Count > 0)
+                        {
+                            favoriteIndex--;
+                            if (favoriteIndex < 0)
+                                favoriteIndex = favoriteLocations.Count - 1;
+
+                            RebuildKeyboard(owner, menuWindow, true);
+                        }
+                        break;
+                }
+            }
         }
 
         private bool IsTravelMapFindPopup(DaggerfallInputMessageBox menuWindow)
@@ -631,5 +652,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             return null;
         }
+
     }
 }

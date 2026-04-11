@@ -1,6 +1,7 @@
 using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Game.UserInterface;
+using DaggerfallWorkshop.Game.Utility.ModSupport;
 using UnityEngine;
 using System.Collections.Generic;
 
@@ -26,6 +27,12 @@ namespace gigantibyte.DFU.ControllerAssistant
         Lower,
         Upper,
         Symbols,
+    }
+
+    public enum OnScreenKeyboardVisualVariant
+    {
+        Default,
+        Find,
     }
 
     public struct OnScreenKeyboardActivation
@@ -96,6 +103,33 @@ namespace gigantibyte.DFU.ControllerAssistant
         private static readonly string[] symbolRow1 = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0" };
         private static readonly string[] symbolRow2 = { "!", "?", "@", "#", "$", "%", "&", "*", "(", ")" };
         private static readonly string[] symbolRow3 = { "+", "=", "/", "\\", ":", ";", "\"", "_", "[", "]" };
+
+        private Panel formTexturePanel;
+        private Texture2D keyboardAtlas;
+
+        private Texture2D defaultLowerFormTexture;
+        private Texture2D defaultUpperFormTexture;
+        private Texture2D defaultSymbolsFormTexture;
+
+        private Texture2D findLowerFormTexture;
+        private Texture2D findUpperFormTexture;
+        private Texture2D findSymbolsFormTexture;
+
+        // Atlas slices read from keyboardatlas.png
+        // These are cropped from the uploaded atlas image and can be tweaked later if desired.
+        private static readonly Rect lowerFormAtlasRect = new Rect(32, 32, 1160, 336);
+        private static readonly Rect upperFormAtlasRect = new Rect(32, 672, 1160, 336);
+        private static readonly Rect symbolsFormAtlasRect = new Rect(1200, 32, 1160, 336);
+
+        private static readonly Rect lowerFindAtlasRect = new Rect(32, 32, 1160, 600);
+        private static readonly Rect upperFindAtlasRect = new Rect(32, 672, 1160, 600);
+        private static readonly Rect symbolsFindAtlasRect = new Rect(1200, 32, 1160, 600);
+
+        private const float AtlasScale = 8f;
+
+        private OnScreenKeyboardVisualVariant visualVariant = OnScreenKeyboardVisualVariant.Default;
+
+        private System.Action<OnScreenKeyboardActivation> onKeyClicked;
 
         public bool IsBuilt
         {
@@ -184,6 +218,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
 
             root = null;
+            formTexturePanel = null;
             keyRoots.Clear();
             keyButtons.Clear();
             keys.Clear();
@@ -202,7 +237,14 @@ namespace gigantibyte.DFU.ControllerAssistant
             root.BackgroundColor = Color.clear;
             root.Enabled = true;
 
+            // Build the textured keyboard form first so buttons sit above it.
+            BuildFormTextureOverlay();
+
             BuildRowsForCurrentForm();
+
+            // If texture exists, hide fallback visuals but keep buttons alive.
+            ApplyFallbackVisualMode(formTexturePanel == null);
+
             SetLayout();
 
             if (keys.Count == 0)
@@ -222,6 +264,13 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             root.Position = Vector2.zero;
             root.Size = parentPanel.Size;
+
+            if (formTexturePanel != null)
+            {
+                Rect formRect = NativeToPanelRect(GetCurrentTextureNativeRect());
+                formTexturePanel.Position = new Vector2(formRect.x, formRect.y);
+                formTexturePanel.Size = new Vector2(formRect.width, formRect.height);
+            }
         }
 
         public void RefreshAttachment()
@@ -457,6 +506,126 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
         }
 
+        private void BuildFormTextureOverlay()
+        {
+            Texture2D formTexture = GetCurrentFormTexture();
+            if (formTexture == null || root == null)
+                return;
+
+            Rect formRect = NativeToPanelRect(GetCurrentTextureNativeRect());
+
+            formTexturePanel = new Panel();
+            formTexturePanel.Position = new Vector2(formRect.x, formRect.y);
+            formTexturePanel.Size = new Vector2(formRect.width, formRect.height);
+            formTexturePanel.BackgroundTexture = formTexture;
+            formTexturePanel.BackgroundColor = Color.clear;
+
+            root.Components.Add(formTexturePanel);
+        }
+
+        private Rect GetCurrentTextureNativeRect()
+        {
+            float width = 1160f / AtlasScale;   // 145
+
+            float height;
+            if (visualVariant == OnScreenKeyboardVisualVariant.Find)
+                height = 600f / AtlasScale;     // 75
+            else
+                height = 336f / AtlasScale;     // 42
+
+            return new Rect(anchorNative.x, anchorNative.y, width, height);
+        }
+
+        private Texture2D GetCurrentFormTexture()
+        {
+            if (visualVariant == OnScreenKeyboardVisualVariant.Find)
+            {
+                switch (currentForm)
+                {
+                    case OnScreenKeyboardForm.Upper:
+                        if (findUpperFormTexture == null)
+                            findUpperFormTexture = SliceAtlasRect(upperFindAtlasRect);
+                        return findUpperFormTexture;
+
+                    case OnScreenKeyboardForm.Symbols:
+                        if (findSymbolsFormTexture == null)
+                            findSymbolsFormTexture = SliceAtlasRect(symbolsFindAtlasRect);
+                        return findSymbolsFormTexture;
+
+                    case OnScreenKeyboardForm.Lower:
+                    default:
+                        if (findLowerFormTexture == null)
+                            findLowerFormTexture = SliceAtlasRect(lowerFindAtlasRect);
+                        return findLowerFormTexture;
+                }
+            }
+            else
+            {
+                switch (currentForm)
+                {
+                    case OnScreenKeyboardForm.Upper:
+                        if (defaultUpperFormTexture == null)
+                            defaultUpperFormTexture = SliceAtlasRect(upperFormAtlasRect);
+                        return defaultUpperFormTexture;
+
+                    case OnScreenKeyboardForm.Symbols:
+                        if (defaultSymbolsFormTexture == null)
+                            defaultSymbolsFormTexture = SliceAtlasRect(symbolsFormAtlasRect);
+                        return defaultSymbolsFormTexture;
+
+                    case OnScreenKeyboardForm.Lower:
+                    default:
+                        if (defaultLowerFormTexture == null)
+                            defaultLowerFormTexture = SliceAtlasRect(lowerFormAtlasRect);
+                        return defaultLowerFormTexture;
+                }
+            }
+        }
+
+        private Texture2D LoadKeyboardAtlas()
+        {
+            if (keyboardAtlas != null)
+                return keyboardAtlas;
+
+            Mod mod = ModManager.Instance.GetMod("ControllerAssistant");
+            if (mod == null)
+                return null;
+
+            Texture2D tex = mod.GetAsset<Texture2D>("keyboardatlas");
+            if (tex != null)
+            {
+                tex.wrapMode = TextureWrapMode.Clamp;
+                tex.filterMode = FilterMode.Point;
+            }
+
+            keyboardAtlas = tex;
+            return keyboardAtlas;
+        }
+
+        private Texture2D SliceAtlasRect(Rect atlasRect)
+        {
+            Texture2D atlas = LoadKeyboardAtlas();
+            if (atlas == null)
+                return null;
+
+            int x = Mathf.RoundToInt(atlasRect.x);
+            int yTop = Mathf.RoundToInt(atlasRect.y);
+            int w = Mathf.RoundToInt(atlasRect.width);
+            int h = Mathf.RoundToInt(atlasRect.height);
+
+            int yBottom = atlas.height - yTop - h;
+
+            if (x < 0 || yBottom < 0 || x + w > atlas.width || yBottom + h > atlas.height)
+                return null;
+
+            Texture2D tex = new Texture2D(w, h, TextureFormat.ARGB32, false);
+            tex.SetPixels(atlas.GetPixels(x, yBottom, w, h));
+            tex.Apply(false, true);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Point;
+            return tex;
+        }
+
         private void BuildAlphaRow(string[] labels, int rowIndex)
         {
             float y = anchorNative.y + (KeyHeight + keySpacingY) * rowIndex;
@@ -514,6 +683,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             key.Action = action;
             key.Text = value;
             keys.Add(key);
+
+            int keyIndex = keys.Count - 1;
+            keyButton.OnMouseClick += delegate (BaseScreenComponent sender, Vector2 position)
+            {
+                OnKeyMouseClick(keyIndex);
+            };
         }
 
         private Rect NativeToPanelRect(Rect nativeRect)
@@ -556,6 +731,77 @@ namespace gigantibyte.DFU.ControllerAssistant
             key.Action = action;
             key.Text = value;
             customKeys.Add(key);
+        }
+        private void ApplyFallbackVisualMode(bool showFallback)
+        {
+            for (int i = 0; i < keyRoots.Count && i < keys.Count; i++)
+            {
+                Panel keyRoot = keyRoots[i];
+                Button keyButton = keyButtons[i];
+                KeyInfo keyInfo = keys[i];
+
+                bool shouldShowThisFallback = showFallback || ShouldShowFallbackForRow(keyInfo.Row);
+
+                if (keyRoot != null)
+                    keyRoot.BackgroundColor = shouldShowThisFallback ? Color.black : Color.clear;
+
+                if (keyButton != null && keyButton.Tag is TextLabel)
+                {
+                    TextLabel label = keyButton.Tag as TextLabel;
+                    if (label != null)
+                    {
+                        label.Text = shouldShowThisFallback ? keyInfo.Label : string.Empty;
+                        label.TextColor = Color.white;
+                        label.ShadowColor = Color.clear;
+                    }
+                }
+            }
+        }
+
+        private bool ShouldShowFallbackForRow(int row)
+        {
+            if (visualVariant == OnScreenKeyboardVisualVariant.Find)
+            {
+                // Find texture covers rows 0-4 and 6.
+                // Dynamic entry rows 5 and 7 should remain visible.
+                return row == 5 || row == 7;
+            }
+
+            // Default texture only covers rows 0-3.
+            // Anything else should remain visible.
+            return row >= 4;
+        }
+        public void SetVisualVariant(OnScreenKeyboardVisualVariant variant)
+        {
+            if (visualVariant == variant)
+                return;
+
+            visualVariant = variant;
+            RebuildIfBuilt();
+        }
+        public void SetOnKeyClicked(System.Action<OnScreenKeyboardActivation> callback)
+        {
+            onKeyClicked = callback;
+        }
+
+        private void OnKeyMouseClick(int keyIndex)
+        {
+            if (keyIndex < 0 || keyIndex >= keys.Count)
+                return;
+
+            selectedKeyIndex = keyIndex;
+            RefreshSelector();
+
+            if (onKeyClicked != null)
+            {
+                KeyInfo key = keys[keyIndex];
+
+                OnScreenKeyboardActivation activation = new OnScreenKeyboardActivation();
+                activation.Action = key.Action;
+                activation.Text = key.Text;
+
+                onKeyClicked(activation);
+            }
         }
     }
 }
