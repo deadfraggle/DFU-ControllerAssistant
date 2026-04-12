@@ -10,7 +10,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 {
     public class ListPickerAssist : IMenuAssist
     {
-        private const bool debugMODE = true;
+        private const bool debugMODE = false;
         private bool reflectionCached = false;
         private bool wasOpen = false;
 

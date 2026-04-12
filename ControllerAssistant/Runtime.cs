@@ -116,6 +116,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         private static readonly TravelPopUpAssist travelpopup = new TravelPopUpAssist();
         private static readonly RestAssist rest = new RestAssist();
         private static readonly CharacterSheetAssist character = new CharacterSheetAssist();
+        private static readonly ItemMakerAssist itemmaker = new ItemMakerAssist();
 
         // Specialized modules (do NOT include defaults here)
         private static readonly IMenuAssist[] assists =
@@ -138,6 +139,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             travelpopup,
             rest,
             character,
+            itemmaker,
         };
 
         [Invoke(StateManager.StateTypes.Start, 0)]

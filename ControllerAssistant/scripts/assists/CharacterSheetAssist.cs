@@ -88,6 +88,8 @@ namespace gigantibyte.DFU.ControllerAssistant
         private FieldInfo fiWindowBinding;
         private bool closeDeferred = false;
 
+        private AnchorEditor editor;
+
         // =========================
         // IMenuAssist
         // =========================
@@ -145,6 +147,12 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (legend != null && legend.IsBuilt)
                 legend.PositionBottomLeft();
+
+            // Anchor Editor
+            if (panelRenderWindow == null && fiPanelRenderWindow != null)
+                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+            if (panelRenderWindow != null)
+                editor.Tick(panelRenderWindow);
 
             UpdateSelectorVisual();
 
@@ -209,7 +217,8 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (cm.Action2Pressed)
             {
-                Action2(menuWindow);
+                //Action2(menuWindow);
+                //editor.Toggle();
             }
 
             if (cm.LegendPressed)
@@ -334,31 +343,31 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             switch (button)
             {
-                case NameButton: return new Rect(4, 3, 132, 8);
-                case LevelButton: return new Rect(4, 33, 132, 8);
-                case GoldButton: return new Rect(4, 43, 132, 8);
-                case HealthButton: return new Rect(4, 63, 128, 8);
-                case AffiliationsButton: return new Rect(3, 84, 130, 8);
+                case NameButton: return new Rect(4.0f, 2.7f, 129.3f, 8.2f);
+                case LevelButton: return new Rect(4.0f, 32.7f, 129.3f, 8.2f);
+                case GoldButton: return new Rect(4.0f, 43.0f, 129.3f, 8.2f);
+                case HealthButton: return new Rect(4.0f, 62.7f, 129.3f, 8.2f);
+                case AffiliationsButton: return new Rect(4.0f, 83.8f, 129.3f, 8.2f);
 
-                case PrimaryButton: return new Rect(11, 106, 115, 8);
-                case MajorButton: return new Rect(11, 116, 115, 8);
-                case MinorButton: return new Rect(11, 126, 115, 8);
-                case MiscellaneousButton: return new Rect(11, 136, 115, 8);
+                case PrimaryButton: return new Rect(11.2f, 106.0f, 115.8f, 8.1f);
+                case MajorButton: return new Rect(11.2f, 115.8f, 115.8f, 8.1f);
+                case MinorButton: return new Rect(11.2f, 126.0f, 115.8f, 8.1f);
+                case MiscellaneousButton: return new Rect(11.2f, 135.9f, 115.8f, 8.1f);
 
-                case InventoryButton: return new Rect(3, 151, 65, 12);
-                case SpellbookButton: return new Rect(69, 151, 65, 12);
-                case LogButton: return new Rect(3, 165, 65, 12);
-                case HistoryButton: return new Rect(69, 165, 65, 12);
-                case ExitButton: return new Rect(50, 179, 39, 19);
+                case InventoryButton: return new Rect(2.9f, 151.9f, 64.4f, 10.1f);
+                case SpellbookButton: return new Rect(70.0f, 151.9f, 64.4f, 10.1f);
+                case LogButton: return new Rect(2.9f, 165.9f, 64.4f, 10.1f);
+                case HistoryButton: return new Rect(70.0f, 165.9f, 64.4f, 10.1f);
+                case ExitButton: return new Rect(50.6f, 179.0f, 39.2f, 18.9f);
 
-                case StrengthButton: return new Rect(141, 6, 28, 20);
-                case IntelligenceButton: return new Rect(141, 30, 28, 20);
-                case WillpowerButton: return new Rect(141, 54, 28, 20);
-                case AgilityButton: return new Rect(141, 78, 28, 20);
-                case EnduranceButton: return new Rect(141, 102, 28, 20);
-                case PersonalityButton: return new Rect(141, 126, 28, 20);
-                case SpeedButton: return new Rect(141, 150, 28, 20);
-                case LuckButton: return new Rect(141, 174, 28, 20);
+                case StrengthButton: return new Rect(141.3f, 5.1f, 30.1f, 21.9f);
+                case IntelligenceButton: return new Rect(141.3f, 29.1f, 30.1f, 21.9f);
+                case WillpowerButton: return new Rect(141.3f, 52.9f, 30.1f, 21.9f);
+                case AgilityButton: return new Rect(141.3f, 77.0f, 30.1f, 21.9f);
+                case EnduranceButton: return new Rect(141.3f, 101.0f, 30.1f, 21.9f);
+                case PersonalityButton: return new Rect(141.3f, 125.0f, 30.1f, 21.9f);
+                case SpeedButton: return new Rect(141.3f, 149.0f, 30.1f, 21.9f);
+                case LuckButton: return new Rect(141.3f, 173.0f, 30.1f, 21.9f);
 
                 default: return new Rect(11, 106, 115, 8);
             }
@@ -708,6 +717,13 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             EnsureSelectorUI(menuWindow);
             UpdateSelectorVisual();
+
+            // Anchor Editor
+            if (editor == null)
+            {
+                // Match Inventory's default selector size: 25 x 19 native-ish feel
+                editor = new AnchorEditor(25f, 19f);
+            }
         }
 
         private void OnClosed(ControllerManager cm)

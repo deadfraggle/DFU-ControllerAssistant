@@ -79,11 +79,11 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             new SelectorButtonInfo { rect = new Rect(176.6f, 28.7f, 22.2f, 22.5f), N = -1, E = -1, S = Effect1, W = SpellList }, // IconButton
             new SelectorButtonInfo { rect = new Rect(34.6f, 25.6f, 114.2f, 142.8f), N = -1, E = IconButton, S = DeleteButton, W = ExitusButton }, // SpellList
-            new SelectorButtonInfo { rect = new Rect(37.4f, 167.9f, 30.4f, 11.7f), N = SpellList, E = UpButton, S = -1, W = -1 }, // DeleteButton
-            new SelectorButtonInfo { rect = new Rect(84.6f, 167.9f, 16.9f, 11.7f), N = SpellList, E = SortButton, S = -1, W = DeleteButton }, // UpButton
-            new SelectorButtonInfo { rect = new Rect(122.9f, 167.9f, 23.8f, 11.7f), N = SpellList, E = DownButton, S = -1, W = UpButton }, // SortButton
-            new SelectorButtonInfo { rect = new Rect(162.2f, 167.9f, 28.9f, 11.7f), N = Effect3, E = ExitusButton, S = -1, W = SortButton }, // DownButton
-            new SelectorButtonInfo { rect = new Rect(252.0f, 167.9f, 31.3f, 11.7f), N = Effect3, E = -1, S = -1, W = DownButton }, // ExitusButton
+            new SelectorButtonInfo { rect = new Rect(31.5f, 167.9f, 43.0f, 13.1f), N = SpellList, E = UpButton, S = -1, W = -1 }, // DeleteButton
+            new SelectorButtonInfo { rect = new Rect(76.6f, 167.9f, 43.0f, 13.1f), N = SpellList, E = SortButton, S = -1, W = DeleteButton }, // UpButton
+            new SelectorButtonInfo { rect = new Rect(118.0f, 167.9f, 43.0f, 13.1f), N = SpellList, E = DownButton, S = -1, W = UpButton }, // SortButton
+            new SelectorButtonInfo { rect = new Rect(159.6f, 167.9f, 43.0f, 13.1f), N = Effect3, E = ExitusButton, S = -1, W = SortButton }, // DownButton
+            new SelectorButtonInfo { rect = new Rect(245.8f, 166.5f, 44.2f, 15.8f), N = Effect3, E = -1, S = -1, W = DownButton }, // ExitusButton
             new SelectorButtonInfo { rect = new Rect(167.8f, 57.4f, 118.3f, 29.2f), N = IconButton, E = -1, S = Effect2, W = SpellList }, // Effect1
             new SelectorButtonInfo { rect = new Rect(167.8f, 95.3f, 118.3f, 29.2f), N = Effect1, E = -1, S =  Effect3, W = SpellList }, // Effect2
             new SelectorButtonInfo { rect = new Rect(167.8f, 133.2f, 118.3f, 29.2f), N = Effect2, E = -1, S = ExitusButton, W = SpellList }, // Effect3

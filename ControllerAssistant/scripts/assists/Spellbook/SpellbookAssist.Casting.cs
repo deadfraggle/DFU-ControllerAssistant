@@ -17,6 +17,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (cm.Action2Released)
                 ActionSort(menuWindow);
+                //ToggleAnchorEditor();
 
             if (selectorIndex == SpellList)
             {

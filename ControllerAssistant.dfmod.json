@@ -69,6 +69,13 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.RestNumberpadHandler.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/InteriorAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/CharacterSheetAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/UI/keyboardatlas.png"
+        "Assets/Game/Mods/ControllerAssistant/scripts/UI/keyboardatlas.png",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/ItemMaker/ItemMakerAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/ItemMaker/ItemMakerAssist.Core.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/ItemMaker/ItemMakerAssist.Selector.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/ItemMaker/ItemMakerAssist.Reflection.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/ItemMaker/ItemMakerAssist.Legend.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/ItemMaker/ItemMakerAssist.ItemGrid.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/ItemMaker/ItemMakerAssist.Enchantments.cs"
     ]
 }
