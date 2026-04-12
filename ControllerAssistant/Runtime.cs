@@ -117,6 +117,9 @@ namespace gigantibyte.DFU.ControllerAssistant
         private static readonly RestAssist rest = new RestAssist();
         private static readonly CharacterSheetAssist character = new CharacterSheetAssist();
         private static readonly ItemMakerAssist itemmaker = new ItemMakerAssist();
+        private static readonly PotionMakerAssist potionmaker = new PotionMakerAssist();
+        private static readonly BankingAssist banking = new BankingAssist();
+        private static readonly BankPurchaseAssist bankpurchase = new BankPurchaseAssist();
 
         // Specialized modules (do NOT include defaults here)
         private static readonly IMenuAssist[] assists =
@@ -140,6 +143,9 @@ namespace gigantibyte.DFU.ControllerAssistant
             rest,
             character,
             itemmaker,
+            potionmaker,
+            banking,
+            bankpurchase,
         };
 
         [Invoke(StateManager.StateTypes.Start, 0)]

@@ -76,6 +76,20 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/ItemMaker/ItemMakerAssist.Reflection.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/ItemMaker/ItemMakerAssist.Legend.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/ItemMaker/ItemMakerAssist.ItemGrid.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/ItemMaker/ItemMakerAssist.Enchantments.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/ItemMaker/ItemMakerAssist.Enchantments.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/PotionMaker/PotionMakerAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/PotionMaker/PotionMakerAssist.Core.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/PotionMaker/PotionMakerAssist.Reflection.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/PotionMaker/PotionMakerAssist.Selector.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/PotionMaker/PotionMakerAssist.ItemGrid.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/PotionMaker/PotionMakerAssist.Legend.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/PotionMaker/PotionMakerAssist.GridMovement.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Banking/BankingAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Banking/BankingAssist.Reflection.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Banking/BankingAssist.Selector.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Banking/BankingAssist.Core.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Banking/BankingAssist.Numberpad.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Banking/BankingAssist.Legend.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Banking/BankPurchaseAssist.cs"
     ]
 }
