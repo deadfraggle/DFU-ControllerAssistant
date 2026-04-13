@@ -8,6 +8,7 @@ namespace gigantibyte.DFU.ControllerAssistant
     {
         private void OnTickOpen(DaggerfallBankingWindow menuWindow, ControllerManager cm)
         {
+            
             RefreshLegendAttachment(menuWindow);
 
             if (IsTransactionInputActive(menuWindow))
@@ -91,9 +92,13 @@ namespace gigantibyte.DFU.ControllerAssistant
                 case DrawLOCButton: InvokeButtonHandler(menuWindow, miDrawLOCButton_OnMouseClick); break;
                 case LoanRepayButton: InvokeButtonHandler(menuWindow, miLoanRepayButton_OnMouseClick); break;
                 case LoanBorrowButton: InvokeButtonHandler(menuWindow, miLoanBorrowButton_OnMouseClick); break;
-                case BuyHouseButton: TriggerReflectedButtonClick(menuWindow, fiBuyHouseButton); break;
+                case BuyHouseButton:
+                    TriggerReflectedButtonClick(menuWindow, fiBuyHouseButton);
+                    break;
                 case SellHouseButton: InvokeButtonHandler(menuWindow, miSellHouseButton_OnMouseClick); break;
-                case BuyShipButton: TriggerReflectedButtonClick(menuWindow, fiBuyShipButton); break;
+                case BuyShipButton:
+                    TriggerReflectedButtonClick(menuWindow, fiBuyShipButton);
+                    break;
                 case SellShipButton: InvokeButtonHandler(menuWindow, miSellShipButton_OnMouseClick); break;
                 case ExitButton: InvokeButtonHandler(menuWindow, miExitButton_OnMouseClick); break;
             }

@@ -33,7 +33,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
             {
-                new LegendOverlay.LegendRow("Version", "6"),
+                new LegendOverlay.LegendRow("Version", "12"),
                 new LegendOverlay.LegendRow("Right Stick", "Move Selector"),
                 new LegendOverlay.LegendRow(cm.Action1Name, "Activate Selection"),
             };
@@ -67,7 +67,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
             {
-                new LegendOverlay.LegendRow("Version", "6"),
+                new LegendOverlay.LegendRow("Version", "12"),
                 new LegendOverlay.LegendRow("Right Stick", "Move Selector"),
                 new LegendOverlay.LegendRow(cm.Action1Name, "Activate Key"),
                 new LegendOverlay.LegendRow("Back", "Cancel Transaction"),

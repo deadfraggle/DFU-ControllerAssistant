@@ -6,6 +6,11 @@ using System.Reflection;
 using System.Collections.Generic;
 using UnityEngine;
 
+/* BankPurchaseAssist high-res preview fix:
+DFU bank purchase popup sometimes initializes display render target at native 1x size 
+when opened via controller-assisted button activation. Assist rebuilds display texture/render 
+texture using displayPanelRect * NativePanel.LocalScale if low-res state detected. */
+
 namespace gigantibyte.DFU.ControllerAssistant
 {
     public class BankPurchaseAssist : IMenuAssist
@@ -13,6 +18,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         private const bool debugMODE = false;
         private bool wasOpen = false;
         private bool reflectionCached = false;
+        private bool forcedHighResOnce = false;
 
         private DaggerfallBankPurchasePopUp activeWindow;
 
@@ -25,8 +31,11 @@ namespace gigantibyte.DFU.ControllerAssistant
         private bool legendVisible = false;
 
         private FieldInfo fiPriceListBox;
-        private MethodInfo miPriceListBox_OnSelectItem;
         private MethodInfo miBuyButton_OnMouseClick;
+        private FieldInfo fiDisplayResolution;
+        private FieldInfo fiDisplayPanelRect;
+        private FieldInfo fiCamera;
+        private FieldInfo fiDisplayTexture;
 
         public bool Claims(IUserInterfaceWindow top)
         {
@@ -71,13 +80,11 @@ namespace gigantibyte.DFU.ControllerAssistant
             legendVisible = false;
             parentPanel = null;
             DestroyLegend();
+            forcedHighResOnce = false;
         }
 
         private void OnOpened(DaggerfallBankPurchasePopUp menuWindow, ControllerManager cm)
         {
-            if (debugMODE)
-                DumpWindowMembers(menuWindow);
-
             EnsureInitialized(menuWindow);
 
             ListBox listBox = GetPriceListBox(menuWindow);
@@ -85,10 +92,8 @@ namespace gigantibyte.DFU.ControllerAssistant
             {
                 listBox.AlwaysAcceptKeyboardInput = true;
 
-                if (listBox != null)
-                {
-                    listBox.AlwaysAcceptKeyboardInput = true;
-                }
+                if (listBox.Count > 0 && listBox.SelectedIndex < 0)
+                    listBox.SelectedIndex = 0;
             }
         }
 
@@ -106,6 +111,8 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private void OnTickOpen(DaggerfallBankPurchasePopUp menuWindow, ControllerManager cm)
         {
+            FixDisplayResolutionIfNeeded(menuWindow);
+
             RefreshLegendAttachment(menuWindow);
             EnsureListBoxFocus(menuWindow);
 
@@ -184,7 +191,8 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private void ActivateSelected(DaggerfallBankPurchasePopUp menuWindow)
         {
-            if (menuWindow == null || miBuyButton_OnMouseClick == null)
+            ListBox listBox = GetPriceListBox(menuWindow);
+            if (menuWindow == null || listBox == null || listBox.SelectedIndex < 0 || miBuyButton_OnMouseClick == null)
                 return;
 
             miBuyButton_OnMouseClick.Invoke(menuWindow, new object[] { null, Vector2.zero });
@@ -199,6 +207,67 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (!object.ReferenceEquals(menuWindow.FocusControl, listBox))
                 menuWindow.SetFocus(listBox);
         }
+        private void FixDisplayResolutionIfNeeded(DaggerfallBankPurchasePopUp menuWindow)
+        {
+            if (menuWindow == null || forcedHighResOnce)
+                return;
+
+            if (fiDisplayResolution == null || fiDisplayPanelRect == null || fiDisplayTexture == null || fiCamera == null)
+                return;
+
+            Camera cam = fiCamera.GetValue(menuWindow) as Camera;
+            if (cam == null)
+                return;
+
+            Rect displayPanelRect = (Rect)fiDisplayPanelRect.GetValue(menuWindow);
+            Vector2 currentRes = (Vector2)fiDisplayResolution.GetValue(menuWindow);
+
+            if (menuWindow.NativePanel == null)
+                return;
+
+            float scaleX = menuWindow.NativePanel.LocalScale.x;
+            float scaleY = menuWindow.NativePanel.LocalScale.y;
+
+            int targetWidth = Mathf.RoundToInt(displayPanelRect.width * scaleX);
+            int targetHeight = Mathf.RoundToInt(displayPanelRect.height * scaleY);
+
+            if (targetWidth <= 0 || targetHeight <= 0)
+                return;
+
+            int currentWidth = Mathf.RoundToInt(currentRes.x);
+            int currentHeight = Mathf.RoundToInt(currentRes.y);
+
+            // Only fix the bad low-res state, and only if the computed target is meaningfully larger.
+            if (currentWidth == targetWidth && currentHeight == targetHeight)
+            {
+                forcedHighResOnce = true;
+                return;
+            }
+
+            if (currentWidth > 104 || currentHeight > 91)
+            {
+                forcedHighResOnce = true;
+                return;
+            }
+
+            Vector2 correctedResolution = new Vector2(targetWidth, targetHeight);
+            fiDisplayResolution.SetValue(menuWindow, correctedResolution);
+
+            Texture2D newDisplayTexture = new Texture2D(targetWidth, targetHeight, TextureFormat.ARGB32, false);
+            fiDisplayTexture.SetValue(menuWindow, newDisplayTexture);
+
+            if (cam.targetTexture != null)
+            {
+                RenderTexture oldRT = cam.targetTexture;
+                cam.targetTexture = null;
+                Object.Destroy(oldRT);
+            }
+
+            RenderTexture newRT = new RenderTexture(targetWidth, targetHeight, 16);
+            cam.targetTexture = newRT;
+
+            forcedHighResOnce = true;
+        }
 
         private void EnsureInitialized(DaggerfallBankPurchasePopUp menuWindow)
         {
@@ -208,8 +277,11 @@ namespace gigantibyte.DFU.ControllerAssistant
             System.Type type = menuWindow.GetType();
             fiParentPanel = CacheField(type, "parentPanel");
             fiPriceListBox = CacheField(type, "priceListBox");
-            miPriceListBox_OnSelectItem = CacheMethod(type, "PriceListBox_OnSelectItem");
             miBuyButton_OnMouseClick = CacheMethod(type, "BuyButton_OnMouseClick");
+            fiDisplayResolution = CacheField(type, "displayResolution");
+            fiDisplayPanelRect = CacheField(type, "displayPanelRect");
+            fiCamera = CacheField(type, "camera");
+            fiDisplayTexture = CacheField(type, "displayTexture");
 
             reflectionCached = true;
         }
@@ -219,13 +291,6 @@ namespace gigantibyte.DFU.ControllerAssistant
                 return null;
 
             return fiPriceListBox.GetValue(menuWindow) as ListBox;
-        }
-        private void RefreshPreviewSelection(DaggerfallBankPurchasePopUp menuWindow)
-        {
-            if (menuWindow == null || miPriceListBox_OnSelectItem == null)
-                return;
-
-            miPriceListBox_OnSelectItem.Invoke(menuWindow, null);
         }
 
         private void EnsureLegendUI(DaggerfallBankPurchasePopUp menuWindow, ControllerManager cm)
@@ -254,7 +319,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("Version", "6"),
+                    new LegendOverlay.LegendRow("Version", "12"),
                     new LegendOverlay.LegendRow("Right Stick", "Select"),
                     new LegendOverlay.LegendRow(cm.Action1Name, "Buy"),
                 };
@@ -311,17 +376,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             return mi;
         }
 
-        private void DumpWindowMembers(object window)
-        {
-            System.Type type = window.GetType();
-
-            Debug.Log("===== METHODS =====");
-            foreach (MethodInfo m in type.GetMethods(BF))
-                Debug.Log(m.Name);
-
-            Debug.Log("===== FIELDS =====");
-            foreach (FieldInfo f in type.GetFields(BF))
-                Debug.Log(f.Name);
-        }
+        
     }
 }

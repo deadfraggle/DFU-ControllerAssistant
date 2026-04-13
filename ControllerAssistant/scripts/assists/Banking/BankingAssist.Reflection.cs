@@ -76,5 +76,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             button.TriggerMouseClick();
         }
+        
     }
 }
