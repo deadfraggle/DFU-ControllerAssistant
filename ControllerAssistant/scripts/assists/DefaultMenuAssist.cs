@@ -23,6 +23,8 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
 
+        private AnchorEditor editor;
+
         public bool Claims(IUserInterfaceWindow top)
         {
             // Default assist is the fallback for ordinary menu windows.
@@ -74,6 +76,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (legend != null && legend.IsBuilt)
                 legend.PositionBottomLeft();
 
+            // Anchor Editor
+            if (panelRenderWindow == null && fiPanelRenderWindow != null)
+                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+            if (panelRenderWindow != null)
+                editor.Tick(panelRenderWindow);
+
             if (cm.DPadLeftPressed)
                 TapKey(KeyCode.LeftArrow);
 
@@ -89,6 +97,9 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (cm.Action1Pressed)
                 TapKey(KeyCode.Return);
 
+            if (cm.Action2Pressed)
+                editor.Toggle();
+
             if (cm.LegendPressed)
             {
                 EnsureLegendUI(menuWindow, cm);
@@ -102,6 +113,13 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             if (debugMODE) DumpWindowMembers(menuWindow);
             EnsureInitialized(menuWindow);
+
+            // Anchor Editor
+            if (editor == null)
+            {
+                // Match Inventory's default selector size: 25 x 19 native-ish feel
+                editor = new AnchorEditor(25f, 19f);
+            }
         }
 
         private void OnClosed(ControllerManager cm)

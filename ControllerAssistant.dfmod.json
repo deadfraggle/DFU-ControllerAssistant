@@ -100,6 +100,7 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/QuestJournal/QuestJournalAssist.Overlay.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/QuestJournal/QuestJournalAssist.ActiveQuests.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/HistoryAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/BookReaderAssist.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/BookReaderAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMap/TeleportPopUpAssist.cs"
     ]
 }
