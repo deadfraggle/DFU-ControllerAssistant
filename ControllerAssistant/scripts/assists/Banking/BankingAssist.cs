@@ -17,6 +17,12 @@ namespace gigantibyte.DFU.ControllerAssistant
         private LegendOverlay legend;
         private bool legendVisible = false;
         private System.Type cachedReflectionType = null;
+        private bool closeDeferred = false;
+
+        private KeyCode suppressedBackButton = KeyCode.None;
+        private bool backBindingSuppressed = false;
+        private bool waitingToRestoreBackBinding = false;
+        private MethodInfo miInputManagerUpdateBindingCache;
 
         // Reflected button handlers
         private MethodInfo miDepoGoldButton_OnMouseClick;
@@ -60,17 +66,17 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         public SelectorButtonInfo[] menuButton = new SelectorButtonInfo[]
         {
-            new SelectorButtonInfo { rect = new Rect(120f, 58f, 45f, 8f), E = DrawGoldButton, S = DepoLOCButton },   // Deposit gold
-            new SelectorButtonInfo { rect = new Rect(172f, 58f, 45f, 8f), W = DepoGoldButton, S = DrawLOCButton },   // Withdraw gold
-            new SelectorButtonInfo { rect = new Rect(120f, 76f, 45f, 8f), N = DepoGoldButton, E = DrawLOCButton, S = LoanRepayButton }, // Deposit LOC
-            new SelectorButtonInfo { rect = new Rect(172f, 76f, 45f, 8f), N = DrawGoldButton, W = DepoLOCButton, S = LoanBorrowButton }, // Withdraw LOC
-            new SelectorButtonInfo { rect = new Rect(120f, 94f, 45f, 8f), N = DepoLOCButton, E = LoanBorrowButton, S = BuyHouseButton }, // Repay
-            new SelectorButtonInfo { rect = new Rect(172f, 94f, 45f, 8f), N = DrawLOCButton, W = LoanRepayButton, S = SellHouseButton }, // Borrow
-            new SelectorButtonInfo { rect = new Rect(120f, 112f, 45f, 8f), N = LoanRepayButton, E = SellHouseButton, S = BuyShipButton }, // Buy house
-            new SelectorButtonInfo { rect = new Rect(172f, 112f, 45f, 8f), N = LoanBorrowButton, W = BuyHouseButton, S = SellShipButton }, // Sell house
-            new SelectorButtonInfo { rect = new Rect(120f, 130f, 45f, 8f), N = BuyHouseButton, E = SellShipButton, S = ExitButton }, // Buy ship
-            new SelectorButtonInfo { rect = new Rect(172f, 130f, 45f, 8f), N = SellHouseButton, W = BuyShipButton, S = ExitButton }, // Sell ship
-            new SelectorButtonInfo { rect = new Rect(92f, 159f, 40f, 19f), N = BuyShipButton }, // Exit
+            new SelectorButtonInfo { rect = new Rect(168f, 67f, 47f, 10f), E = DrawGoldButton, S = DepoLOCButton },   // Deposit gold 
+            new SelectorButtonInfo { rect = new Rect(220f, 67f, 47f, 10f), W = DepoGoldButton, S = DrawLOCButton },   // Withdraw gold
+            new SelectorButtonInfo { rect = new Rect(168f, 85f, 47f, 10f), N = DepoGoldButton, E = DrawLOCButton, S = LoanRepayButton }, // Deposit LOC
+            new SelectorButtonInfo { rect = new Rect(220f, 85f, 47f, 10f), N = DrawGoldButton, W = DepoLOCButton, S = LoanBorrowButton }, // Withdraw LOC
+            new SelectorButtonInfo { rect = new Rect(168f, 103f, 47f, 10f), N = DepoLOCButton, E = LoanBorrowButton, S = BuyHouseButton }, // Repay
+            new SelectorButtonInfo { rect = new Rect(220f, 103f, 47f, 10f), N = DrawLOCButton, W = LoanRepayButton, S = SellHouseButton }, // Borrow
+            new SelectorButtonInfo { rect = new Rect(168f, 121f, 47f, 10f), N = LoanRepayButton, E = SellHouseButton, S = BuyShipButton }, // Buy house
+            new SelectorButtonInfo { rect = new Rect(220f, 121f, 47f, 10f), N = LoanBorrowButton, W = BuyHouseButton, S = SellShipButton }, // Sell house
+            new SelectorButtonInfo { rect = new Rect(168f, 139f, 47f, 10f), N = BuyHouseButton, E = SellShipButton, S = ExitButton }, // Buy ship
+            new SelectorButtonInfo { rect = new Rect(220f, 139f, 47f, 10f), N = SellHouseButton, W = BuyShipButton, S = ExitButton }, // Sell ship
+            new SelectorButtonInfo { rect = new Rect(140f, 169f, 40f, 19f), N = BuyShipButton }, // Exit
         };
 
         public int buttonSelected = DepoGoldButton;
@@ -105,6 +111,8 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         public void ResetState()
         {
+            ForceRestoreBackBinding();
+
             wasOpen = false;
 
             DestroyLegend();
@@ -114,6 +122,74 @@ namespace gigantibyte.DFU.ControllerAssistant
             legendVisible = false;
             mainPanel = null;
             cachedReflectionType = null;
+            closeDeferred = false;
+        }
+        private void RefreshInputManagerBindingCache()
+        {
+            if (InputManager.Instance == null || miInputManagerUpdateBindingCache == null)
+                return;
+
+            miInputManagerUpdateBindingCache.Invoke(InputManager.Instance, null);
+        }
+
+        private void SuppressBackBindingForTransaction()
+        {
+            if (backBindingSuppressed || InputManager.Instance == null)
+                return;
+
+            suppressedBackButton = InputManager.Instance.GetJoystickUIBinding(InputManager.JoystickUIActions.Back);
+
+            if (suppressedBackButton != KeyCode.None)
+            {
+                InputManager.Instance.SetJoystickUIBinding(KeyCode.None, InputManager.JoystickUIActions.Back);
+                RefreshInputManagerBindingCache();
+
+                backBindingSuppressed = true;
+                waitingToRestoreBackBinding = false;
+            }
+        }
+
+        private void BeginRestoreBackBinding()
+        {
+            if (!backBindingSuppressed)
+                return;
+
+            waitingToRestoreBackBinding = true;
+        }
+
+        private void RestoreBackBindingIfReady()
+        {
+            if (!backBindingSuppressed || !waitingToRestoreBackBinding || suppressedBackButton == KeyCode.None)
+                return;
+
+            if (Input.GetKey(suppressedBackButton))
+                return;
+
+            if (InputManager.Instance != null)
+            {
+                InputManager.Instance.SetJoystickUIBinding(suppressedBackButton, InputManager.JoystickUIActions.Back);
+                RefreshInputManagerBindingCache();
+            }
+
+            backBindingSuppressed = false;
+            waitingToRestoreBackBinding = false;
+            suppressedBackButton = KeyCode.None;
+        }
+
+        private void ForceRestoreBackBinding()
+        {
+            if (!backBindingSuppressed)
+                return;
+
+            if (InputManager.Instance != null && suppressedBackButton != KeyCode.None)
+            {
+                InputManager.Instance.SetJoystickUIBinding(suppressedBackButton, InputManager.JoystickUIActions.Back);
+                RefreshInputManagerBindingCache();
+            }
+
+            backBindingSuppressed = false;
+            waitingToRestoreBackBinding = false;
+            suppressedBackButton = KeyCode.None;
         }
     }
 }

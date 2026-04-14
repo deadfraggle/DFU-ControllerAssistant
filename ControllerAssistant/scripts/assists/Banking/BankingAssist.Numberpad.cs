@@ -1,3 +1,4 @@
+using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Game.UserInterface;
 using DaggerfallWorkshop.Game.UserInterfaceWindows;
 using UnityEngine;
@@ -123,11 +124,21 @@ namespace gigantibyte.DFU.ControllerAssistant
                 return;
             }
 
-            if (cm.BackPressed)
+            if (backBindingSuppressed &&
+                suppressedBackButton != KeyCode.None &&
+                InputManager.Instance != null)
             {
-                CancelTransactionInput(menuWindow);
-                DestroyLegend();
-                return;
+                if (InputManager.Instance.GetKeyDown(suppressedBackButton, false))
+                    closeDeferred = true;
+
+                if (closeDeferred && InputManager.Instance.GetKeyUp(suppressedBackButton, false))
+                {
+                    closeDeferred = false;
+                    CancelTransactionInput(menuWindow);
+                    BeginRestoreBackBinding();
+                    DestroyLegend();
+                    return;
+                }
             }
         }
 
@@ -218,6 +229,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
 
             DestroyNumberpad();
+            BeginRestoreBackBinding();
         }
     }
 }

@@ -33,12 +33,14 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
             {
-                new LegendOverlay.LegendRow("Version", "12"),
+                new LegendOverlay.LegendRow("Version", "15"),
                 new LegendOverlay.LegendRow("Right Stick", "Move Selector"),
                 new LegendOverlay.LegendRow(cm.Action1Name, "Activate Selection"),
             };
 
             legend.Build("Legend", rows);
+            legendVisible = true;
+            legend.SetEnabled(true);
         }
 
         private void EnsureTransactionLegendUI(DaggerfallBankingWindow menuWindow, ControllerManager cm)
@@ -67,13 +69,15 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
             {
-                new LegendOverlay.LegendRow("Version", "12"),
+                new LegendOverlay.LegendRow("Version", "15"),
                 new LegendOverlay.LegendRow("Right Stick", "Move Selector"),
                 new LegendOverlay.LegendRow(cm.Action1Name, "Activate Key"),
                 new LegendOverlay.LegendRow("Back", "Cancel Transaction"),
             };
 
             legend.Build("Legend", rows);
+            legendVisible = true;
+            legend.SetEnabled(true);
         }
 
         private void RefreshLegendAttachment(DaggerfallBankingWindow menuWindow)
@@ -107,6 +111,8 @@ namespace gigantibyte.DFU.ControllerAssistant
                 legend.Destroy();
                 legend = null;
             }
+
+            legendVisible = false;
         }
     }
 }

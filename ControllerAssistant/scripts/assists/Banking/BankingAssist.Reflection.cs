@@ -1,3 +1,4 @@
+using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Game.UserInterfaceWindows;
 using DaggerfallWorkshop.Game.UserInterface;
 using System.Reflection;
@@ -37,6 +38,9 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             miHandleTransactionInput = CacheMethod(type, "HandleTransactionInput");
             miToggleTransactionInput = CacheMethod(type, "ToggleTransactionInput");
+
+            System.Type inputManagerType = typeof(InputManager);
+            miInputManagerUpdateBindingCache = inputManagerType.GetMethod("UpdateBindingCache", BF);
 
             cachedReflectionType = type;
         }

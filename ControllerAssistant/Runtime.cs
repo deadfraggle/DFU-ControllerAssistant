@@ -120,6 +120,10 @@ namespace gigantibyte.DFU.ControllerAssistant
         private static readonly PotionMakerAssist potionmaker = new PotionMakerAssist();
         private static readonly BankingAssist banking = new BankingAssist();
         private static readonly BankPurchaseAssist bankpurchase = new BankPurchaseAssist();
+        private static readonly SaveGameAssist saves = new SaveGameAssist();
+        private static readonly QuestJournalAssist journal = new QuestJournalAssist();
+        private static readonly HistoryAssist history = new HistoryAssist();
+        private static readonly BookReaderAssist books = new BookReaderAssist();
 
         // Specialized modules (do NOT include defaults here)
         private static readonly IMenuAssist[] assists =
@@ -146,6 +150,10 @@ namespace gigantibyte.DFU.ControllerAssistant
             potionmaker,
             banking,
             bankpurchase,
+            saves,
+            journal,
+            history,
+            books,
         };
 
         [Invoke(StateManager.StateTypes.Start, 0)]

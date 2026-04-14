@@ -90,6 +90,16 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/Banking/BankingAssist.Core.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/Banking/BankingAssist.Numberpad.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/Banking/BankingAssist.Legend.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Banking/BankPurchaseAssist.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/Banking/BankPurchaseAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/SaveGame/SaveGameAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/SaveGame/SaveGameAssist.Buttons.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/SaveGame/SaveGameAssist.FilesPanel.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/SaveGame/SaveGameAssist.Keyboard.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/QuestJournal/QuestJournalAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/QuestJournal/QuestJournalAssist.Navigation.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/QuestJournal/QuestJournalAssist.Overlay.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/QuestJournal/QuestJournalAssist.ActiveQuests.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/HistoryAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/BookReaderAssist.cs"
     ]
 }

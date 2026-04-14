@@ -719,7 +719,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("Version", "2"),
+                    new LegendOverlay.LegendRow("Version", "6"),
                     new LegendOverlay.LegendRow("D-Pad Right", "Exit"),
                     new LegendOverlay.LegendRow("D-Pad Down", "Inventory"),
                     new LegendOverlay.LegendRow("D-Pad Left", "Travel Map"),

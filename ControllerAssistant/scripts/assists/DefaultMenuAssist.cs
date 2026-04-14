@@ -9,7 +9,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 {
     public class DefaultMenuAssist : IMenuAssist
     {
-        private const bool debugMODE = false;
+        private const bool debugMODE = true;
         private bool reflectionCached = false;
 
         // Open/close edge tracking (replaces MenuAssistModule state handling)

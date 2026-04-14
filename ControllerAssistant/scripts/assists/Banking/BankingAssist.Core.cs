@@ -8,14 +8,22 @@ namespace gigantibyte.DFU.ControllerAssistant
     {
         private void OnTickOpen(DaggerfallBankingWindow menuWindow, ControllerManager cm)
         {
-            
             RefreshLegendAttachment(menuWindow);
 
             if (IsTransactionInputActive(menuWindow))
             {
+                SuppressBackBindingForTransaction();
                 RefreshNumberpadAttachment(menuWindow);
+
+                if (legend != null && legend.IsBuilt)
+                    legend.PositionBottomLeft();
+
                 TickNumberpadMode(menuWindow, cm);
                 return;
+            }
+            else
+            {
+                RestoreBackBindingIfReady();
             }
 
             RefreshSelectorAttachment(menuWindow);
@@ -54,11 +62,15 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 if (cm.LegendPressed)
                 {
-                    EnsureLegendUI(menuWindow, cm);
-                    legendVisible = !legendVisible;
+                    bool show = !legendVisible;
+                    legendVisible = show;
 
-                    if (legend != null)
-                        legend.SetEnabled(legendVisible);
+                    if (show)
+                        EnsureLegendUI(menuWindow, cm);
+                    else
+                        DestroyLegend();
+
+                    return;
                 }
             }
 
@@ -72,6 +84,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         private void OnOpened(DaggerfallBankingWindow menuWindow, ControllerManager cm)
         {
             EnsureInitialized(menuWindow);
+            closeDeferred = false;
         }
 
         private void OnClosed(ControllerManager cm)
