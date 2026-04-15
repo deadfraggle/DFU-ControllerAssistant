@@ -124,13 +124,13 @@ namespace gigantibyte.DFU.ControllerAssistant
                 return;
             }
 
-            if (cm.DPadLeftPressed)
+            if (cm.DPadLeftReleased)
             {
                 ActivateYes(menuWindow);
                 return;
             }
 
-            if (cm.DPadRightPressed)
+            if (cm.DPadRightReleased)
             {
                 ActivateNo(menuWindow);
                 return;

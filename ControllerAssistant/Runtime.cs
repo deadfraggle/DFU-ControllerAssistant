@@ -125,6 +125,12 @@ namespace gigantibyte.DFU.ControllerAssistant
         private static readonly HistoryAssist history = new HistoryAssist();
         private static readonly BookReaderAssist books = new BookReaderAssist();
         private static readonly TeleportPopUpAssist teleport = new TeleportPopUpAssist();
+        private static readonly TavernAssist tavern = new TavernAssist();
+        private static readonly GuildServiceAssist guild = new GuildServiceAssist();
+        private static readonly MerchantServiceAssist merchant = new MerchantServiceAssist();
+        private static readonly MerchantRepairAssist repair = new MerchantRepairAssist();
+        private static readonly DaedraSummonedAssist daedra = new DaedraSummonedAssist();
+        private static readonly WitchesCovenAssist witches = new WitchesCovenAssist();
 
         // Specialized modules (do NOT include defaults here)
         private static readonly IMenuAssist[] assists =
@@ -156,6 +162,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             history,
             books,
             teleport,
+            tavern,
+            guild,
+            merchant,
+            repair,
+            daedra,
+            witches,
         };
 
         [Invoke(StateManager.StateTypes.Start, 0)]
@@ -313,19 +325,20 @@ namespace gigantibyte.DFU.ControllerAssistant
         // 0 A, 1 B, 2 X, 3 Y, 4 LB, 5 RB, 6 L3, 7 R3
         private static KeyCode MapChoiceIndexToKeyCode(int idx)
         {
-            if (idx < 0 || idx > 7)
+            if (idx < 0 || idx > 8)
                 return KeyCode.None;
 
             switch (idx)
             {
-                case 0: return KeyCode.JoystickButton0; // A
-                case 1: return KeyCode.JoystickButton1; // B
-                case 2: return KeyCode.JoystickButton2; // X
-                case 3: return KeyCode.JoystickButton3; // Y
-                case 4: return KeyCode.JoystickButton4; // LB
-                case 5: return KeyCode.JoystickButton5; // RB
-                case 6: return KeyCode.JoystickButton8; // L3
-                case 7: return KeyCode.JoystickButton9; // R3
+                case 0: return KeyCode.None;
+                case 1: return KeyCode.JoystickButton0; // A
+                case 2: return KeyCode.JoystickButton1; // B
+                case 3: return KeyCode.JoystickButton2; // X
+                case 4: return KeyCode.JoystickButton3; // Y
+                case 5: return KeyCode.JoystickButton4; // LB
+                case 6: return KeyCode.JoystickButton5; // RB
+                case 7: return KeyCode.JoystickButton8; // L3
+                case 8: return KeyCode.JoystickButton9; // R3
                 default: return KeyCode.None;
             }
         }

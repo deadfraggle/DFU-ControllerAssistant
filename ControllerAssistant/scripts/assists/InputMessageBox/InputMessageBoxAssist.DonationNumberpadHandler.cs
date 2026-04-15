@@ -7,13 +7,13 @@ namespace gigantibyte.DFU.ControllerAssistant
 {
     public partial class InputMessageBoxAssist
     {
-        private sealed class InventoryGoldHandler : IInputMessageBoxAssistHandler
+        private sealed class DonationNumberpadHandler : IInputMessageBoxAssistHandler
         {
             private OnScreenNumberpadOverlay numberpadOverlay;
 
             public bool CanHandle(InputMessageBoxAssist owner, DaggerfallInputMessageBox menuWindow)
             {
-                return owner.IsInventoryGoldPopup(menuWindow);
+                return owner.IsDonationPopup(menuWindow);
             }
 
             public void OnOpen(InputMessageBoxAssist owner, DaggerfallInputMessageBox menuWindow, ControllerManager cm)
@@ -23,6 +23,9 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             public void Tick(InputMessageBoxAssist owner, DaggerfallInputMessageBox menuWindow, ControllerManager cm)
             {
+                if (menuWindow == null || menuWindow.TextBox == null)
+                    return;
+
                 RefreshNumberpadAttachment(owner, menuWindow);
 
                 ControllerManager.StickDir8 dir =
@@ -57,44 +60,44 @@ namespace gigantibyte.DFU.ControllerAssistant
                 }
 
                 bool isAssisting =
-                    (cm.DPadUpPressed || cm.DPadUpHeldSlow ||
-                     cm.DPadDownPressed || cm.DPadDownHeldSlow ||
-                     cm.DPadRightPressed || cm.DPadLeftPressed ||
+                    (cm.DPadLeftPressed || cm.DPadLeftHeldSlow ||
+                     cm.DPadRightReleased ||
                      cm.Action1Released || cm.Action2Pressed || cm.LegendPressed ||
                      dir != ControllerManager.StickDir8.None);
 
                 if (!isAssisting)
                     return;
 
-                if (cm.DPadUpPressed || cm.DPadUpHeldSlow)
-                    StepGoldAmountWithWrap(owner, menuWindow, 1);
+                if (cm.DPadLeftPressed || cm.DPadLeftHeldSlow)
+                    BackspaceText(menuWindow);
 
-                if (cm.DPadDownPressed || cm.DPadDownHeldSlow)
-                    StepGoldAmountWithWrap(owner, menuWindow, -1);
-
-                if (cm.DPadRightPressed)
-                    owner.IncreaseIncrement(menuWindow, cm);
-
-                if (cm.DPadLeftPressed)
-                    owner.DecreaseIncrement(menuWindow, cm);
+                if (cm.DPadRightReleased)
+                {
+                    owner.SubmitInputBox(menuWindow);
+                    return;
+                }
 
                 if (cm.Action2Pressed)
-                    owner.SetGoldAmount(menuWindow, 0);
+                    menuWindow.TextBox.Text = "1000";
 
                 if (cm.Action1Released && numberpadOverlay != null)
-                {
                     ActivateNumberpadKey(owner, menuWindow, numberpadOverlay.ActivateSelectedKey());
-                }
 
                 if (cm.LegendPressed)
                 {
-                    bool show = !owner.GetLegendVisible();
-                    owner.SetLegendVisible(show);
+                    owner.EnsureLegendUI(
+                        menuWindow,
+                        "Input",
+                        new List<LegendOverlay.LegendRow>()
+                        {
+                            new LegendOverlay.LegendRow("Right Stick", "Move Selector"),
+                            new LegendOverlay.LegendRow("D-Pad Left", "Backspace"),
+                            new LegendOverlay.LegendRow("D-Pad Right", "Submit"),
+                            new LegendOverlay.LegendRow(cm.Action1Name, "Activate Key"),
+                            new LegendOverlay.LegendRow(cm.Action2Name, "Reset to 1000"),
+                        });
 
-                    if (show)
-                        RefreshGoldLegendWithNumberpad(owner, menuWindow, cm);
-                    else
-                        owner.DestroyLegend();
+                    owner.SetLegendVisible(!owner.GetLegendVisible());
                 }
             }
 
@@ -151,60 +154,38 @@ namespace gigantibyte.DFU.ControllerAssistant
                     return;
 
                 string current = menuWindow.TextBox.Text;
-
                 if (string.IsNullOrEmpty(current) || current == "0")
                     menuWindow.TextBox.Text = digit;
                 else
                     menuWindow.TextBox.Text += digit;
             }
 
-            private void StepGoldAmountWithWrap(InputMessageBoxAssist owner, DaggerfallInputMessageBox menuWindow, int direction)
+            private void BackspaceText(DaggerfallInputMessageBox menuWindow)
             {
-                if (menuWindow == null || menuWindow.TextBox == null)
-                    return;
+                string text = menuWindow.TextBox.Text;
 
-                int amountShown = 0;
-                int.TryParse(menuWindow.TextBox.Text, out amountShown);
-
-                if (direction < 0 && amountShown == 0)
+                if (string.IsNullOrEmpty(text))
                 {
-                    owner.SetGoldAmount(menuWindow, owner.GetPlayerGold());
-                    return;
+                    menuWindow.TextBox.Text = "0";
                 }
+                else if (text.Length <= 1)
+                {
+                    menuWindow.TextBox.Text = "0";
+                }
+                else
+                {
+                    text = text.Substring(0, text.Length - 1);
 
-                owner.StepGoldAmount(menuWindow, direction);
-            }
+                    if (string.IsNullOrEmpty(text))
+                        text = "0";
 
-            private void RefreshGoldLegendWithNumberpad(InputMessageBoxAssist owner, DaggerfallInputMessageBox menuWindow, ControllerManager cm)
-            {
-                bool wasVisible = owner.GetLegendVisible();
-                if (!wasVisible)
-                    return;
-
-                owner.DestroyLegend();
-
-                owner.EnsureLegendUI(
-                    menuWindow,
-                    "Legend",
-                    new List<LegendOverlay.LegendRow>()
-                    {
-                        new LegendOverlay.LegendRow("Version", "2"),
-                        new LegendOverlay.LegendRow("Right Stick", "Move Selector"),
-                        new LegendOverlay.LegendRow(cm.Action1Name, "Activate Key"),
-                        new LegendOverlay.LegendRow(cm.Action2Name, "Reset to 0"),
-                        new LegendOverlay.LegendRow("D-Pad Up", "Increase amount"),
-                        new LegendOverlay.LegendRow("D-Pad Down", "Decrease amount"),
-                        new LegendOverlay.LegendRow("Current increment:", owner.goldIncrement.ToString()),
-                        new LegendOverlay.LegendRow("D-Pad Right", "Increase increment"),
-                        new LegendOverlay.LegendRow("D-Pad Left", "Decrease increment"),
-                    });
-
-                owner.SetLegendVisible(true);
+                    menuWindow.TextBox.Text = text;
+                }
             }
 
             private void ActivateNumberpadKey(InputMessageBoxAssist owner, DaggerfallInputMessageBox menuWindow, OnScreenNumberpadActivation activation)
             {
-                if (menuWindow == null || numberpadOverlay == null)
+                if (menuWindow == null || menuWindow.TextBox == null || numberpadOverlay == null)
                     return;
 
                 switch (activation.Action)
@@ -214,11 +195,11 @@ namespace gigantibyte.DFU.ControllerAssistant
                         break;
 
                     case OnScreenNumberpadKeyAction.Backspace:
-                        owner.BackspaceGoldAmount(menuWindow);
+                        BackspaceText(menuWindow);
                         break;
 
                     case OnScreenNumberpadKeyAction.InsertMax:
-                        owner.SetGoldAmount(menuWindow, owner.GetPlayerGold());
+                        menuWindow.TextBox.Text = owner.GetPlayerGold().ToString();
                         break;
 
                     case OnScreenNumberpadKeyAction.Ok:

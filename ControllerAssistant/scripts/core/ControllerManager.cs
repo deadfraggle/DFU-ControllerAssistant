@@ -95,6 +95,10 @@ namespace gigantibyte.DFU.ControllerAssistant
         private bool prevAction2Held = false;
         private bool prevLegendHeld = false;
 
+        private int action1ReleaseDelayFrames = 1;
+        private int action1ReleaseCountdown = -1;
+        private bool action1ReleasePending = false;
+
         private float action2HoldTimer = 0f;
         private bool action2HoldTriggered = false;
         private float action2TapMaxDuration = 0.25f;
@@ -428,7 +432,29 @@ namespace gigantibyte.DFU.ControllerAssistant
             bool action1Held = action1Key != KeyCode.None && Input.GetKey(action1Key);
 
             Action1Pressed = action1Held && !prevAction1Held;
-            Action1Released = !action1Held && prevAction1Held;
+            Action1Released = false;
+
+            // Detect raw release and start delayed dispatch
+            if (!action1Held && prevAction1Held)
+            {
+                action1ReleasePending = true;
+                action1ReleaseCountdown = action1ReleaseDelayFrames;
+            }
+
+            // Count down pending delayed release
+            if (action1ReleasePending)
+            {
+                if (action1ReleaseCountdown > 0)
+                {
+                    action1ReleaseCountdown--;
+                }
+                else
+                {
+                    Action1Released = true;
+                    action1ReleasePending = false;
+                    action1ReleaseCountdown = -1;
+                }
+            }
 
             Action1 = action1Held;
             prevAction1Held = action1Held;

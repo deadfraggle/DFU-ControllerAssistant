@@ -42,6 +42,7 @@
                 },
                 {
                     "Options": [
+                        "None",
                         "A",
                         "B",
                         "X",
@@ -51,7 +52,7 @@
                         "L3",
                         "R3"
                     ],
-                    "Value": 4,
+                    "Value": 5,
                     "Name": "AssistLegend",
                     "Description": "Show legend overlay (default JoystickButton4 = LB on typical XInput).",
                     "$version": "v1",

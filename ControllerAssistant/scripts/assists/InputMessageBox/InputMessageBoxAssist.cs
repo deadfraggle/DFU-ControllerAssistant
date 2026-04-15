@@ -18,11 +18,6 @@ namespace gigantibyte.DFU.ControllerAssistant
         private DaggerfallInputMessageBox currentWindow;
         private IInputMessageBoxAssistHandler activeHandler;
 
-        private float goldRepeatDelay = 0.30f;      // pause before repeat starts
-        private float goldRepeatInterval = 0.08f;   // repeat speed after delay
-        private float goldHoldTimer = 0f;
-        private float goldRepeatTimer = 0f;
-        private int goldHeldDirection = 0;          // 1 = up, -1 = down, 0 = none
         private readonly int[] goldIncrementSteps = new int[] { 1, 10, 100, 1000, 10000 };
         private int goldIncrementIndex = 0;
 
@@ -111,6 +106,8 @@ namespace gigantibyte.DFU.ControllerAssistant
                 new InventoryGoldHandler(),
                 new FindLocationHandler(),
                 new RestNumberpadHandler(),
+                new TavernRoomNumberpadHandler(),
+                new DonationNumberpadHandler(),
                 new DefaultKeyboardHandler(),   // fallback must stay last
             };
 
@@ -168,6 +165,54 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             return false;
         }
+        private bool IsTavernRoomPopup(DaggerfallInputMessageBox menuWindow)
+        {
+            if (menuWindow == null || fiOnGotUserInput == null)
+                return false;
+
+            object value = fiOnGotUserInput.GetValue(menuWindow);
+            if (value == null)
+                return false;
+
+            Delegate del = value as Delegate;
+            if (del == null)
+                return false;
+
+            Delegate[] calls = del.GetInvocationList();
+            for (int i = 0; i < calls.Length; i++)
+            {
+                if (calls[i].Method.Name == "InputMessageBox_OnGotUserInput" &&
+                    calls[i].Target != null &&
+                    calls[i].Target.GetType().Name == "DaggerfallTavernWindow")
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        private bool IsDonationPopup(DaggerfallInputMessageBox menuWindow)
+        {
+            if (menuWindow == null || fiOnGotUserInput == null)
+                return false;
+
+            object value = fiOnGotUserInput.GetValue(menuWindow);
+            if (value == null)
+                return false;
+
+            Delegate del = value as Delegate;
+            if (del == null)
+                return false;
+
+            Delegate[] calls = del.GetInvocationList();
+            for (int i = 0; i < calls.Length; i++)
+            {
+                if (calls[i].Method.Name == "DonationMsgBox_OnGotUserInput")
+                    return true;
+            }
+
+            return false;
+        }
 
         internal Panel GetInputMessageBoxRenderPanel(DaggerfallInputMessageBox menuWindow)
         {
@@ -180,62 +225,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         // =========================
         // Assist action helpers
         // =========================
-        private void BeginGoldHold(DaggerfallInputMessageBox menuWindow, int direction)
-        {
-            goldHeldDirection = direction;
-            goldHoldTimer = 0f;
-            goldRepeatTimer = 0f;
-
-            if (menuWindow == null || menuWindow.TextBox == null)
-                return;
-
-            int amountShown = 0;
-            int.TryParse(menuWindow.TextBox.Text, out amountShown);
-
-            // Special case:
-            // pressing Down while currently at 0 jumps to max gold
-            if (direction == -1 && amountShown == 0)
-            {
-                SetGoldAmount(menuWindow, GetPlayerGold());
-                return;
-            }
-
-            StepGoldAmount(menuWindow, direction);
-        }
-
-        private void UpdateGoldHold(DaggerfallInputMessageBox menuWindow, ControllerManager cm)
-        {
-            // Still holding same direction?
-            bool stillHolding =
-                (goldHeldDirection == 1 && cm.DPadV == 1) ||
-                (goldHeldDirection == -1 && cm.DPadV == -1);
-
-            if (!stillHolding)
-            {
-                EndGoldHold();
-                return;
-            }
-
-            goldHoldTimer += Time.unscaledDeltaTime;
-
-            if (goldHoldTimer < goldRepeatDelay)
-                return;
-
-            goldRepeatTimer += Time.unscaledDeltaTime;
-
-            while (goldRepeatTimer >= goldRepeatInterval)
-            {
-                goldRepeatTimer -= goldRepeatInterval;
-                StepGoldAmount(menuWindow, goldHeldDirection);
-            }
-        }
-
-        private void EndGoldHold()
-        {
-            goldHeldDirection = 0;
-            goldHoldTimer = 0f;
-            goldRepeatTimer = 0f;
-        }
+        
         private void StepGoldAmount(DaggerfallInputMessageBox menuWindow, int direction)
         {
             if (menuWindow == null || menuWindow.TextBox == null)
@@ -280,8 +270,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         }
         private void SubmitInputBox(DaggerfallInputMessageBox menuWindow)
         {
-            EndGoldHold();
-
+            
             if (menuWindow == null || menuWindow.TextBox == null || miReturnPlayerInputEvent == null)
                 return;
 
@@ -430,7 +419,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             DestroyLegend();
             panelRenderWindow = null;
 
-            EndGoldHold();
             goldIncrementIndex = 0;
             goldIncrement = goldIncrementSteps[0];
         }
@@ -445,7 +433,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (reflectionCached) return;
             if (menuWindow == null) return;
 
-            var type = menuWindow.GetType();
+            var type = typeof(DaggerfallInputMessageBox);
 
             fiPanelRenderWindow = CacheField(type, "parentPanel");
             fiOnGotUserInput = CacheField(type, "OnGotUserInput");

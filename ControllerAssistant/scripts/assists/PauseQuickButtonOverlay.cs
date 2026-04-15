@@ -26,6 +26,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         private readonly Action onInventoryClick;
         private readonly Action onQuickSaveClick;
         private readonly Action onQuickLoadClick;
+        private readonly Action onUseMagicItemClick;
 
         private Panel root;
         private Panel[] boxRoots;
@@ -52,7 +53,8 @@ namespace gigantibyte.DFU.ControllerAssistant
             Action onRestClick,
             Action onInventoryClick,
             Action onQuickSaveClick,
-            Action onQuickLoadClick)
+            Action onQuickLoadClick,
+            Action onUseMagicItemClick)
         {
             this.parentPanel = parentPanel;
             this.nativeRects = nativeRects;
@@ -70,6 +72,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             this.onInventoryClick = onInventoryClick;
             this.onQuickSaveClick = onQuickSaveClick;
             this.onQuickLoadClick = onQuickLoadClick;
+            this.onUseMagicItemClick = onUseMagicItemClick;
         }
 
         public bool IsAttached()
@@ -156,6 +159,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 case 9: button.OnMouseClick += InventoryButton_OnMouseClick; break;
                 case 10: button.OnMouseClick += QuickSaveButton_OnMouseClick; break;
                 case 11: button.OnMouseClick += QuickLoadButton_OnMouseClick; break;
+                case 12: button.OnMouseClick += UseMagicItemButton_OnMouseClick; break;
             }
 
             boxRoots[index] = panel;
@@ -234,6 +238,12 @@ namespace gigantibyte.DFU.ControllerAssistant
                 onQuickLoadClick();
         }
 
+        private void UseMagicItemButton_OnMouseClick(BaseScreenComponent sender, Vector2 position)
+        {
+            if (onUseMagicItemClick != null)
+                onUseMagicItemClick();
+        }
+
         private Texture2D GetButtonSlice(int index)
         {
             if (cachedSlices != null &&
@@ -261,6 +271,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 case 9: slice = SlicePixelsTopLeft(336, 320, 280, 80); break;  // Inventory
                 case 10: slice = SlicePixelsTopLeft(336, 416, 280, 80); break; // QuickSave
                 case 11: slice = SlicePixelsTopLeft(336, 512, 280, 80); break; // QuickLoad
+                case 12: slice = SlicePixelsTopLeft(32, 1088, 592, 80); break; // Use Magic Item
             }
 
             if (slice != null)

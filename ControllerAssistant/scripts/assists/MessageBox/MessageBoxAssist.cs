@@ -167,7 +167,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (reflectionCached || menuWindow == null)
                 return;
 
-            Type type = menuWindow.GetType();
+            Type type = typeof(DaggerfallMessageBox);
 
             fiPanelRenderWindow = CacheField(type, "parentPanel");
             fiOnButtonClick = CacheField(type, "OnButtonClick");

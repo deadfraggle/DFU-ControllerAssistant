@@ -73,20 +73,20 @@ namespace gigantibyte.DFU.ControllerAssistant
                 bool isAssisting =
                     moveLeft ||
                     moveRight ||
-                    cm.DPadUpPressed ||
-                    cm.DPadDownPressed ||
+                    cm.DPadLeftReleased ||
+                    cm.DPadRightReleased ||
                     cm.Action1Released ||
                     cm.LegendPressed;
 
                 if (!isAssisting)
                     return;
 
-                if (cm.DPadUpPressed)
+                if (cm.DPadLeftReleased)
                 {
                     owner.SelectButton(menuWindow, DaggerfallMessageBox.MessageBoxButtons.Yes);
                 }
 
-                if (cm.DPadDownPressed)
+                if (cm.DPadRightReleased)
                 {
                     owner.SelectButton(menuWindow, DaggerfallMessageBox.MessageBoxButtons.No);
                 }
@@ -107,8 +107,8 @@ namespace gigantibyte.DFU.ControllerAssistant
                         "Yes / No",
                         new List<LegendOverlay.LegendRow>()
                         {
-                            new LegendOverlay.LegendRow("D-Pad Up", "Yes"),
-                            new LegendOverlay.LegendRow("D-Pad Down", "No"),
+                            new LegendOverlay.LegendRow("D-Pad Left", "Yes"),
+                            new LegendOverlay.LegendRow("D-Pad Right", "No"),
                             new LegendOverlay.LegendRow("Right Stick Left/Right", "Move Selector"),
                             new LegendOverlay.LegendRow(cm.Action1Name, "Select Option"),
                         });
@@ -175,8 +175,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 if (menuWindow == null)
                     return false;
 
-                Type type = menuWindow.GetType();
-                FieldInfo fiButtons = type.GetField("buttons", BF);
+                FieldInfo fiButtons = typeof(DaggerfallMessageBox).GetField("buttons", BF);
                 if (fiButtons == null)
                     return false;
 

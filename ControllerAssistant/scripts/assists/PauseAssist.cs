@@ -67,6 +67,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         const int InventoryButton = 19;
         const int QuicksaveButton = 20;
         const int QuickLoadButton = 21;
+        const int UseMagicItemButton = 22;
 
         const int IncreaseSound = 1000;
         const int DecreaseSound = 1001;
@@ -78,7 +79,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         public SelectorButtonInfo[] menuButton = new SelectorButtonInfo[]
         {
             new SelectorButtonInfo { rect = new Rect(88.9f, 43.5f, 45.6f, 16.7f), N = RestButton, E = LoadGameButton, S = SoundLevel, W = ExitButton }, // SaveGameButton
-            new SelectorButtonInfo { rect = new Rect(136.8f, 43.5f, 46.7f, 16.7f), N = QuicksaveButton, E = ExitButton, S = SoundLevel, W = SaveGameButton }, // LoadGameButton
+            new SelectorButtonInfo { rect = new Rect(136.8f, 43.5f, 46.7f, 16.7f), N = UseMagicItemButton, E = ExitButton, S = SoundLevel, W = SaveGameButton }, // LoadGameButton
             new SelectorButtonInfo { rect = new Rect(185.8f, 43.5f, 45.8f, 16.7f), N = QuickLoadButton, E = SaveGameButton, S = SoundLevel, W = LoadGameButton }, // ExitButton
             new SelectorButtonInfo { rect = new Rect(88.2f, 61.0f, 143.9f, 8.5f), N = LoadGameButton, E = IncreaseSound, S = MusicLevel, W = DecreaseSound }, // SoundLevel
             new SelectorButtonInfo { rect = new Rect(88.2f, 68.7f, 143.9f, 8.5f), N = SoundLevel, E = IncreaseMusic, S = DetailLevel, W = DecreaseMusic }, // MusicLevel
@@ -99,9 +100,11 @@ namespace gigantibyte.DFU.ControllerAssistant
             new SelectorButtonInfo { rect = new Rect(200.8f, 142.2f, 34.4f, 6.8f), N = CharacterButton, E = TravelMapButton, S = QuickLoadButton, W = LogbookButton }, // NotebookButton
 
             new SelectorButtonInfo { rect = new Rect(85.9f, 154.4f, 34.4f, 6.8f), N = TravelMapButton,  E = InventoryButton, S = SaveGameButton,   W = QuickLoadButton }, // RestButton
-            new SelectorButtonInfo { rect = new Rect(124.2f, 154.4f, 34.4f, 6.8f), N = SpellbookButton, E = QuicksaveButton, S = LoadGameButton,   W = RestButton }, // InventoryButton
-            new SelectorButtonInfo { rect = new Rect(162.5f, 154.4f, 34.4f, 6.8f), N = LogbookButton,   E = QuickLoadButton, S = ExitButton,       W = InventoryButton }, // QuicksaveButton
+            new SelectorButtonInfo { rect = new Rect(124.2f, 154.4f, 34.4f, 6.8f), N = SpellbookButton, E = QuicksaveButton, S = UseMagicItemButton, W = RestButton }, // InventoryButton
+            new SelectorButtonInfo { rect = new Rect(162.5f, 154.4f, 34.4f, 6.8f), N = LogbookButton,   E = QuickLoadButton, S = UseMagicItemButton, W = InventoryButton }, // QuicksaveButton
             new SelectorButtonInfo { rect = new Rect(200.8f, 154.4f, 34.4f, 6.8f), N = NotebookButton,  E = RestButton,      S = ExitButton,       W = QuicksaveButton }, // QuickLoadButton
+
+            new SelectorButtonInfo { rect = new Rect(124.2f, 166.6f, 72.7f, 6.8f), N = InventoryButton, E = -1, S = LoadGameButton, W = -1 }, // UseMagicItemButton
         };
 
 
@@ -133,6 +136,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 case InventoryButton: SelectInventory(menuWindow); break;
                 case QuicksaveButton: SelectQuickSave(menuWindow); break;
                 case QuickLoadButton: SelectQuickLoad(menuWindow); break;
+                case UseMagicItemButton: SelectUseMagicItem(menuWindow); break;
             }
         }
 
@@ -386,6 +390,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 new Rect(123f, 156f, 35f, 10f),  // Inventory
                 new Rect(162f, 156f, 35f, 10f),  // QuickSave
                 new Rect(201f, 156f, 35f, 10f),  // QuickLoad
+                new Rect(123f, 168f, 74f, 10f),  // Use Magic Item
             };
         }
         private Texture2D LoadQuickButtonsAtlas()
@@ -425,6 +430,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             menuButton[InventoryButton].rect = rects[9];
             menuButton[QuicksaveButton].rect = rects[10];
             menuButton[QuickLoadButton].rect = rects[11];
+            menuButton[UseMagicItemButton].rect = rects[12];
         }
 
         private void EnsureQuickButtonOverlay(DaggerfallPauseOptionsWindow menuWindow)
@@ -454,7 +460,8 @@ namespace gigantibyte.DFU.ControllerAssistant
                     delegate { buttonSelected = RestButton; SelectRest(menuWindow); },
                     delegate { buttonSelected = InventoryButton; SelectInventory(menuWindow); },
                     delegate { buttonSelected = QuicksaveButton; SelectQuickSave(menuWindow); },
-                    delegate { buttonSelected = QuickLoadButton; SelectQuickLoad(menuWindow); });
+                    delegate { buttonSelected = QuickLoadButton; SelectQuickLoad(menuWindow); },
+                    delegate { buttonSelected = UseMagicItemButton; SelectUseMagicItem(menuWindow); });
                 quickButtonOverlay.Build();
             }
             else
@@ -580,6 +587,10 @@ namespace gigantibyte.DFU.ControllerAssistant
         private void SelectQuickLoad(DaggerfallPauseOptionsWindow menuWindow)
         {
             ClosePauseThenQuickLoad(menuWindow);
+        }
+        private void SelectUseMagicItem(DaggerfallPauseOptionsWindow menuWindow)
+        {
+            ClosePauseThenPostMessage(menuWindow, DaggerfallUIMessages.dfuiOpenUseMagicItemWindow);
         }
 
         private void ClosePauseWindow(DaggerfallPauseOptionsWindow menuWindow)
@@ -719,7 +730,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("Version", "6"),
+                    new LegendOverlay.LegendRow("Version", "11"),
                     new LegendOverlay.LegendRow("D-Pad Right", "Exit"),
                     new LegendOverlay.LegendRow("D-Pad Down", "Inventory"),
                     new LegendOverlay.LegendRow("D-Pad Left", "Travel Map"),

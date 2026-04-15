@@ -1,6 +1,5 @@
 using DaggerfallWorkshop.Game.UserInterface;
 using DaggerfallWorkshop.Game.UserInterfaceWindows;
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -12,22 +11,16 @@ namespace gigantibyte.DFU.ControllerAssistant
     {
         private sealed class GenericButtonsHandler : IMessageBoxAssistHandler
         {
-            private const bool DEBUG_GENERIC = true;
-
             private const BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-            private sealed class LiveButtonEntry
+            private sealed class SemanticButtonInfo
             {
-                public Button button;
+                public Button uiButton;
+                public DaggerfallMessageBox.MessageBoxButtons semantic;
                 public Rect nativeRect;
-                public float centerX;
-                public float centerY;
-                public int left = -1;
-                public int right = -1;
             }
 
-            private readonly List<LiveButtonEntry> buttons = new List<LiveButtonEntry>();
-
+            private readonly List<SemanticButtonInfo> buttons = new List<SemanticButtonInfo>();
             private int selectedIndex = 0;
             private DefaultSelectorBoxHost selectorHost;
 
@@ -36,10 +29,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 if (menuWindow == null)
                     return false;
 
-                if (menuWindow.ClickAnywhereToClose)
-                    return false;
-
-                // Let more specific handlers take precedence.
+                // Yes/No is handled by YesNoHandler earlier.
                 if (owner.HasExactButtons(
                     menuWindow,
                     DaggerfallMessageBox.MessageBoxButtons.Yes,
@@ -48,29 +38,24 @@ namespace gigantibyte.DFU.ControllerAssistant
                     return false;
                 }
 
-                // Generic fallback: any enabled live buttons.
-                List<Button> liveButtons;
-                return TryGetLiveButtons(owner, menuWindow, out liveButtons) && liveButtons.Count > 0;
+                BuildSemanticButtonList(owner, menuWindow);
+
+                // Generic handler is only for 2- or 3-button semantic popups.
+                return buttons.Count == 2 || buttons.Count == 3;
             }
 
             public void OnOpen(MessageBoxAssist owner, DaggerfallMessageBox menuWindow, ControllerManager cm)
             {
-                RebuildLiveButtons(owner, menuWindow);
+                BuildSemanticButtonList(owner, menuWindow);
 
-                // Default to the second button when available.
-                // Fall back to the first if there is only one.
-                selectedIndex = (buttons.Count >= 2) ? 1 : 0;
-
+                selectedIndex = GetInitialSelectionIndex(menuWindow);
                 RefreshSelectorToCurrentButton(owner, menuWindow);
             }
 
             public void Tick(MessageBoxAssist owner, DaggerfallMessageBox menuWindow, ControllerManager cm)
             {
                 RefreshSelectorAttachment(owner, menuWindow);
-
-                // Rebuild if button list changed or panel got rebuilt
-                if (!EnsureLiveButtonsStillValid(owner, menuWindow))
-                    return;
+                RefreshLiveRects(owner, menuWindow);
 
                 bool moveLeft = cm.RStickLeftPressed || cm.RStickLeftHeldSlow;
                 bool moveRight = cm.RStickRightPressed || cm.RStickRightHeldSlow;
@@ -78,16 +63,43 @@ namespace gigantibyte.DFU.ControllerAssistant
                 bool isAssisting =
                     moveLeft ||
                     moveRight ||
+                    cm.DPadLeftReleased ||
+                    cm.DPadRightReleased ||
+                    cm.DPadUpReleased ||
                     cm.Action1Released ||
                     cm.LegendPressed;
 
                 if (!isAssisting)
                     return;
 
+                if (cm.DPadLeftReleased)
+                {
+                    ActivateLeftChoice(owner, menuWindow);
+                    return;
+                }
+
+                if (cm.DPadRightReleased)
+                {
+                    ActivateRightChoice(owner, menuWindow);
+                    return;
+                }
+
+                if (cm.DPadUpReleased)
+                {
+                    ActivateMiddleChoice(owner, menuWindow);
+                    return;
+                }
+
                 if (moveLeft)
-                    TryMoveHorizontal(owner, menuWindow, false);
+                {
+                    MoveSelection(-1);
+                    RefreshSelectorToCurrentButton(owner, menuWindow);
+                }
                 else if (moveRight)
-                    TryMoveHorizontal(owner, menuWindow, true);
+                {
+                    MoveSelection(1);
+                    RefreshSelectorToCurrentButton(owner, menuWindow);
+                }
 
                 if (cm.Action1Released)
                 {
@@ -99,63 +111,42 @@ namespace gigantibyte.DFU.ControllerAssistant
                 {
                     owner.EnsureLegendUI(
                         menuWindow,
-                        "Options",
-                        new List<LegendOverlay.LegendRow>()
-                        {
-                            new LegendOverlay.LegendRow("Right Stick Left/Right", "Move Selector"),
-                            new LegendOverlay.LegendRow(cm.Action1Name, "Select Option"),
-                        });
+                        "Buttons",
+                        BuildLegendRows(cm));
 
                     owner.SetLegendVisible(!owner.GetLegendVisible());
-                    //owner.ToggleAnchorEditor();
                 }
             }
 
             public void OnClose(MessageBoxAssist owner, ControllerManager cm)
             {
-                buttons.Clear();
                 DestroySelectorBox();
+                buttons.Clear();
+                selectedIndex = 0;
             }
 
-            private bool EnsureLiveButtonsStillValid(MessageBoxAssist owner, DaggerfallMessageBox menuWindow)
+            private void ActivateLeftChoice(MessageBoxAssist owner, DaggerfallMessageBox menuWindow)
             {
-                if (buttons.Count == 0)
-                {
-                    RebuildLiveButtons(owner, menuWindow);
-                    RefreshSelectorToCurrentButton(owner, menuWindow);
-                    return buttons.Count > 0;
-                }
-
-                for (int i = 0; i < buttons.Count; i++)
-                {
-                    if (buttons[i] == null || buttons[i].button == null)
-                    {
-                        RebuildLiveButtons(owner, menuWindow);
-                        RefreshSelectorToCurrentButton(owner, menuWindow);
-                        return buttons.Count > 0;
-                    }
-                }
-
-                return true;
-            }
-
-            private void TryMoveHorizontal(
-                MessageBoxAssist owner,
-                DaggerfallMessageBox menuWindow,
-                bool moveRight)
-            {
-                if (buttons.Count == 0 || selectedIndex < 0 || selectedIndex >= buttons.Count)
+                if (buttons.Count < 1)
                     return;
 
-                int previous = selectedIndex;
-                LiveButtonEntry current = buttons[selectedIndex];
+                owner.ClickSemanticButton(menuWindow, buttons[0].semantic);
+            }
 
-                int next = moveRight ? current.right : current.left;
-                if (next > -1 && next < buttons.Count)
-                    selectedIndex = next;
+            private void ActivateRightChoice(MessageBoxAssist owner, DaggerfallMessageBox menuWindow)
+            {
+                if (buttons.Count < 1)
+                    return;
 
-                if (selectedIndex != previous)
-                    RefreshSelectorToCurrentButton(owner, menuWindow);
+                owner.ClickSemanticButton(menuWindow, buttons[buttons.Count - 1].semantic);
+            }
+
+            private void ActivateMiddleChoice(MessageBoxAssist owner, DaggerfallMessageBox menuWindow)
+            {
+                if (buttons.Count != 3)
+                    return;
+
+                owner.ClickSemanticButton(menuWindow, buttons[1].semantic);
             }
 
             private void ActivateSelectedButton(MessageBoxAssist owner, DaggerfallMessageBox menuWindow)
@@ -163,390 +154,147 @@ namespace gigantibyte.DFU.ControllerAssistant
                 if (selectedIndex < 0 || selectedIndex >= buttons.Count)
                     return;
 
-                Button uiButton = buttons[selectedIndex].button;
-                if (uiButton == null)
-                    return;
-
-                owner.DestroyLegend();
-
-                try
-                {
-                    FieldInfo fiOnMouseClick = typeof(BaseScreenComponent).GetField(
-                        "OnMouseClick",
-                        BF);
-
-                    if (fiOnMouseClick != null)
-                    {
-                        object delObj = fiOnMouseClick.GetValue(uiButton);
-                        Delegate del = delObj as Delegate;
-
-                        if (del != null)
-                        {
-                            Delegate[] calls = del.GetInvocationList();
-                            for (int i = 0; i < calls.Length; i++)
-                                calls[i].DynamicInvoke(uiButton, Vector2.zero);
-
-                            return;
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.Log("[ControllerAssistant] GenericButtonsHandler activation failed: " + ex);
-                }
+                owner.ClickSemanticButton(menuWindow, buttons[selectedIndex].semantic);
             }
 
-            private void RefreshSelectorToCurrentButton(
-                MessageBoxAssist owner,
-                DaggerfallMessageBox menuWindow)
+            private void MoveSelection(int delta)
             {
-                if (selectedIndex < 0 || selectedIndex >= buttons.Count)
+                if (buttons.Count <= 1)
                     return;
 
+                selectedIndex += delta;
+
+                if (selectedIndex < 0)
+                    selectedIndex = buttons.Count - 1;
+                else if (selectedIndex >= buttons.Count)
+                    selectedIndex = 0;
+            }
+
+            private int GetInitialSelectionIndex(DaggerfallMessageBox menuWindow)
+            {
+                Button defaultButton = menuWindow.GetDefaultButton();
+                if (defaultButton != null)
+                {
+                    for (int i = 0; i < buttons.Count; i++)
+                    {
+                        if (buttons[i].uiButton == defaultButton)
+                            return i;
+                    }
+                }
+
+                if (buttons.Count == 2)
+                    return 1;   // right choice by default, like Yes/No
+                if (buttons.Count == 3)
+                    return 1;   // middle choice for 3-button rows
+
+                return 0;
+            }
+
+            private List<LegendOverlay.LegendRow> BuildLegendRows(ControllerManager cm)
+            {
+                List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
+                {
+                    new LegendOverlay.LegendRow("D-Pad Left", "Left Choice"),
+                    new LegendOverlay.LegendRow("D-Pad Right", "Right Choice"),
+                    new LegendOverlay.LegendRow("Right Stick Left/Right", "Move Selector"),
+                    new LegendOverlay.LegendRow(cm.Action1Name, "Select Option"),
+                };
+
+                if (buttons.Count == 3)
+                    rows.Insert(2, new LegendOverlay.LegendRow("D-Pad Up", "Middle Choice"));
+
+                return rows;
+            }
+
+            private void RefreshSelectorToCurrentButton(MessageBoxAssist owner, DaggerfallMessageBox menuWindow)
+            {
                 Panel currentPanel = owner.GetMessageBoxRenderPanel(menuWindow);
-                if (currentPanel == null)
+                if (currentPanel == null || buttons.Count == 0)
                     return;
 
-                //Panel buttonParent = buttons[selectedIndex].button.Parent as Panel;
-                //selectorHost.ShowAtNativeRect(
-                //    buttonParent ?? currentPanel, // Fallback to main panel if parent is null
-                //    buttons[selectedIndex].nativeRect,
-                //    new Color(0.1f, 1f, 1f, 1f));
+                if (selectedIndex < 0 || selectedIndex >= buttons.Count)
+                    selectedIndex = 0;
 
                 if (selectorHost == null)
                     selectorHost = new DefaultSelectorBoxHost();
+
+                float borderThickness = 2f;
+                if (currentPanel.Size.y > 0f)
+                {
+                    float scaleY = currentPanel.Size.y / 200f;
+                    borderThickness = Mathf.Max(2f, scaleY * 0.5f);
+                }
 
                 selectorHost.ShowAtNativeRect(
                     currentPanel,
                     buttons[selectedIndex].nativeRect,
+                    borderThickness,
                     new Color(0.1f, 1f, 1f, 1f));
             }
 
-            private void RefreshSelectorAttachment(
-                MessageBoxAssist owner,
-                DaggerfallMessageBox menuWindow)
+            private void RefreshSelectorAttachment(MessageBoxAssist owner, DaggerfallMessageBox menuWindow)
             {
                 Panel currentPanel = owner.GetMessageBoxRenderPanel(menuWindow);
-                if (currentPanel == null)
+                if (currentPanel == null || selectorHost == null)
                     return;
-
-                if (selectorHost == null)
-                    selectorHost = new DefaultSelectorBoxHost();
 
                 selectorHost.RefreshAttachment(currentPanel);
             }
 
-            private void DestroySelectorBox()
+            private void RefreshLiveRects(MessageBoxAssist owner, DaggerfallMessageBox menuWindow)
             {
-                if (selectorHost != null)
-                    selectorHost.Destroy();
-            }
-
-            private void RebuildLiveButtons(MessageBoxAssist owner, DaggerfallMessageBox menuWindow)
-            {
-                buttons.Clear();
-
-                List<Button> liveButtons;
-                if (!TryGetLiveButtons(owner, menuWindow, out liveButtons))
+                if (buttons.Count == 0)
                     return;
 
                 Panel renderPanel = owner.GetMessageBoxRenderPanel(menuWindow);
                 if (renderPanel == null)
                     return;
 
-                for (int i = 0; i < liveButtons.Count; i++)
-                {
-                    Button uiButton = liveButtons[i];
-                    Rect screenRect = uiButton.Rectangle;
-                    Rect nativeRect = GetButtonVisualRectInNativeSpace(renderPanel, uiButton);
-
-                    if (DEBUG_GENERIC)
-                    {
-                        Debug.LogFormat("[GenericButtons] RAW screenRect: x={0:F2} y={1:F2} w={2:F2} h={3:F2}",
-                            screenRect.x, screenRect.y, screenRect.width, screenRect.height);
-
-                        Debug.LogFormat("[GenericButtons] Native BEFORE adjust: x={0:F2} y={1:F2} w={2:F2} h={3:F2}",
-                            nativeRect.x, nativeRect.y, nativeRect.width, nativeRect.height);
-                    }
-
-                    if (nativeRect.width <= 0 || nativeRect.height <= 0)
-                        continue;
-
-                    float centerX = nativeRect.x + nativeRect.width * 0.5f;
-                    float centerY = nativeRect.y + nativeRect.height * 0.5f;
-
-                    if (DEBUG_GENERIC)
-                    {
-                        Debug.LogFormat("[GenericButtons] Center: ({0:F2}, {1:F2})", centerX, centerY);
-                    }
-
-                    float width = Mathf.Max(nativeRect.width + 6f, 28f);
-                    float height = nativeRect.height;
-
-                    nativeRect = new Rect(
-                        centerX - width * 0.5f,
-                        centerY - height * 0.5f,
-                        width,
-                        height);
-
-                    if (DEBUG_GENERIC)
-                    {
-                        Debug.LogFormat("[GenericButtons] AFTER adjust: x={0:F2} y={1:F2} w={2:F2} h={3:F2}",
-                            nativeRect.x, nativeRect.y, nativeRect.width, nativeRect.height);
-                    }
-
-                    LiveButtonEntry entry = new LiveButtonEntry();
-                    entry.button = uiButton;
-                    entry.nativeRect = nativeRect;
-                    entry.centerX = centerX;
-                    entry.centerY = centerY;
-
-                    buttons.Add(entry);
-                }
-
-                if (buttons.Count == 0)
-                    return;
-
-                // Sort by row then by x. Most message boxes should be a single row,
-                // but this keeps future oddballs reasonably sane.
-                buttons.Sort((a, b) =>
-                {
-                    float dy = Mathf.Abs(a.centerY - b.centerY);
-                    if (dy > 6f)
-                        return a.centerY.CompareTo(b.centerY);
-
-                    return a.centerX.CompareTo(b.centerX);
-                });
-
-                BuildHorizontalNeighbors();
-                NormalizeRowButtonRects();
-
-                if (selectedIndex >= buttons.Count)
-                    selectedIndex = buttons.Count - 1;
-                if (selectedIndex < 0)
-                    selectedIndex = 0;
-            }
-            private void NormalizeRowButtonRects()
-            {
-                if (buttons.Count < 2)
-                    return;
-
-                const float rowTolerance = 6f;
-
                 for (int i = 0; i < buttons.Count; i++)
                 {
-                    List<int> row = new List<int>();
-                    row.Add(i);
-
-                    for (int j = i + 1; j < buttons.Count; j++)
-                    {
-                        if (Mathf.Abs(buttons[j].centerY - buttons[i].centerY) <= rowTolerance)
-                            row.Add(j);
-                    }
-
-                    if (row.Count < 2)
+                    Button button = buttons[i].uiButton;
+                    if (button == null)
                         continue;
 
-                    float avgCenterY = 0f;
-                    float pairMidX = 0f;
-                    float maxHeight = 0f;
-                    float maxWidth = 0f;
-
-                    for (int r = 0; r < row.Count; r++)
-                    {
-                        LiveButtonEntry e = buttons[row[r]];
-                        avgCenterY += e.centerY;
-                        pairMidX += e.centerX;
-
-                        if (e.nativeRect.height > maxHeight)
-                            maxHeight = e.nativeRect.height;
-
-                        if (e.nativeRect.width > maxWidth)
-                            maxWidth = e.nativeRect.width;
-                    }
-
-                    avgCenterY /= row.Count;
-                    pairMidX /= row.Count;
-
-                    // Special handling for exactly two buttons on one row:
-                    // reconstruct a more DFU-like selector pair from the midpoint.
-                    if (row.Count == 2)
-                    {
-                        // Sort left/right explicitly
-                        int leftIndex = row[0];
-                        int rightIndex = row[1];
-                        if (buttons[leftIndex].centerX > buttons[rightIndex].centerX)
-                        {
-                            int tmp = leftIndex;
-                            leftIndex = rightIndex;
-                            rightIndex = tmp;
-                        }
-
-                        // Canonical-ish fallback size/spacing for paired popup buttons.
-                        // Tuned to be close to your anchor measurements:
-                        // Delete  ~ x=111.7 w=32.9
-                        // Cancel  ~ x=175.7 w=32.9
-                        const float selectorW = 32.9f;
-                        const float selectorH = 16.0f;
-                        const float centerOffset = 32.0f;
-
-                        LiveButtonEntry left = buttons[leftIndex];
-                        LiveButtonEntry right = buttons[rightIndex];
-
-                        left.nativeRect = new Rect(
-                            pairMidX - centerOffset - selectorW * 0.5f,
-                            avgCenterY - selectorH * 0.5f,
-                            selectorW,
-                            selectorH);
-
-                        right.nativeRect = new Rect(
-                            pairMidX + centerOffset - selectorW * 0.5f,
-                            avgCenterY - selectorH * 0.5f,
-                            selectorW,
-                            selectorH);
-
-                        if (DEBUG_GENERIC)
-                        {
-                            Debug.LogFormat(
-                                "[GenericButtons] Two-button reconstruct: pairMidX={0:F2} avgY={1:F2} offset={2:F2} w={3:F2} h={4:F2}",
-                                pairMidX, avgCenterY, centerOffset, selectorW, selectorH);
-
-                            Debug.LogFormat(
-                                "[GenericButtons] FINAL rect LEFT : x={0:F2} y={1:F2} w={2:F2} h={3:F2}",
-                                left.nativeRect.x, left.nativeRect.y, left.nativeRect.width, left.nativeRect.height);
-
-                            Debug.LogFormat(
-                                "[GenericButtons] FINAL rect RIGHT: x={0:F2} y={1:F2} w={2:F2} h={3:F2}",
-                                right.nativeRect.x, right.nativeRect.y, right.nativeRect.width, right.nativeRect.height);
-                        }
-
-                        i = row[row.Count - 1];
-                        continue;
-                    }
-
-                    // Generic normalization for 3+ button rows
-                    maxWidth = Mathf.Max(maxWidth, 28f);
-
-                    if (DEBUG_GENERIC)
-                    {
-                        Debug.LogFormat(
-                            "[GenericButtons] Row normalize: count={0} maxWidth={1:F2} maxHeight={2:F2} avgY={3:F2}",
-                            row.Count, maxWidth, maxHeight, avgCenterY);
-                    }
-
-                    for (int r = 0; r < row.Count; r++)
-                    {
-                        LiveButtonEntry e = buttons[row[r]];
-                        e.nativeRect = new Rect(
-                            e.centerX - maxWidth * 0.5f,
-                            avgCenterY - maxHeight * 0.5f,
-                            maxWidth,
-                            maxHeight);
-
-                        if (DEBUG_GENERIC)
-                        {
-                            Debug.LogFormat(
-                                "[GenericButtons] FINAL rect: x={0:F2} y={1:F2} w={2:F2} h={3:F2}",
-                                e.nativeRect.x,
-                                e.nativeRect.y,
-                                e.nativeRect.width,
-                                e.nativeRect.height);
-                        }
-                    }
-
-                    i = row[row.Count - 1];
+                    buttons[i].nativeRect = ScreenRectToNativeRect(renderPanel, button.Rectangle);
                 }
             }
 
-            private void BuildHorizontalNeighbors()
+            private void BuildSemanticButtonList(MessageBoxAssist owner, DaggerfallMessageBox menuWindow)
             {
-                if (buttons.Count == 0)
-                    return;
-
-                List<List<int>> rows = new List<List<int>>();
-                const float rowTolerance = 6f;
-
-                for (int i = 0; i < buttons.Count; i++)
-                {
-                    bool placed = false;
-
-                    for (int r = 0; r < rows.Count; r++)
-                    {
-                        int probeIndex = rows[r][0];
-                        if (Mathf.Abs(buttons[i].centerY - buttons[probeIndex].centerY) <= rowTolerance)
-                        {
-                            rows[r].Add(i);
-                            placed = true;
-                            break;
-                        }
-                    }
-
-                    if (!placed)
-                    {
-                        List<int> newRow = new List<int>();
-                        newRow.Add(i);
-                        rows.Add(newRow);
-                    }
-                }
-
-                for (int r = 0; r < rows.Count; r++)
-                {
-                    rows[r].Sort((ia, ib) => buttons[ia].centerX.CompareTo(buttons[ib].centerX));
-
-                    for (int i = 0; i < rows[r].Count; i++)
-                    {
-                        int idx = rows[r][i];
-                        buttons[idx].left = (i > 0) ? rows[r][i - 1] : -1;
-                        buttons[idx].right = (i < rows[r].Count - 1) ? rows[r][i + 1] : -1;
-                    }
-                }
-            }
-
-            private bool TryGetLiveButtons(
-                MessageBoxAssist owner,
-                DaggerfallMessageBox menuWindow,
-                out List<Button> liveButtons)
-            {
-                liveButtons = new List<Button>();
+                buttons.Clear();
 
                 if (menuWindow == null)
-                    return false;
+                    return;
 
-                FieldInfo fiButtons = menuWindow.GetType().GetField("buttons", BF);
+                FieldInfo fiButtons = typeof(DaggerfallMessageBox).GetField("buttons", BF);
                 if (fiButtons == null)
-                    return false;
+                    return;
 
                 IList list = fiButtons.GetValue(menuWindow) as IList;
                 if (list == null)
-                    return false;
+                    return;
+
+                Panel renderPanel = owner.GetMessageBoxRenderPanel(menuWindow);
+                if (renderPanel == null)
+                    return;
 
                 for (int i = 0; i < list.Count; i++)
                 {
                     Button uiButton = list[i] as Button;
-                    if (uiButton == null)
+                    if (uiButton == null || !uiButton.Enabled)
                         continue;
 
-                    if (!uiButton.Enabled)
+                    if (!(uiButton.Tag is DaggerfallMessageBox.MessageBoxButtons))
                         continue;
 
-                    if (uiButton.Rectangle.width <= 0 || uiButton.Rectangle.height <= 0)
-                        continue;
-
-                    liveButtons.Add(uiButton);
+                    buttons.Add(new SemanticButtonInfo()
+                    {
+                        uiButton = uiButton,
+                        semantic = (DaggerfallMessageBox.MessageBoxButtons)uiButton.Tag,
+                        nativeRect = ScreenRectToNativeRect(renderPanel, uiButton.Rectangle),
+                    });
                 }
-
-                return liveButtons.Count > 0;
-            }
-
-            private Rect GetButtonVisualRectInNativeSpace(Panel renderPanel, Button button)
-            {
-                if (renderPanel == null || button == null)
-                    return Rect.zero;
-
-                // For generic fallback, use the full live button rectangle rather than
-                // trimming to opaque texture pixels. This keeps the selector centered on
-                // the actual clickable footprint and avoids inward bias on paired buttons.
-                return ScreenRectToNativeRect(renderPanel, button.Rectangle);
             }
 
             private Rect ScreenRectToNativeRect(Panel renderPanel, Rect screenRect)
@@ -566,63 +314,13 @@ namespace gigantibyte.DFU.ControllerAssistant
                 return new Rect(nativeX, nativeY, nativeW, nativeH);
             }
 
-            private Rect GetOpaqueTextureBoundsInScreenSpace(Button button)
+            private void DestroySelectorBox()
             {
-                if (button == null)
-                    return Rect.zero;
-
-                Rect buttonScreenRect = button.Rectangle;
-                Texture2D tex = button.BackgroundTexture;
-
-                if (tex == null)
-                    return buttonScreenRect;
-
-                Color32[] pixels;
-                try
+                if (selectorHost != null)
                 {
-                    pixels = tex.GetPixels32();
+                    selectorHost.Destroy();
+                    selectorHost = null;
                 }
-                catch
-                {
-                    return buttonScreenRect;
-                }
-
-                int texW = tex.width;
-                int texH = tex.height;
-
-                int minX = texW;
-                int minY = texH;
-                int maxX = -1;
-                int maxY = -1;
-
-                const byte alphaThreshold = 8;
-
-                for (int y = 0; y < texH; y++)
-                {
-                    int row = y * texW;
-                    for (int x = 0; x < texW; x++)
-                    {
-                        if (pixels[row + x].a > alphaThreshold)
-                        {
-                            if (x < minX) minX = x;
-                            if (y < minY) minY = y;
-                            if (x > maxX) maxX = x;
-                            if (y > maxY) maxY = y;
-                        }
-                    }
-                }
-
-                if (maxX < minX || maxY < minY)
-                    return buttonScreenRect;
-
-                float sx = buttonScreenRect.width / texW;
-                float sy = buttonScreenRect.height / texH;
-
-                return new Rect(
-                    buttonScreenRect.x + minX * sx,
-                    buttonScreenRect.y + minY * sy,
-                    (maxX - minX + 1) * sx,
-                    (maxY - minY + 1) * sy);
             }
         }
     }

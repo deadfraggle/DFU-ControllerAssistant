@@ -101,6 +101,14 @@
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/QuestJournal/QuestJournalAssist.ActiveQuests.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/HistoryAssist.cs",
         "Assets/Game/Mods/ControllerAssistant/scripts/assists/BookReaderAssist.cs",
-        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMap/TeleportPopUpAssist.cs"
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/TravelMap/TeleportPopUpAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/DialogueMenus/TavernAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.TavernRoomNumberpadHandler.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/DialogueMenus/GuildServiceAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/DialogueMenus/MerchantServiceAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/DialogueMenus/MerchantRepairAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/DaedraSummonedAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/DialogueMenus/WitchesCovenAssist.cs",
+        "Assets/Game/Mods/ControllerAssistant/scripts/assists/InputMessageBox/InputMessageBoxAssist.DonationNumberpadHandler.cs"
     ]
 }
