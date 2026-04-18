@@ -372,7 +372,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("Version", "1"),
                     new LegendOverlay.LegendRow("D-Pad Up", "Talk"),
                     new LegendOverlay.LegendRow("D-Pad Right", "Daedra Summoning"),
                     new LegendOverlay.LegendRow("D-Pad Down", "Quest"),

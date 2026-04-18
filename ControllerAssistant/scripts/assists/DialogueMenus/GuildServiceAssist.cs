@@ -407,8 +407,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>();
 
-                rows.Add(new LegendOverlay.LegendRow("Version", "4"));
-
                 if (IsJoinEnabled(menuWindow))
                     rows.Add(new LegendOverlay.LegendRow("D-Pad Up", "Join Guild"));
 

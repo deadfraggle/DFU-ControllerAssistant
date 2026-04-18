@@ -97,6 +97,11 @@ namespace gigantibyte.DFU.ControllerAssistant
                             miGoldButtonClick.Invoke(menuWindow, new object[] { button, Vector2.zero });
                     }
                     break;
+
+                case 6: // Exit
+                    DestroyOwnedUi();
+                    menuWindow.CloseWindow();
+                    break;
             }
         }
 
@@ -143,6 +148,11 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 case 5: // Clear
                     InvokeTradeButtonClick(menuWindow, fiClearButton, miClearButtonClick);
+                    break;
+
+                case 6: // Exit
+                    DestroyOwnedUi();
+                    menuWindow.CloseWindow();
                     break;
             }
         }
@@ -226,7 +236,11 @@ namespace gigantibyte.DFU.ControllerAssistant
                 case 1: return 2; // Equip
                 case 2: return 3; // Remove
                 case 3: return 4; // Use
-                default: return 5; // Gold for rows 5-8 visual (and anything below Use)
+                case 4:
+                case 5:
+                case 6: return 5; // Gold
+                case 7: return 6; // Exit
+                default: return 5;
             }
         }
 
@@ -241,7 +255,11 @@ namespace gigantibyte.DFU.ControllerAssistant
                 case 1: return 2; // Equip
                 case 2: return 3; // Remove
                 case 3: return 4; // Use
-                default: return 5; // Gold for rows 5-8 visual (and anything below Use)
+                case 4:
+                case 5:
+                case 6: return 5; // Gold
+                case 7: return 6; // Exit
+                default: return 5;
             }
         }
 
@@ -259,12 +277,13 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             switch (buttonSelectedIndex)
             {
-                case 0: return 0; // Wagon  -> Local 2,1
-                case 1: return 0; // Info   -> Local 2,1
-                case 2: return 1; // Equip  -> Local 2,2
-                case 3: return 2; // Remove -> Local 2,3
-                case 4: return 3; // Use    -> Local 2,4
-                case 5: return 4; // Gold   -> Local 2,5
+                case 0: return 0; // Wagon
+                case 1: return 0; // Info
+                case 2: return 1; // Equip
+                case 3: return 2; // Remove
+                case 4: return 3; // Use
+                case 5: return 4; // Gold
+                case 6: return 7; // Exit
                 default: return 0;
             }
         }
@@ -289,6 +308,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 case 3: return 2; // Remove -> Remote 1,3
                 case 4: return 3; // Use    -> Remote 1,4
                 case 5: return 4; // Gold   -> Remote 1,5
+                case 6: return 7; // Exit
                 default: return 0;
             }
         }
@@ -307,9 +327,10 @@ namespace gigantibyte.DFU.ControllerAssistant
                 case 0: return 0; // Wagon
                 case 1: return 0; // Info
                 case 2: return 1; // Select
-                case 3: return 3; // Steal anchor / Buy-only
-                case 4: return IsTradeBuyMode(menuWindow) ? 4 : 4; // Buy / Sell / Repair
+                case 3: return 3; // Steal
+                case 4: return 4; // ModeAction
                 case 5: return 5; // Clear
+                case 6: return 7; // Exit
                 default: return 0;
             }
         }
@@ -328,9 +349,10 @@ namespace gigantibyte.DFU.ControllerAssistant
                 case 0: return 0; // Wagon
                 case 1: return 0; // Info
                 case 2: return 1; // Select
-                case 3: return 3; // Steal anchor / Buy-only
-                case 4: return IsTradeBuyMode(menuWindow) ? 4 : 4; // Buy / Sell / Repair
+                case 3: return 3; // Steal
+                case 4: return 4; // ModeAction
                 case 5: return 5; // Clear
+                case 6: return 7; // Exit
                 default: return 0;
             }
         }
@@ -346,7 +368,10 @@ namespace gigantibyte.DFU.ControllerAssistant
                     case 2: return 3; // Steal
                     case 3: return 3; // Steal
                     case 4: return 4; // Buy
-                    default: return 5; // Clear
+                    case 5:
+                    case 6: return 5; // Clear
+                    case 7: return 6; // Exit
+                    default: return 5;
                 }
             }
 
@@ -354,10 +379,13 @@ namespace gigantibyte.DFU.ControllerAssistant
             {
                 case 0: return 1; // Info
                 case 1: return 2; // Select
-                case 2: return 4; // Sell / Repair
-                case 3: return 4; // Sell / Repair
-                case 4: return 4; // Sell / Repair
-                default: return 5; // Clear
+                case 2: return 4; // Sell / Repair / Identify
+                case 3: return 4; // Sell / Repair / Identify
+                case 4: return 4; // Sell / Repair / Identify
+                case 5:
+                case 6: return 5; // Clear
+                case 7: return 6; // Exit
+                default: return 5;
             }
         }
 
@@ -372,6 +400,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                     case 2: return 3; // Steal
                     case 3: return 3; // Steal
                     case 4: return 4; // Buy
+                    case 7: return 6;
                     default: return 5; // Clear
                 }
             }
@@ -383,18 +412,33 @@ namespace gigantibyte.DFU.ControllerAssistant
                 case 2: return 4; // Sell / Repair
                 case 3: return 4; // Sell / Repair
                 case 4: return 4; // Sell / Repair
+                case 7: return 6;
                 default: return 5; // Clear
             }
         }
 
         private void RouteLeftGridToButtons(DaggerfallInventoryWindow menuWindow)
         {
+            if (selectedColumn == 1 && selectedRow == 7)
+            {
+                ClearGridRowMemory();
+                SwitchRegionToButtons(menuWindow, InventoryExitButtonIndex);
+                return;
+            }
+
             RememberGridRowIfExtended();
             SwitchRegionToButtons(menuWindow, GetButtonIndexFromLocalGridRow(menuWindow, selectedRow));
         }
 
         private void RouteRightGridToButtons(DaggerfallInventoryWindow menuWindow)
         {
+            if (selectedColumn == 0 && selectedRow == 7)
+            {
+                ClearGridRowMemory();
+                SwitchRegionToButtons(menuWindow, InventoryExitButtonIndex);
+                return;
+            }
+
             RememberGridRowIfExtended();
             SwitchRegionToButtons(menuWindow, GetButtonIndexFromRemoteGridRow(menuWindow, selectedRow));
         }

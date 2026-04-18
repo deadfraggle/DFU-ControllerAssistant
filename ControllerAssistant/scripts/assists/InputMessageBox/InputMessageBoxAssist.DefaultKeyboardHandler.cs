@@ -112,7 +112,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 {
                     owner.EnsureLegendUI(
                         menuWindow,
-                        "Input version 11",
+                        "Legend",
                         new List<LegendOverlay.LegendRow>()
                         {
                             new LegendOverlay.LegendRow("Right Stick", "Move Selector"),

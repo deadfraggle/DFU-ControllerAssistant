@@ -214,24 +214,28 @@ namespace gigantibyte.DFU.ControllerAssistant
         private int resumeButtonIndex = 0;
 
         private int buttonSelectedIndex = 0;
+        private const int InventoryExitButtonIndex = 6;
 
         private readonly Vector2[] buttonAnchorsNative = new Vector2[]
         {
             new Vector2(225.5f, 13.4f),   // Wagon
             new Vector2(225.5f, 35.4f),   // Info
             new Vector2(225.5f, 57.4f),   // Equip
-            new Vector2(225.5f, 79.4f),  // Remove
+            new Vector2(225.5f, 79.4f),   // Remove
             new Vector2(225.5f, 102.4f),  // Use
             new Vector2(225.5f, 125.4f),  // Gold
+            new Vector2(225.5f, 181.4f),  // Exit
         };
+
         private readonly Vector2[] tradeButtonAnchorsNative = new Vector2[]
         {
             new Vector2(225.5f, 13.4f),   // Wagon
             new Vector2(225.5f, 35.4f),   // Info
             new Vector2(225.5f, 57.4f),   // Select
-            new Vector2(225.5f, 111.6f),   // Steal (Buy only)
+            new Vector2(225.5f, 111.6f),  // Steal (Buy only)
             new Vector2(225.5f, 133.7f),  // ModeAction (Buy/Sell/Repair/Identify)
             new Vector2(225.5f, 155.7f),  // Clear
+            new Vector2(225.5f, 181.4f),  // Exit
         };
 
         private DiamondIndicatorOverlay paperDollIndicator = null;
@@ -849,7 +853,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 new LegendOverlay.LegendRow("D-Pad Up", "Middle Click"),
                 new LegendOverlay.LegendRow("Right Stick", "Move Selector"),
             };
-
+                
                 legend.Build("Legend", rows);
             }
         }
@@ -1017,6 +1021,8 @@ namespace gigantibyte.DFU.ControllerAssistant
                 case 4: // ModeAction
                     return true;
                 case 5: // Clear
+                    return true;
+                case 6: // Exit
                     return true;
                 default:
                     return false;

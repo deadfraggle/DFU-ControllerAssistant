@@ -11,7 +11,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 {
     public partial class InputMessageBoxAssist : IMenuAssist
     {
-        private const bool debugMODE = true;
+        private const bool debugMODE = false;
         private bool reflectionCached = false;  //prevents re-caching Reflection methods
         private bool wasOpen = false;
 
@@ -38,7 +38,7 @@ namespace gigantibyte.DFU.ControllerAssistant
         private FieldInfo fiOnGotUserInput;
         private MethodInfo miReturnPlayerInputEvent;
 
-        private AnchorEditor editor;
+        //private AnchorEditor editor;
 
         public bool Claims(IUserInterfaceWindow top)
         {
@@ -88,11 +88,11 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (activeHandler != null)
                 activeHandler.Tick(this, menuWindow, cm);
 
-            // Anchor Editor
-            if (panelRenderWindow == null && fiPanelRenderWindow != null)
-                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
-            if (panelRenderWindow != null)
-                editor.Tick(panelRenderWindow);
+            //// Anchor Editor
+            //if (panelRenderWindow == null && fiPanelRenderWindow != null)
+            //    panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+            //if (panelRenderWindow != null)
+            //    editor.Tick(panelRenderWindow);
 
             if (cm.BackPressed && legend != null)
                 DestroyLegend();
@@ -392,12 +392,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (activeHandler != null)
                 activeHandler.OnOpen(this, menuWindow, cm);
 
-            // Anchor Editor
-            if (editor == null)
-            {
-                // Match Inventory's default selector size: 25 x 19 native-ish feel
-                editor = new AnchorEditor(25f, 19f);
-            }
+            //// Anchor Editor
+            //if (editor == null)
+            //{
+            //    // Match Inventory's default selector size: 25 x 19 native-ish feel
+            //    editor = new AnchorEditor(25f, 19f);
+            //}
         }
         private void OnClosed(ControllerManager cm)
         {
@@ -474,8 +474,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             legend.MarginFromBottom = 24f;
             legend.BackgroundColor = new Color(0f, 0f, 0f, 0.60f);
 
-            float scale = Mathf.Clamp(panelRenderWindow.Rectangle.width / 3840f, 0.50f, 1.00f);
-            legend.ApplyScale(scale);
             legend.Build(header, rows);
             legend.PositionNormalized(legendPosXNorm, legendPosYNorm, LegendOverlay.LegendAnchor.Center);
         }
@@ -553,11 +551,11 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             return false;
         }
-        internal void ToggleAnchorEditor()
-        {
-            if (editor != null)
-                editor.Toggle();
-        }
+        //internal void ToggleAnchorEditor()
+        //{
+        //    if (editor != null)
+        //        editor.Toggle();
+        //}
         private MethodInfo CacheMethod(System.Type type, string name)
         {
             MethodInfo mi = type.GetMethod(name, BF);

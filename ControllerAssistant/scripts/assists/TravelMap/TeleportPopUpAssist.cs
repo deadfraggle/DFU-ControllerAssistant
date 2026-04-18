@@ -255,7 +255,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("Version", "1"),
                     new LegendOverlay.LegendRow("D-Pad Left", "Yes"),
                     new LegendOverlay.LegendRow("D-Pad Right", "No"),
                     new LegendOverlay.LegendRow("Right Stick Left/Right", "Move Selector"),

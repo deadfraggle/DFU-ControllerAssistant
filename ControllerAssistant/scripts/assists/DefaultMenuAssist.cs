@@ -23,7 +23,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.NonPublic;
 
-        private AnchorEditor editor;
+        //private AnchorEditor editor;
 
         public bool Claims(IUserInterfaceWindow top)
         {
@@ -76,29 +76,29 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (legend != null && legend.IsBuilt)
                 legend.PositionBottomLeft();
 
-            // Anchor Editor
-            if (panelRenderWindow == null && fiPanelRenderWindow != null)
-                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
-            if (panelRenderWindow != null)
-                editor.Tick(panelRenderWindow);
+            //// Anchor Editor
+            //if (panelRenderWindow == null && fiPanelRenderWindow != null)
+            //    panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
+            //if (panelRenderWindow != null)
+            //    editor.Tick(panelRenderWindow);
 
-            if (cm.DPadLeftPressed)
+            if (cm.RStickLeftPressed || cm.RStickLeftHeldSlow)
                 TapKey(KeyCode.LeftArrow);
 
-            if (cm.DPadRightPressed)
+            if (cm.RStickRightPressed || cm.RStickRightHeldSlow)
                 TapKey(KeyCode.RightArrow);
 
-            if (cm.DPadUpPressed)
+            if (cm.RStickUpPressed || cm.RStickUpHeldSlow)
                 TapKey(KeyCode.UpArrow);
 
-            if (cm.DPadDownPressed)
+            if (cm.RStickDownPressed || cm.RStickDownHeldSlow)
                 TapKey(KeyCode.DownArrow);
 
             if (cm.Action1Pressed)
                 TapKey(KeyCode.Return);
 
-            if (cm.Action2Pressed)
-                editor.Toggle();
+            //if (cm.Action2Pressed)
+            //    editor.Toggle();
 
             if (cm.LegendPressed)
             {
@@ -114,12 +114,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (debugMODE) DumpWindowMembers(menuWindow);
             EnsureInitialized(menuWindow);
 
-            // Anchor Editor
-            if (editor == null)
-            {
-                // Match Inventory's default selector size: 25 x 19 native-ish feel
-                editor = new AnchorEditor(25f, 19f);
-            }
+            //// Anchor Editor
+            //if (editor == null)
+            //{
+            //    // Match Inventory's default selector size: 25 x 19 native-ish feel
+            //    editor = new AnchorEditor(25f, 19f);
+            //}
         }
 
         private void OnClosed(ControllerManager cm)
@@ -167,8 +167,8 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("D-Pad", "Keyboard arrows"),
-                    new LegendOverlay.LegendRow(cm.Action1Name, "Submit"),
+                    new LegendOverlay.LegendRow("Right Stick", "Keyboard arrows"),
+                    new LegendOverlay.LegendRow(cm.Action1Name, "Keyboard Return"),
                 };
 
                 legend.Build("Legend", rows);

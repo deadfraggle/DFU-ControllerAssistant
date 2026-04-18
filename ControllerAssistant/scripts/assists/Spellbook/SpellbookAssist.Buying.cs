@@ -48,9 +48,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (cm.Action1Released)
                 ActivateBuyingRegion(menuWindow);
 
-            if (cm.Action2Released)
-                editor.Toggle();
-
             RefreshSelectorToCurrentRegion(menuWindow);
         }
 

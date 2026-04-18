@@ -188,7 +188,6 @@ namespace gigantibyte.DFU.ControllerAssistant
                     "Legend",
                     new List<LegendOverlay.LegendRow>()
                     {
-                        new LegendOverlay.LegendRow("Version", "2"),
                         new LegendOverlay.LegendRow("Right Stick", "Move Selector"),
                         new LegendOverlay.LegendRow(cm.Action1Name, "Activate Key"),
                         new LegendOverlay.LegendRow(cm.Action2Name, "Reset to 0"),

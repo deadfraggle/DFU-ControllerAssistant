@@ -274,7 +274,6 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
             {
-                new LegendOverlay.LegendRow("Version", "10"),
                 new LegendOverlay.LegendRow("D-Pad Left", "Rename Selected File"),
                 new LegendOverlay.LegendRow("Right Stick", "Move Selector / Files"),
                 new LegendOverlay.LegendRow(cm.Action1Name, "Save / Load File"),
@@ -288,7 +287,6 @@ namespace gigantibyte.DFU.ControllerAssistant
         {
             List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
             {
-                new LegendOverlay.LegendRow("Version", "10"),
                 new LegendOverlay.LegendRow("Right Stick", "Move Keyboard"),
                 new LegendOverlay.LegendRow("D-Pad Up", "Shift"),
                 new LegendOverlay.LegendRow("D-Pad Down", "Toggle 123"),

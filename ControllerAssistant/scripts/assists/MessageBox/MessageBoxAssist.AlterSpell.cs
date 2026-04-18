@@ -38,7 +38,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 if (menuWindow.ClickAnywhereToClose)
                     return false;
 
-                Debug.Log("[ControllerAssistant] AlterSpell structural match confirmed.");
+                //Debug.Log("[ControllerAssistant] AlterSpell structural match confirmed.");
                 return true;
             }
 
@@ -46,7 +46,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             {
                 if (!loggedOpen)
                 {
-                    Debug.Log("[ControllerAssistant] AlterSpellHandler matched popup.");
+                    //Debug.Log("[ControllerAssistant] AlterSpellHandler matched popup.");
                     loggedOpen = true;
                 }
 

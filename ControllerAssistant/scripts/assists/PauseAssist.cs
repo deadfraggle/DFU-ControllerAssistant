@@ -108,8 +108,6 @@ namespace gigantibyte.DFU.ControllerAssistant
         };
 
 
-        private AnchorEditor editor;
-
         public int buttonSelected = SaveGameButton;
 
         private void ActivateSelectedButton(DaggerfallPauseOptionsWindow menuWindow)
@@ -271,9 +269,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (panelRenderWindow == null)
                 panelRenderWindow = GetCurrentRenderPanel(menuWindow);
-
-            if (panelRenderWindow != null)
-                editor.Tick(panelRenderWindow);
 
             bool moveLeft = cm.RStickLeftPressed || cm.RStickLeftHeldSlow;
             bool moveRight = cm.RStickRightPressed || cm.RStickRightHeldSlow;
@@ -666,8 +661,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             EnsureQuickButtonOverlay(menuWindow);
             RefreshSelectorToCurrentButton(menuWindow);
 
-            if (editor == null)
-                editor = new AnchorEditor(25f, 19f);
         }
 
         private void OnClosed(ControllerManager cm)
@@ -730,7 +723,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("Version", "11"),
                     new LegendOverlay.LegendRow("D-Pad Right", "Exit"),
                     new LegendOverlay.LegendRow("D-Pad Down", "Inventory"),
                     new LegendOverlay.LegendRow("D-Pad Left", "Travel Map"),

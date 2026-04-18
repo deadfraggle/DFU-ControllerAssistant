@@ -78,8 +78,8 @@ namespace gigantibyte.DFU.ControllerAssistant
                 }
 
                 if (cm.Action2Pressed)
-                    //menuWindow.TextBox.Text = "0";
-                    owner.ToggleAnchorEditor();
+                    menuWindow.TextBox.Text = "0";
+                    //owner.ToggleAnchorEditor();
 
                 if (cm.Action1Released && numberpadOverlay != null)
                 {

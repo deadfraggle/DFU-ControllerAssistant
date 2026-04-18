@@ -144,7 +144,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("Version", "1"),
                     new LegendOverlay.LegendRow("Right Stick", "Scroll"),
                     new LegendOverlay.LegendRow("Back", "Close"),
                 };

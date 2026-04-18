@@ -85,6 +85,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 {
     public class Runtime
     {
+        private const bool debugMODE = false;
         static Mod my_mod;
         private static ModSettings settings;
 
@@ -219,7 +220,9 @@ namespace gigantibyte.DFU.ControllerAssistant
                 string currentName = top.GetType().FullName;
                 if (currentName != lastWindowName)
                 {
-                    Debug.Log("TopWindow = " + currentName);
+                    if (debugMODE)
+                        Debug.Log("TopWindow = " + currentName);
+
                     lastWindowName = currentName;
                 }
 
@@ -293,41 +296,51 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private static KeyCode GetAction1KeyCode()
         {
-            // If settings haven't loaded yet, default to R3.
             if (settings == null)
                 return KeyCode.JoystickButton9;
 
             int idx = settings.GetValue<int>("Controls", "AssistAction1");
-            return MapChoiceIndexToKeyCode(idx);
+            return MapStandardChoiceIndexToKeyCode(idx);
         }
 
         private static KeyCode GetAction2KeyCode()
         {
-            // If settings haven't loaded yet, default to L3.
             if (settings == null)
                 return KeyCode.JoystickButton8;
 
             int idx = settings.GetValue<int>("Controls", "AssistAction2");
-            return MapChoiceIndexToKeyCode(idx);
+            return MapStandardChoiceIndexToKeyCode(idx);
         }
 
         private static KeyCode GetLegendKeyCode()
         {
-            // If settings haven't loaded yet, default to LB.
             if (settings == null)
                 return KeyCode.JoystickButton4;
 
             int idx = settings.GetValue<int>("Controls", "AssistLegend");
-            return MapChoiceIndexToKeyCode(idx);
+            return MapLegendChoiceIndexToKeyCode(idx);
         }
 
         // Options from modsettings.json (0-based index):
         // 0 A, 1 B, 2 X, 3 Y, 4 LB, 5 RB, 6 L3, 7 R3
-        private static KeyCode MapChoiceIndexToKeyCode(int idx)
+        private static KeyCode MapStandardChoiceIndexToKeyCode(int idx)
         {
-            if (idx < 0 || idx > 8)
-                return KeyCode.None;
+            switch (idx)
+            {
+                case 0: return KeyCode.JoystickButton0; // A
+                case 1: return KeyCode.JoystickButton1; // B
+                case 2: return KeyCode.JoystickButton2; // X
+                case 3: return KeyCode.JoystickButton3; // Y
+                case 4: return KeyCode.JoystickButton4; // LB
+                case 5: return KeyCode.JoystickButton5; // RB
+                case 6: return KeyCode.JoystickButton8; // L3
+                case 7: return KeyCode.JoystickButton9; // R3
+                default: return KeyCode.JoystickButton9;
+            }
+        }
 
+        private static KeyCode MapLegendChoiceIndexToKeyCode(int idx)
+        {
             switch (idx)
             {
                 case 0: return KeyCode.None;
@@ -339,7 +352,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 case 6: return KeyCode.JoystickButton5; // RB
                 case 7: return KeyCode.JoystickButton8; // L3
                 case 8: return KeyCode.JoystickButton9; // R3
-                default: return KeyCode.None;
+                default: return KeyCode.JoystickButton4;
             }
         }
 

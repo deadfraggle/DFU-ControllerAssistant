@@ -48,8 +48,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         private bool closeDeferred = false;
 
-        private AnchorEditor editor;
-
         public bool Claims(IUserInterfaceWindow top)
         {
             return top is DaggerfallTravelMapWindow;
@@ -107,12 +105,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (legend != null && legend.IsBuilt)
                 legend.PositionBottomLeft();
 
-            // Anchor Editor
-            if (panelRenderWindow == null && fiPanelRenderWindow != null)
-                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
-
-            if (panelRenderWindow != null)
-                editor.Tick(panelRenderWindow);
 
             int selectedRegion = fiSelectedRegion != null ? (int)fiSelectedRegion.GetValue(menuWindow) : -1;
             bool overworldMode = selectedRegion == -1;
@@ -154,10 +146,6 @@ namespace gigantibyte.DFU.ControllerAssistant
                     legend.SetEnabled(legendVisible);
             }
 
-            if (cm.Action2Pressed)
-            {
-                editor.Toggle();
-            }
 
             if (cm.BackPressed)
             {
@@ -199,10 +187,6 @@ namespace gigantibyte.DFU.ControllerAssistant
                 OnOpenedRegionView(menuWindow, cm);
             }
 
-            if (editor == null)
-            {
-                editor = new AnchorEditor(25f, 19f);
-            }
         }
 
         private void OnClosed(ControllerManager cm)
@@ -265,7 +249,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("Version", "12"),
                     new LegendOverlay.LegendRow("Right Stick", "change region / move buttons"),
                     new LegendOverlay.LegendRow(cm.Action1Name, "open / activate"),
                 };

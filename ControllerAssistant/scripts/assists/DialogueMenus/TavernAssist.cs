@@ -333,7 +333,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("Version", "1"),
                     new LegendOverlay.LegendRow("D-Pad Up", "Room"),
                     new LegendOverlay.LegendRow("D-Pad Right", "Talk"),
                     new LegendOverlay.LegendRow("D-Pad Down", "Food & Drinks"),

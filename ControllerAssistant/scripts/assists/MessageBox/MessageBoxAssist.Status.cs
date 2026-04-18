@@ -46,7 +46,7 @@ namespace gigantibyte.DFU.ControllerAssistant
                 if (!owner.HasNextMessageBox(menuWindow))
                     return false;
 
-                Debug.Log("[ControllerAssistant] StatusProbe structural match confirmed.");
+                //Debug.Log("[ControllerAssistant] StatusProbe structural match confirmed.");
                 return true;
             }
 
@@ -54,7 +54,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             {
                 if (!loggedOpen)
                 {
-                    Debug.Log("[ControllerAssistant] StatusProbeHandler matched popup.");
+                    //Debug.Log("[ControllerAssistant] StatusProbeHandler matched popup.");
                     loggedOpen = true;
                 }
 

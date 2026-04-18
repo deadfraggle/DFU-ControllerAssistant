@@ -98,7 +98,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
 
         private int selectorIndex = SpellList;
-        private AnchorEditor editor;
 
         public bool Claims(IUserInterfaceWindow top)
         {
@@ -161,12 +160,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             bool buyMode = IsBuyMode(menuWindow);
 
-            // Anchor Editor
-            if (panelRenderWindow == null && fiPanelRenderWindow != null)
-                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
-
-            if (panelRenderWindow != null)
-                editor.Tick(panelRenderWindow);
 
             if (buyMode)
                 TickBuying(menuWindow, cm);
@@ -233,12 +226,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (selectorHost == null)
                 selectorHost = new DefaultSelectorBoxHost();
 
-            if (editor == null)
-            {
-                // Match Inventory's default selector size: 25 x 19 native-ish feel
-                editor = new AnchorEditor(25f, 19f);
-            }
-            
+           
         }
 
         private void OnClosed(ControllerManager cm)
@@ -363,7 +351,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 if (!buyMode)
                 {
-                    rows.Add(new LegendOverlay.LegendRow("Version", "2.5"));
                     rows.Add(new LegendOverlay.LegendRow("Right Stick", "Move selector"));
                     rows.Add(new LegendOverlay.LegendRow("D-Pad Up", "Move spell up"));
                     rows.Add(new LegendOverlay.LegendRow("D-Pad Down", "Move spell down"));
@@ -748,11 +735,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             Debug.Log("===== FIELDS =====");
             foreach (var f in type.GetFields(BF))
                 Debug.Log(f.Name);
-        }
-        internal void ToggleAnchorEditor()
-        {
-            if (editor != null)
-                editor.Toggle();
         }
     }
 }

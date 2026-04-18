@@ -450,7 +450,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("Version", "2"),
                     new LegendOverlay.LegendRow("D-Pad Left", "For A While"),
                     new LegendOverlay.LegendRow("D-Pad Up", "Until Fully Healed"),
                     new LegendOverlay.LegendRow("D-Pad Right", "Loiter A While"),

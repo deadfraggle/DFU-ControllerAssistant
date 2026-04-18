@@ -17,6 +17,8 @@ namespace gigantibyte.DFU.ControllerAssistant
         private int currentRegionIndex = 0;
         private int currentSelectionIndex = 0;
 
+        public event BaseScreenComponent.OnMouseClickHandler OnLocationDoubleClick;
+
         public ControllerAssistantFavoritesWindow(IUserInterfaceManager uiManager)
             : base(uiManager)
         {
@@ -86,6 +88,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             favoritesList.TextColor = DaggerfallUI.DaggerfallDefaultTextColor;
             favoritesList.RowsDisplayed = 8;
             mainPanel.Components.Add(favoritesList);
+            favoritesList.OnMouseDoubleClick += FavoritesList_OnMouseDoubleClick;
 
             RebuildRegions();
             SetInitialRegionFromPlayerLocation();
@@ -98,6 +101,22 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (InputManager.Instance.GetBackButtonDown())
                 CloseWindow();
+        }
+
+        private void FavoritesList_OnMouseDoubleClick(BaseScreenComponent sender, Vector2 position)
+        {
+            List<FavoriteLocation> regionFavorites = GetCurrentRegionFavorites();
+            if (regionFavorites.Count == 0)
+                return;
+
+            int clickedIndex = favoritesList.SelectedIndex;
+            if (clickedIndex < 0 || clickedIndex >= regionFavorites.Count)
+                return;
+
+            currentSelectionIndex = clickedIndex;
+
+            if (OnLocationDoubleClick != null)
+                OnLocationDoubleClick(sender, position);
         }
 
         public void MoveSelectionUp()

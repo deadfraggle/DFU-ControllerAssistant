@@ -77,7 +77,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("Version", "2"),
                     new LegendOverlay.LegendRow("D-Pad Left/Right", "Cycle Category"),
                     new LegendOverlay.LegendRow("Right Stick", "Scroll"),
                     new LegendOverlay.LegendRow("D-Pad Up/Down", "Select Quest"),

@@ -206,8 +206,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             legend.MarginFromBottom = 24f;
             legend.BackgroundColor = new Color(0f, 0f, 0f, 0.60f);
 
-            float scale = Mathf.Clamp(panelRenderWindow.Rectangle.width / 3840f, 0.50f, 1.00f);
-            legend.ApplyScale(scale);
             legend.Build(header, rows);
             legend.PositionNormalized(legendPosXNorm, legendPosYNorm, LegendOverlay.LegendAnchor.Center);
         }

@@ -38,6 +38,13 @@ namespace gigantibyte.DFU.ControllerAssistant
         public bool IsBuilt => box != null;
         public bool IsEnabled => box != null && box.Enabled;
 
+        public bool AutoScale { get; set; } = true;
+        public float AutoScaleReferenceWidth { get; set; } = 3840f;
+        public float AutoScaleMin { get; set; } = 0.50f;
+        public float AutoScaleMax { get; set; } = 1.00f;
+
+        private bool scaleApplied = false;
+
         public LegendOverlay(Panel parentPanel)
         {
             SetParent(parentPanel);
@@ -65,6 +72,8 @@ namespace gigantibyte.DFU.ControllerAssistant
             if (parent == null)
                 return;
 
+            ApplyAutoScaleIfNeeded();
+
             // If DFU cleared our parent components, we may need to rebuild from scratch.
             // Easiest/cleanest: just discard our refs and rebuild.
             box = null;
@@ -82,7 +91,6 @@ namespace gigantibyte.DFU.ControllerAssistant
                 AddRow(rows[i].Left, rows[i].Right);
 
             Layout();
-            //PositionBottomLeft();
         }
 
         public void SetEnabled(bool enabled)
@@ -266,6 +274,9 @@ namespace gigantibyte.DFU.ControllerAssistant
         }
         public void ApplyScale(float scale)
         {
+            if (scaleApplied)
+                return;
+
             HeaderScale *= scale;
             HeaderScaleBoost *= scale;
             RowScale *= scale;
@@ -276,6 +287,20 @@ namespace gigantibyte.DFU.ControllerAssistant
             ColGap *= scale;
             MarginX *= scale;
             MarginFromBottom *= scale;
+
+            scaleApplied = true;
+        }
+        private void ApplyAutoScaleIfNeeded()
+        {
+            if (!AutoScale || scaleApplied || parent == null)
+                return;
+
+            float width = parent.Rectangle.width;
+            if (width <= 0f)
+                return;
+
+            float scale = Mathf.Clamp(width / AutoScaleReferenceWidth, AutoScaleMin, AutoScaleMax);
+            ApplyScale(scale);
         }
         public void Destroy()
         {

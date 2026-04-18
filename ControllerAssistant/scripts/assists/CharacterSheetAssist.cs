@@ -88,8 +88,6 @@ namespace gigantibyte.DFU.ControllerAssistant
         private FieldInfo fiWindowBinding;
         private bool closeDeferred = false;
 
-        private AnchorEditor editor;
-
         // =========================
         // IMenuAssist
         // =========================
@@ -147,12 +145,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             if (legend != null && legend.IsBuilt)
                 legend.PositionBottomLeft();
-
-            // Anchor Editor
-            if (panelRenderWindow == null && fiPanelRenderWindow != null)
-                panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
-            if (panelRenderWindow != null)
-                editor.Tick(panelRenderWindow);
 
             UpdateSelectorVisual();
 
@@ -718,12 +710,6 @@ namespace gigantibyte.DFU.ControllerAssistant
             EnsureSelectorUI(menuWindow);
             UpdateSelectorVisual();
 
-            // Anchor Editor
-            if (editor == null)
-            {
-                // Match Inventory's default selector size: 25 x 19 native-ish feel
-                editor = new AnchorEditor(25f, 19f);
-            }
         }
 
         private void OnClosed(ControllerManager cm)
@@ -812,7 +798,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("Version", "6"),
                     new LegendOverlay.LegendRow("Right Stick", "move selector"),
                     new LegendOverlay.LegendRow(cm.Action1Name, "activate"),
                     new LegendOverlay.LegendRow("DPad Up/Down", "assign level up points"),

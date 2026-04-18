@@ -501,7 +501,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
                 {
-                    new LegendOverlay.LegendRow("Version", "5"),
                     new LegendOverlay.LegendRow("D-Pad Left", "toggle Speed"),
                     new LegendOverlay.LegendRow("D-Pad Up", "toggle Transport"),
                     new LegendOverlay.LegendRow("D-Pad Down", "toggle Stops"),

@@ -271,7 +271,12 @@ namespace gigantibyte.DFU.ControllerAssistant
             }
 
             bool isAssisting =
-                (cm.DPadUpPressed || cm.DPadDownReleased || cm.Action1Released || cm.LegendPressed);
+                (cm.DPadUpReleased ||
+                 cm.DPadRightReleased ||
+                 cm.DPadDownReleased ||
+                 cm.DPadLeftReleased ||
+                 cm.Action1Released ||
+                 cm.LegendPressed);
 
             if (isAssisting)
             {
@@ -282,18 +287,33 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                     if (legend != null)
                         legend.SetEnabled(legendVisible);
-                    //editor.Toggle();
+                        //editor.Toggle();
                 }
 
                 if (cm.Action1Released)
                     ActivateSelectedButton(menuWindow);
 
-                if (cm.DPadUpPressed)
-                    OpenFavoritesWindow(menuWindow);
-
-                if (cm.DPadDownReleased)
+                if (cm.DPadUpReleased && IsButtonEnabled(FootButton))
                 {
-                    AddCurrentLocationToFavorites(menuWindow);
+                    SelectFoot(menuWindow);
+                    return;
+                }
+
+                if (cm.DPadRightReleased && IsButtonEnabled(HorseButton))
+                {
+                    SelectHorse(menuWindow);
+                    return;
+                }
+
+                if (cm.DPadDownReleased && IsButtonEnabled(CartButton))
+                {
+                    SelectCart(menuWindow);
+                    return;
+                }
+
+                if (cm.DPadLeftReleased && IsButtonEnabled(ShipButton))
+                {
+                    SelectShip(menuWindow);
                     return;
                 }
 
@@ -545,11 +565,12 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>();
 
-                rows.Add(new LegendOverlay.LegendRow("Version", "3"));
                 rows.Add(new LegendOverlay.LegendRow("Right Stick", "Move Selector"));
                 rows.Add(new LegendOverlay.LegendRow(cm.Action1Name, "Activate"));
-                rows.Add(new LegendOverlay.LegendRow("DPad Up", "View Favorites"));
-                rows.Add(new LegendOverlay.LegendRow("DPad Down", "Add current location to Favorites"));
+                rows.Add(new LegendOverlay.LegendRow("DPad Up", "Foot"));
+                rows.Add(new LegendOverlay.LegendRow("DPad Right", "Horse"));
+                rows.Add(new LegendOverlay.LegendRow("DPad Down", "Cart"));
+                rows.Add(new LegendOverlay.LegendRow("DPad Left", "Ship"));
 
                 legend.Build("Transport", rows);
             }
