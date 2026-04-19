@@ -3,7 +3,7 @@
     "Sections": [
         {
             "Name": "Controls",
-            "Description": "Controller Assistant action bindings (XInput-style). Use Unity KeyCode strings like JoystickButton0, JoystickButton1, etc.",
+            "Description": "Controller Assistant action bindings (XInput-style).",
             "IsAdvanced": false,
             "Keys": [
                 {

@@ -56,8 +56,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
         public int buttonSelected = ForAWhileButton;
 
-        //private AnchorEditor editor;
-
         private void ActivateSelectedButton(DaggerfallRestWindow menuWindow)
         {
             switch (buttonSelected)
@@ -209,7 +207,7 @@ namespace gigantibyte.DFU.ControllerAssistant
             RefreshSelectorAttachment(menuWindow);
 
             if (legend != null && legend.IsBuilt)
-                legend.PositionBottomLeft();
+                legend.PositionBottomRight();
 
             bool isRestActive =
                 GameManager.Instance != null &&
@@ -233,11 +231,6 @@ namespace gigantibyte.DFU.ControllerAssistant
                 return;
             }
 
-            //// Anchor Editor
-            //if (panelRenderWindow == null && fiPanelRenderWindow != null)
-            //    panelRenderWindow = fiPanelRenderWindow.GetValue(menuWindow) as Panel;
-            //if (panelRenderWindow != null)
-            //    editor.Tick(panelRenderWindow);
 
             // Suppress vanilla "same key closes window" while assist input is active
             if (fiWindowBinding != null)
@@ -287,7 +280,7 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                     if (legend != null)
                         legend.SetEnabled(legendVisible);
-                    //editor.Toggle();
+                    
                 }
             }
 
@@ -379,12 +372,6 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             RefreshSelectorToCurrentButton(menuWindow);
 
-            //// Anchor Editor
-            //if (editor == null)
-            //{
-            //    // Match Inventory's default selector size: 25 x 19 native-ish feel
-            //    editor = new AnchorEditor(25f, 19f);
-            //}
         }
 
         private void OnClosed(ControllerManager cm)
@@ -405,18 +392,18 @@ namespace gigantibyte.DFU.ControllerAssistant
 
             var type = menuWindow.GetType();
 
-            fiPanelRenderWindow = CacheField(type, "parentPanel");
-            fiWindowBinding = CacheField(type, "toggleClosedBinding");
+            fiPanelRenderWindow = CacheFieldInHierarchy(type, "parentPanel");
+            fiWindowBinding = CacheFieldInHierarchy(type, "toggleClosedBinding");
 
-            fiWhileButton = CacheField(type, "whileButton");
-            fiHealedButton = CacheField(type, "healedButton");
-            fiLoiterButton = CacheField(type, "loiterButton");
-            fiStopButton = CacheField(type, "stopButton");
+            fiWhileButton = CacheFieldInHierarchy(type, "whileButton");
+            fiHealedButton = CacheFieldInHierarchy(type, "healedButton");
+            fiLoiterButton = CacheFieldInHierarchy(type, "loiterButton");
+            fiStopButton = CacheFieldInHierarchy(type, "stopButton");
 
-            miWhileButton_OnMouseClick = CacheMethod(type, "WhileButton_OnMouseClick");
-            miHealedButton_OnMouseClick = CacheMethod(type, "HealedButton_OnMouseClick");
-            miLoiterButton_OnMouseClick = CacheMethod(type, "LoiterButton_OnMouseClick");
-            miStopButton_OnMouseClick = CacheMethod(type, "StopButton_OnMouseClick");
+            miWhileButton_OnMouseClick = CacheMethodInHierarchy(type, "WhileButton_OnMouseClick");
+            miHealedButton_OnMouseClick = CacheMethodInHierarchy(type, "HealedButton_OnMouseClick");
+            miLoiterButton_OnMouseClick = CacheMethodInHierarchy(type, "LoiterButton_OnMouseClick");
+            miStopButton_OnMouseClick = CacheMethodInHierarchy(type, "StopButton_OnMouseClick");
 
             reflectionCached = true;
         }
@@ -499,21 +486,36 @@ namespace gigantibyte.DFU.ControllerAssistant
         // =========================
         // Reflection helpers
         // =========================
-        private MethodInfo CacheMethod(System.Type type, string name)
+
+        private FieldInfo CacheFieldInHierarchy(System.Type type, string name)
         {
-            MethodInfo mi = type.GetMethod(name, BF);
-            if (mi == null)
-                Debug.Log("[ControllerAssistant] Missing method: " + name);
-            return mi;
+            while (type != null)
+            {
+                FieldInfo fi = type.GetField(name, BF);
+                if (fi != null)
+                    return fi;
+
+                type = type.BaseType;
+            }
+
+            Debug.Log("[ControllerAssistant] Missing field: " + name);
+            return null;
         }
 
-        private FieldInfo CacheField(System.Type type, string name)
+        private MethodInfo CacheMethodInHierarchy(System.Type type, string name)
         {
-            FieldInfo fi = type.GetField(name, BF);
-            if (fi == null)
-                Debug.Log("[ControllerAssistant] Missing field: " + name);
-            return fi;
-        }
+            while (type != null)
+            {
+                MethodInfo mi = type.GetMethod(name, BF);
+                if (mi != null)
+                    return mi;
 
+                type = type.BaseType;
+            }
+
+            Debug.Log("[ControllerAssistant] Missing method: " + name);
+            return null;
+        }
+        
     }
 }

@@ -848,18 +848,42 @@ namespace gigantibyte.DFU.ControllerAssistant
         // =========================
         private MethodInfo CacheMethod(System.Type type, string name)
         {
-            MethodInfo mi = type.GetMethod(name, BF);
-            if (mi == null)
-                Debug.Log("[ControllerAssistant] Missing method: " + name);
-            return mi;
+            //MethodInfo mi = type.GetMethod(name, BF);
+            //if (mi == null)
+            //    Debug.Log("[ControllerAssistant] Missing method: " + name);
+            //return mi;
+
+            while (type != null)
+            {
+                MethodInfo mi = type.GetMethod(name, BF);
+                if (mi != null)
+                    return mi;
+
+                type = type.BaseType;
+            }
+
+            Debug.Log("[ControllerAssistant] Missing method: " + name);
+            return null;
         }
 
         private FieldInfo CacheField(System.Type type, string name)
         {
-            FieldInfo fi = type.GetField(name, BF);
-            if (fi == null)
-                Debug.Log("[ControllerAssistant] Missing field: " + name);
-            return fi;
+            //FieldInfo fi = type.GetField(name, BF);
+            //if (fi == null)
+            //    Debug.Log("[ControllerAssistant] Missing field: " + name);
+            //return fi;
+
+            while (type != null)
+            {
+                FieldInfo fi = type.GetField(name, BF);
+                if (fi != null)
+                    return fi;
+
+                type = type.BaseType;
+            }
+
+            Debug.Log("[ControllerAssistant] Missing field: " + name);
+            return null;
         }
 
         private void DumpWindowMembers(object window)

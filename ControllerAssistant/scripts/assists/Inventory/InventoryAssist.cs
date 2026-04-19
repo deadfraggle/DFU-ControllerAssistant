@@ -847,10 +847,11 @@ namespace gigantibyte.DFU.ControllerAssistant
 
                 List<LegendOverlay.LegendRow> rows = new List<LegendOverlay.LegendRow>()
             {
-                new LegendOverlay.LegendRow("D-Pad Left/Right", "Cycle Tabs"),
                 new LegendOverlay.LegendRow(cm.Action1Name, "Left Click"),
                 new LegendOverlay.LegendRow(cm.Action2Name, "Right Click"),
                 new LegendOverlay.LegendRow("D-Pad Up", "Middle Click"),
+                new LegendOverlay.LegendRow("D-Pad Left/Right", "Cycle Tabs"),
+                new LegendOverlay.LegendRow("D-Pad Down", "Cycle Buttons"),
                 new LegendOverlay.LegendRow("Right Stick", "Move Selector"),
             };
                 
